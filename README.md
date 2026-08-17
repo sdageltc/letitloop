@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="assets/logo.png" alt="let it loop (LIL)" width="340" style="border-radius: 20px;">
+</p>
+
 # let it loop (LIL)
 
-**let it loop (LIL)** — Autonomous Macro-Task Orchestration & Verification Control Loop. A durable, production-grade agent framework featuring automated DAG contract planning, crash-resilient supervisor execution, deterministic multi-phase verification, multi-lens quality reviews, and native Model Context Protocol (MCP) support.
+**let it loop (LIL)** is an autonomous macro-task orchestration and verification control loop for AI coding agents. It provides a durable, production-grade execution backbone featuring automated DAG contract planning, crash-resilient supervisor execution (Write-Ahead Logging), deterministic multi-phase verification, multi-lens quality reviews, and universal Model Context Protocol (MCP) support.
 
 [![CI](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
@@ -9,25 +13,25 @@
 
 ---
 
-## 🌟 Key Capabilities
+## Key Capabilities
 
-- 🧠 **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs with cycle detection.
-- 🔄 **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, Win32/POSIX atomic file-locking, and bounded 3-strike retries with strategy mutation.
-- 🛡️ **Zero-Trust Verification Engine**: 8 distinct deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
-- ⚖️ **Multi-Lens Quality Plane**: Multi-perspective evaluation with 5 specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Completeness*, *Adversarial Architecture Audit*) and formal arbitration.
-- 🔌 **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with **Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**.
-- 🤖 **9 Pluggable Worker Adapters**: Native execution interfaces for Claude Code, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Omniroute gateways, local scripts, and direct LLMs.
-- 🆓 **Zero-Subscription Independence**: Seamlessly run 100% locally via Ollama/vLLM, multi-model gateways (Omniroute, OpenRouter, Groq), or commercial frontier APIs.
-- 📊 **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
-- 📦 **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
+- **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs with cycle detection.
+- **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, Win32/POSIX atomic file-locking, and bounded 3-strike retries with strategy mutation.
+- **Zero-Trust Verification Engine**: 8 distinct deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
+- **Multi-Lens Quality Plane**: Multi-perspective evaluation with 5 specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Completeness*, *Adversarial Architecture Audit*) and formal arbitration.
+- **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, and Windsurf.
+- **9 Pluggable Worker Adapters**: Native execution interfaces for Claude Code, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Omniroute gateways, local scripts, and direct LLMs.
+- **Zero-Subscription Independence**: Seamlessly run 100% locally via Ollama/vLLM, multi-model gateways (Omniroute, OpenRouter, Groq), or commercial frontier APIs.
+- **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
+- **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
 
 ---
 
-## 📊 How `letitloop` Compares to Other Autonomous Agent Systems
+## How letitloop Compares to Other Autonomous Agent Systems
 
 Unlike conversational agent loops that rely on open-ended text streaming and optimistic assumptions, `letitloop` operates like an **Operating System process scheduler**: every task requires a cryptographic contract, empirical acceptance proof, and bounded retry governance.
 
-| Architectural Feature | **`letitloop` (LIL)** | **OpenHands** | **SWE-agent** | **AutoGPT / AgentGPT** | **MetaGPT / ChatDev** |
+| Architectural Feature | **letitloop (LIL)** | **OpenHands** | **SWE-agent** | **AutoGPT / AgentGPT** | **MetaGPT / ChatDev** |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Orchestration Model** | **Typed DAG Contracts** | Container Terminal Chat | Single-Task Benchmark Agent | Open-Ended While-Loop | Multi-Role Chat Simulation |
 | **Deterministic Verifier** | **8 Machine-Verified Checks** (AST, Cmd Exit Codes, Regex, Render, Scope) | Eyeball / Agent Judgement | Unit Test Execution Only | None (LLM Self-Assessment) | Role-Play Text Review |
@@ -40,9 +44,9 @@ Unlike conversational agent loops that rely on open-ended text streaming and opt
 
 ---
 
-## 🧩 Use `letitloop` as an AI Agent Skill
+## Use letitloop as an AI Agent Skill
 
-`letitloop` can be used both as a **standalone Python CLI / MCP engine** and as a **universal Agent Skill** inside your favorite coding agent (**Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, **Windsurf**):
+`letitloop` can be used both as a **standalone Python CLI / MCP engine** and as a **universal Agent Skill** inside your favorite coding agent (Claude Code, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, Windsurf):
 
 ### 1-Click Skill Installation:
 ```bash
@@ -50,17 +54,17 @@ python skill/install_skill.py --all
 ```
 *(Or specify `--claude`, `--cursor`, `--antigravity`, `--hermes`, `--opencode`, `--cline`, `--windsurf`)*
 
-### 💡 Skill-Only Mode vs. Full Python Engine:
+### Skill-Only Mode vs. Full Python Engine:
 - **Full Engine Mode (`pip install -e .` + Skill / MCP)**:
-  - 🚀 **Full Capabilities**: Host agents invoke the `lil` CLI or `letitloop-mcp` tools directly.
-  - 🛡️ **Machine-Enforced Proof**: Real AST syntax parsers (Python, TypeScript, JS, Go, Rust), true command exit-code assertions (`exit_code == 0`), OS process-tree timeout killing, and atomic Write-Ahead Log (WAL) journal locks.
+  - **Full Capabilities**: Host agents invoke the `lil` CLI or `letitloop-mcp` tools directly.
+  - **Machine-Enforced Proof**: Real AST syntax parsers (Python, TypeScript, JS, Go, Rust), true command exit-code assertions (`exit_code == 0`), OS process-tree timeout killing, and atomic Write-Ahead Log (WAL) journal locks.
 - **Skill-Only / Zero-Install Mode (`skill/SKILL.md` prompt only)**:
-  - 📝 **Self-Governed Protocol**: If you only copy `SKILL.md` into your agent environment without installing Python, the agent follows the structured DAG contract lifecycle, 3-strike escalation rules, and multi-lens quality gates directly inside chat.
-  - ⚠️ *Note*: Machine-verified AST parsing, rogue file detection, and OS-level crash recovery require the Python package runtime.
+  - **Self-Governed Protocol**: If you copy `SKILL.md` into your agent environment without installing Python, the agent follows the structured DAG contract lifecycle, 3-strike escalation rules, and multi-lens quality gates directly inside chat.
+  - *Note*: Machine-verified AST parsing, rogue file detection, and OS-level crash recovery require the Python package runtime.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Installation
 
@@ -154,7 +158,7 @@ lil reconcile <goal_id>
 
 ---
 
-## 🏗️ Architecture & Control Loop
+## Architecture & Control Loop
 
 ```
                           ┌───────────────────────────┐
@@ -185,7 +189,7 @@ lil reconcile <goal_id>
 
 ---
 
-## 🔌 Supported Worker Adapters & Gateways
+## Supported Worker Adapters & Gateways
 
 | Worker Adapter | Identifier | Description |
 |---|---|---|
@@ -198,7 +202,7 @@ lil reconcile <goal_id>
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
 ```bash
 # Run all unit tests (362 tests across 65 modules)
@@ -213,7 +217,7 @@ python fast_test_runner.py
 
 ---
 
-## 🔒 Security & Privacy
+## Security & Privacy
 
 `letitloop` is built with a zero-trust security architecture:
 - **Redaction Firewall**: Automatic masking of PATs, OAuth keys, AWS credentials, GCP tokens, and PEM private keys.
@@ -222,6 +226,6 @@ python fast_test_runner.py
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
