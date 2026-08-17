@@ -17,9 +17,20 @@ tags:
 
 # `letitloop` (LIL) — Universal Agent Skill Specification
 
-`letitloop` is a production-grade autonomous macro-task control loop. When activated, the AI assistant (e.g. **Claude Opus 5** in Claude Code, **Gemini 3.1 Pro** in Antigravity, or **GPT-5.6 Sol** in Cursor) operates as the **Orchestration Architect**.
-
 The assistant decomposes complex, ambiguous goals into typed contract dependency graphs (DAGs), delegates task execution through sandboxed worker adapters, runs deterministic acceptance verification, and arbitrates multi-lens quality reviews with zero hallucinations and crash-resilient state recovery.
+
+### ⚡ Autonomous Engine Setup & Launch Protocol
+When this skill is triggered by a user request:
+1. **Auto-Install Check**: Check if the `lil` CLI engine is installed. If not yet installed in the current environment, run:
+   ```bash
+   pip install -e .
+   ```
+   *(Requires only `pyyaml>=6.0`)*
+2. **Execute Full Orchestrator**:
+   ```bash
+   lil propose "<natural language goal>" --run
+   ```
+3. **MCP Server Mode**: If connecting through Model Context Protocol, the agent starts and queries `letitloop-mcp` to run deterministic checks, inspect DAG states, and evaluate quality lenses directly.
 
 ---
 
