@@ -1,0 +1,41 @@
+{
+    "task_id": "phase1-proof-repair",
+    "title": "Phase 1 Repair Loop Proof - Bad Output Then Fix",
+    "status": "drafted",
+    "risk_tier": "auto",
+    "workspace_scope": {
+        "allow": ["scratch/phase1/proof_repair/"],
+        "deny": [
+            "AGENTS.md", "memory/", ".opencode/", "orchestrator/",
+            "tests/", "docs/", "tools/", "projects/", "opencode.json", ".git/"
+        ]
+    },
+    "objective": "Create a file scratch/phase1/proof_repair/counter.txt containing exactly the number 42 on its own line. The worker may produce incorrect output on first attempt; on retry with changed approach, it must produce the correct file.",
+    "worker": {
+        "model": "openai:gpt-4o-mini",
+        "max_attempts": 3
+    },
+    "inputs": [],
+    "outputs": [
+        {"path": "scratch/phase1/proof_repair/counter.txt"}
+    ],
+    "acceptance_checks": [
+        {
+            "id": "counter_exists",
+            "kind": "file_exists",
+            "path": "scratch/phase1/proof_repair/counter.txt",
+            "expected": true
+        },
+        {
+            "id": "counter_content",
+            "kind": "content_regex",
+            "path": "scratch/phase1/proof_repair/counter.txt",
+            "expected": "^42$"
+        }
+    ],
+    "qc": {
+        "required": false,
+        "lens": "code_correctness"
+    },
+    "next_action": "preflight"
+}

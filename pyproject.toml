@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "letitloop"
+version = "0.1.0"
+description = "Autonomous task orchestration system — a durable macro-task control loop"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "letitloop Maintainers", email = "maintainers@letitloop.dev" }
+]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1.0",
+    "pre-commit>=3.0",
+]
+
+[project.scripts]
+lil = "orchestrator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orchestrator*"]
+exclude = ["scratch*", "tests*", ".git*", "__pycache__*"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra --strict-markers --tb=short"
+testpaths = ["tests"]
+markers = [
+    "fast: Pure logic tests, no live worker or subprocess",
+    "integration: CLI flow tests, may use subprocess but avoid live worker",
+    "proof: Real worker-backed end-to-end proofs, slow and expensive",
+    "phase2: Phase 2 supervisor and multi-contract tests",
+    "benchmark: Performance benchmark tests",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["orchestrator"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

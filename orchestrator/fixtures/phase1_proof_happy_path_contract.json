@@ -1,0 +1,83 @@
+{
+    "task_id": "phase1-proof-happy-path",
+    "title": "Phase 1 Happy Path Proof - Normalizer + Manifest",
+    "status": "drafted",
+    "risk_tier": "auto",
+    "workspace_scope": {
+        "allow": ["scratch/phase1/proof_happy_path/"],
+        "deny": [
+            "AGENTS.md",
+            "memory/",
+            ".opencode/",
+            "orchestrator/",
+            "tests/",
+            "docs/",
+            "tools/",
+            "projects/",
+            "opencode.json",
+            ".git/"
+        ]
+    },
+    "objective": "Create a small Python normalization artifact, a JSON manifest, and a README under scratch/phase1/proof_happy_path/. The Python module must define normalize_company_name(name) that lowercases, replaces hyphens and underscores with single spaces, and collapses repeated whitespace. The manifest must be valid JSON with required keys task_id, status, files. The README must contain the exact phrase 'Phase 1 proof artifact'.",
+    "worker": {
+        "model": "openai:gpt-4o-mini",
+        "max_attempts": 3
+    },
+    "inputs": [],
+    "outputs": [
+        {"path": "scratch/phase1/proof_happy_path/result.py"},
+        {"path": "scratch/phase1/proof_happy_path/manifest.json"},
+        {"path": "scratch/phase1/proof_happy_path/README.txt"}
+    ],
+    "acceptance_checks": [
+        {
+            "id": "result_file_exists",
+            "kind": "file_exists",
+            "path": "scratch/phase1/proof_happy_path/result.py",
+            "expected": true
+        },
+        {
+            "id": "manifest_file_exists",
+            "kind": "file_exists",
+            "path": "scratch/phase1/proof_happy_path/manifest.json",
+            "expected": true
+        },
+        {
+            "id": "readme_file_exists",
+            "kind": "file_exists",
+            "path": "scratch/phase1/proof_happy_path/README.txt",
+            "expected": true
+        },
+        {
+            "id": "manifest_valid_json",
+            "kind": "json_schema",
+            "path": "scratch/phase1/proof_happy_path/manifest.json",
+            "expected": {
+                "required": ["task_id", "status", "files"]
+            }
+        },
+        {
+            "id": "readme_contains_marker",
+            "kind": "content_regex",
+            "path": "scratch/phase1/proof_happy_path/README.txt",
+            "expected": "Phase 1 proof artifact"
+        },
+        {
+            "id": "normalizer_function_present",
+            "kind": "content_regex",
+            "path": "scratch/phase1/proof_happy_path/result.py",
+            "expected": "def normalize_company_name"
+        },
+        {
+            "id": "normalizer_behavior",
+            "kind": "command",
+            "command": "python orchestrator/fixtures/test_normalizer.py",
+            "expected": 0
+        }
+    ],
+    "qc": {
+        "required": false,
+        "lens": "code_correctness"
+    },
+    "next_action": "preflight"
+}

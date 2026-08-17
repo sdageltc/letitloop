@@ -1,0 +1,41 @@
+{
+    "task_id": "phase1-proof-escalation",
+    "title": "Phase 1 Escalation Proof - Max Attempts Exhausted",
+    "status": "drafted",
+    "risk_tier": "auto",
+    "workspace_scope": {
+        "allow": ["scratch/phase1/proof_escalation/"],
+        "deny": [
+            "AGENTS.md", "memory/", ".opencode/", "orchestrator/",
+            "tests/", "docs/", "tools/", "projects/", "opencode.json", ".git/"
+        ]
+    },
+    "objective": "The worker must create a file at scratch/phase1/proof_escalation/impossible.txt containing the exact string 'ESCAPED'. The verification check expects an impossible value so verification will fail. With max_attempts=1, retry should immediately escalate.",
+    "worker": {
+        "model": "openai:gpt-4o-mini",
+        "max_attempts": 1
+    },
+    "inputs": [],
+    "outputs": [
+        {"path": "scratch/phase1/proof_escalation/impossible.txt"}
+    ],
+    "acceptance_checks": [
+        {
+            "id": "file_exists",
+            "kind": "file_exists",
+            "path": "scratch/phase1/proof_escalation/impossible.txt",
+            "expected": true
+        },
+        {
+            "id": "unreachable_check",
+            "kind": "content_exact",
+            "path": "scratch/phase1/proof_escalation/impossible.txt",
+            "expected": "THIS VALUE CANNOT BE ACHIEVED BY DESIGN"
+        }
+    ],
+    "qc": {
+        "required": false,
+        "lens": "code_correctness"
+    },
+    "next_action": "preflight"
+}

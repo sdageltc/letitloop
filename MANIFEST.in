@@ -1,0 +1,38 @@
+# Include the README file
+include README.md
+
+# Include the license file
+include LICENSE
+
+# Include the CHANGELOG file
+include CHANGELOG.md
+
+# Include configuration files
+include pyproject.toml
+include pytest.ini
+include requirements-ci.txt
+
+# Include any data files
+recursive-include orchestrator *.py *.json *.yaml *.yml *.txt *.md
+
+# Include tests
+recursive-include tests *.py *.json *.yaml *.yml *.txt
+
+# Include documentation
+recursive-include docs *.py *.rst *.md *.txt
+
+# Include GitHub workflows
+recursive-include .github *.yml *.yaml
+
+# Exclude scratch and build artifacts
+recursive-exclude scratch *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[cod]
+recursive-exclude * *.so
+recursive-exclude * .pytest_cache
+recursive-exclude * .coverage
+recursive-exclude * htmlcov
+recursive-exclude * .benchmarks
+recursive-exclude * build
+recursive-exclude * dist
+recursive-exclude * *.egg-info

@@ -1,0 +1,15 @@
+{
+  "goal_id": "phase2-proof-two-step",
+  "title": "Two-step proof",
+  "description": "Step 1 creates a file, Step 2 validates it",
+  "constraints": {
+    "workspace_scope": {
+      "allow": [
+        "scratch/phase2/proof/"
+      ],
+      "deny": []
+    }
+  },
+  "dependencies": [],
+  "status": "drafted"
+}

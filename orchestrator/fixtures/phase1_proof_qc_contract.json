@@ -1,0 +1,41 @@
+{
+    "task_id": "phase1-proof-qc",
+    "title": "Phase 1 QC-Required Proof - VERIFIED -> QC_RUNNING -> COMPLETE",
+    "status": "drafted",
+    "risk_tier": "qc_required",
+    "workspace_scope": {
+        "allow": ["scratch/phase1/proof_qc/"],
+        "deny": [
+            "AGENTS.md", "memory/", ".opencode/", "orchestrator/",
+            "tests/", "docs/", "tools/", "projects/", "opencode.json", ".git/"
+        ]
+    },
+    "objective": "Create scratch/phase1/proof_qc/approved.txt containing exactly the string 'approved'.",
+    "worker": {
+        "model": "openai:gpt-4o-mini",
+        "max_attempts": 3
+    },
+    "inputs": [],
+    "outputs": [
+        {"path": "scratch/phase1/proof_qc/approved.txt"}
+    ],
+    "acceptance_checks": [
+        {
+            "id": "file_exists",
+            "kind": "file_exists",
+            "path": "scratch/phase1/proof_qc/approved.txt",
+            "expected": true
+        },
+        {
+            "id": "content_check",
+            "kind": "content_regex",
+            "path": "scratch/phase1/proof_qc/approved.txt",
+            "expected": "approved"
+        }
+    ],
+    "qc": {
+        "required": true,
+        "lens": "code_correctness"
+    },
+    "next_action": "preflight"
+}

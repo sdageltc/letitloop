@@ -1,0 +1,50 @@
+{
+    "task_id": "phase1-20260723-hello-fixture",
+    "title": "Create hello_fixture.py with pytest test",
+    "status": "drafted",
+    "risk_tier": "auto",
+    "workspace_scope": {
+        "allow": ["orchestrator/fixtures/phase1_task/"],
+        "deny": ["AGENTS.md", "memory/", ".opencode/"]
+    },
+    "objective": "Create orchestrator/fixtures/phase1_task/hello_fixture.py containing a function greet(name) that returns 'Hello, {name}!' and a pytest test_greet that asserts greet('World') == 'Hello, World!'",
+    "worker": {
+        "model": "openai:gpt-4o-mini",
+        "max_attempts": 3
+    },
+    "inputs": [],
+    "outputs": [
+        {"path": "orchestrator/fixtures/phase1_task/hello_fixture.py"}
+    ],
+    "acceptance_checks": [
+        {
+            "id": "file_exists",
+            "kind": "file_exists",
+            "path": "orchestrator/fixtures/phase1_task/hello_fixture.py",
+            "expected": "nonempty"
+        },
+        {
+            "id": "pytest_pass",
+            "kind": "command",
+            "command": "python -m pytest orchestrator/fixtures/phase1_task/hello_fixture.py -v",
+            "expected": 0
+        },
+        {
+            "id": "greet_function",
+            "kind": "content_regex",
+            "path": "orchestrator/fixtures/phase1_task/hello_fixture.py",
+            "expected": "def greet"
+        },
+        {
+            "id": "test_function",
+            "kind": "content_regex",
+            "path": "orchestrator/fixtures/phase1_task/hello_fixture.py",
+            "expected": "def test_greet"
+        }
+    ],
+    "qc": {
+        "required": false,
+        "lens": "code_correctness"
+    },
+    "next_action": "preflight"
+}
