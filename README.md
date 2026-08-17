@@ -11,14 +11,32 @@
 
 ## 🌟 Key Capabilities
 
-- 🧠 **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs.
-- 🔄 **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic file-locking, and bounded 3-strike retries.
-- 🛡️ **Zero-Trust Verification Engine**: Multi-tiered deterministic acceptance checks (AST syntax validators, regex matchers, unit test runners, and command exit code assertions).
-- ⚖️ **Multi-Lens Quality Plane**: Multi-perspective evaluation with specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Coverage*).
-- 🔌 **Native Model Context Protocol (MCP) Server**: Connect directly with **Google Antigravity**, **Claude Code**, **Cursor**, and **OpenCode** via standard stdio JSON-RPC.
-- 🤖 **Pluggable Worker Adapters**: Native interfaces for Claude Code, Google Antigravity CLI (`agy`), Omniroute gateways, custom scripts, and direct LLM APIs.
+- 🧠 **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs with cycle detection.
+- 🔄 **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, Win32/POSIX atomic file-locking, and bounded 3-strike retries with strategy mutation.
+- 🛡️ **Zero-Trust Verification Engine**: 8 distinct deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
+- ⚖️ **Multi-Lens Quality Plane**: Multi-perspective evaluation with 5 specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Completeness*, *Adversarial Architecture Audit*) and formal arbitration.
+- 🔌 **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with **Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**.
+- 🤖 **9 Pluggable Worker Adapters**: Native execution interfaces for Claude Code, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Omniroute gateways, local scripts, and direct LLMs.
+- 🆓 **Zero-Subscription Independence**: Seamlessly run 100% locally via Ollama/vLLM, multi-model gateways (Omniroute, OpenRouter, Groq), or commercial frontier APIs.
 - 📊 **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
 - 📦 **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
+
+---
+
+## 📊 How `letitloop` Compares to Other Autonomous Agent Systems
+
+Unlike conversational agent loops that rely on open-ended text streaming and optimistic assumptions, `letitloop` operates like an **Operating System process scheduler**: every task requires a cryptographic contract, empirical acceptance proof, and bounded retry governance.
+
+| Architectural Feature | **`letitloop` (LIL)** | **OpenHands** | **SWE-agent** | **AutoGPT / AgentGPT** | **MetaGPT / ChatDev** |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Orchestration Model** | **Typed DAG Contracts** | Container Terminal Chat | Single-Task Benchmark Agent | Open-Ended While-Loop | Multi-Role Chat Simulation |
+| **Deterministic Verifier** | **8 Machine-Verified Checks** (AST, Cmd Exit Codes, Regex, Render, Scope) | Eyeball / Agent Judgement | Unit Test Execution Only | None (LLM Self-Assessment) | Role-Play Text Review |
+| **Crash Recovery & Resume** | **Write-Ahead Log (WAL) Journal** | Manual Session Replay | No (Ephemeral Run) | None (Lost State) | None |
+| **Retry & Failure Policy** | **Bounded 3-Strike with Strategy Mutation & Impossibility Proof** | Infinite Loop / Timeout | Fixed Retries / Prompt Dump | Infinite Hallucination Loop | Reprompting Loop |
+| **Sandbox Scope Enforcement** | **Strict `allow`/`deny` & Undeclared Output Detection** | Docker Container Isolation | Bash Environment Isolation | None (Unrestricted Host) | None |
+| **Quality Plane & Lenses** | **5 Specialized Lenses + Senior Arbitration & QC Overrule** | Single Review Step | None | None | Simulated Peer Chat |
+| **AI Ecosystem & Skill Support** | **Universal Skill & MCP across 7 Platforms** (Claude Code, Antigravity, Hermes, Cursor, OpenCode, Cline, Windsurf) | Standalone Web UI / Docker | Standalone CLI | Standalone CLI / Web | Standalone Framework |
+| **Zero-Subscription Local Use** | **Native Ollama, vLLM, LM Studio & Omniroute Support** | Local LLMs supported via LiteLLM | Local LLMs supported | Local LLMs (Ollama) | Local LLMs supported |
 
 ---
 
