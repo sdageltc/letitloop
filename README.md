@@ -15,7 +15,7 @@
 - 🔄 **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic file-locking, and bounded 3-strike retries.
 - 🛡️ **Zero-Trust Verification Engine**: Multi-tiered deterministic acceptance checks (AST syntax validators, regex matchers, unit test runners, and command exit code assertions).
 - ⚖️ **Multi-Lens Quality Plane**: Multi-perspective evaluation with specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Coverage*).
-- 🔌 **Native Model Context Protocol (MCP) Server**: Connect directly with **Google Antigravity**, **Claude Desktop**, **Cursor**, and **OpenCode** via standard stdio JSON-RPC.
+- 🔌 **Native Model Context Protocol (MCP) Server**: Connect directly with **Google Antigravity**, **Claude Code**, **Cursor**, and **OpenCode** via standard stdio JSON-RPC.
 - 🤖 **Pluggable Worker Adapters**: Native interfaces for Claude Code, Google Antigravity CLI (`agy`), Omniroute gateways, custom scripts, and direct LLM APIs.
 - 📊 **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
 - 📦 **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
@@ -81,14 +81,17 @@ export OMNIROUTE_BASE_URL="http://localhost:8000/v1"
 }
 ```
 
-#### Configuration for Claude Desktop
+#### Configuration for Claude Code
+```bash
+claude mcp add letitloop -- python -m orchestrator.mcp_server
+```
+Or in `~/.claude.json`:
 ```json
 {
   "mcpServers": {
     "letitloop": {
       "command": "python",
-      "args": ["-m", "orchestrator.mcp_server"],
-      "cwd": "/path/to/your/workspace"
+      "args": ["-m", "orchestrator.mcp_server"]
     }
   }
 }

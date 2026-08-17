@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) & Agent Integration Guide
 
-The `letitloop` Model Context Protocol (MCP) server allows AI assistants and coding agents (**Claude Desktop**, **Cursor**, **Google Antigravity**, **OpenCode**, and custom MCP clients) to autonomously orchestrate macro-tasks, manage contracts, run verification suites, and conduct multi-lens quality reviews.
+The `letitloop` Model Context Protocol (MCP) server allows AI assistants and coding agents (**Claude Code**, **Cursor**, **Google Antigravity**, **OpenCode**, and custom MCP clients) to autonomously orchestrate macro-tasks, manage contracts, run verification suites, and conduct multi-lens quality reviews.
 
 ---
 
@@ -29,30 +29,21 @@ In Cursor Settings -> **Features** -> **MCP Servers** -> **Add New MCP Server**:
 - **Type**: `command`
 - **Command**: `letitloop-mcp` (or `python -m orchestrator.mcp_server`)
 
-### 3. Claude Desktop Integration
-Add to your `claude_desktop_config.json`:
+### 3. Claude Code Integration
+Add the MCP server to Claude Code via CLI or configuration:
 
-#### macOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "letitloop": {
-      "command": "python",
-      "args": ["-m", "orchestrator.mcp_server"],
-      "cwd": "/path/to/your/workspace"
-    }
-  }
-}
+#### Option A: 1-Line CLI Command
+```bash
+claude mcp add letitloop -- python -m orchestrator.mcp_server
 ```
 
-#### Windows (`%APPDATA%\Claude\claude_desktop_config.json`):
+#### Option B: Configuration File (`~/.claude.json` or project `.claude/mcp.json`):
 ```json
 {
   "mcpServers": {
     "letitloop": {
       "command": "python",
-      "args": ["-m", "orchestrator.mcp_server"],
-      "cwd": "C:\\workspace\\project"
+      "args": ["-m", "orchestrator.mcp_server"]
     }
   }
 }
