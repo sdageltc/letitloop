@@ -5,15 +5,57 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "letitloop"
 version = "0.1.0"
-description = "Autonomous task orchestration system — a durable macro-task control loop"
+description = "Autonomous Macro-Task Control Loop & Verification Engine. DAG Contract Planning, Crash-Proof Supervisor (WAL), Deterministic Verifiers, Multi-Lens QC, and Universal MCP / Skill Support."
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [
-    { name = "letitloop Maintainers", email = "maintainers@letitloop.dev" }
+    { name = "letitloop Contributors", email = "oguzhankayanbusiness@gmail.com" }
+]
+keywords = [
+    "autonomous-agents",
+    "agent-loop",
+    "mcp",
+    "mcp-server",
+    "claude-code",
+    "cursor",
+    "antigravity",
+    "hermes-agent",
+    "opencode",
+    "cline",
+    "windsurf",
+    "dag-planner",
+    "coding-agent",
+    "orchestration",
+    "zero-trust-verification",
+    "quality-plane",
+    "local-llm",
+    "ollama",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sdageltc/letitloop"
+Documentation = "https://github.com/sdageltc/letitloop#readme"
+Repository = "https://github.com/sdageltc/letitloop.git"
+"Bug Tracker" = "https://github.com/sdageltc/letitloop/issues"
+Discussions = "https://github.com/sdageltc/letitloop/discussions"
 
 [project.optional-dependencies]
 dev = [

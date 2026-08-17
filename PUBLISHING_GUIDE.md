@@ -316,7 +316,7 @@ git push origin main --tags
 **Solution**: Check your GitHub credentials:
 ```bash
 git config --global user.name "letitloop-maintainers"
-git config --global user.email "maintainers@letitloop.dev"
+git config --global user.email "oguzhankayanbusiness@gmail.com"
 ```
 
 ### Issue: "Repository not found"
