@@ -13,12 +13,14 @@ import os
 
 class ModelRegistry:
     # Default workhorse & QC reviewer
-    WORKER = "gemini-3.7-flash"
+    WORKER = "gemini-3.6-flash"
     QC = "gemini-3.1-pro"
     WORKER_PREFIXED = f"gemini:{WORKER}"
     QC_PREFIXED = f"gemini:{QC}"
     HYBRID = f"hybrid:{WORKER_PREFIXED}"
-    FALLBACK = "openai:gpt-5.6-luna"
+    FALLBACK = "openai:gpt-4o-mini"
+    OPUS = "claude-opus-5"
+    KIMI = "kimi-k2"
 
     # OpenAI GPT-5.6 Family (2026)
     GPT_SOL = "openai:gpt-5.6-sol"
