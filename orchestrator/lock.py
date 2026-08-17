@@ -149,9 +149,20 @@ def _pid_alive(pid: int, expected_start_token: Optional[str] = None) -> bool:
 
     if expected_start_token is not None:
         actual_start_token = _process_start_token(pid)
-        # A supplied identity token requires successful identity
-        # verification. PID existence alone is insufficient.
         return actual_start_token is not None and actual_start_token == expected_start_token
+
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return False
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        except (AttributeError, OSError, TypeError, ValueError):
+            return False
 
     try:
         os.kill(pid, 0)

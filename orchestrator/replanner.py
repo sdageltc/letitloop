@@ -48,11 +48,11 @@ class InspectResults:
             }
 
         state = load_state(state_file)
-        max_attempts = 2
+        max_attempts = 1
         if os.path.isfile(contract_file):
             contract, _ = load_contract(contract_file)
             if contract:
-                max_attempts = contract.worker.get("max_attempts", 2)
+                max_attempts = contract.worker.get("max_attempts", 1)
 
         stderr = ""
         timed_out = False

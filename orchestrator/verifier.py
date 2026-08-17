@@ -718,7 +718,7 @@ def _run_render_check(path, expected_format, workspace_root):
     except OSError as e:
         return VerifierResult(check_id="render", kind="render", passed=False, message=str(e))
     if expected_format == "markdown":
-        raw_latex = re.findall(r"\$\$(.+?)\$\$|\\\((.*?)\\\)|\\\[(.*?)\\]", content)
+        raw_latex = re.findall(r"\$\$(.+?)\$\$|\$([^\$\n]+?)\$|\\\((.*?)\\\)|\\\[(.*?)\\]", content)
         if raw_latex:
             return VerifierResult(
                 check_id="render",

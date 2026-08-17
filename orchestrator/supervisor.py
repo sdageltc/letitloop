@@ -44,6 +44,18 @@ def _pid_alive(pid: int) -> bool:
     """Cross-platform liveness check for a process id (no signal sent)."""
     if not pid or pid <= 0:
         return False
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return False
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        except (AttributeError, OSError, TypeError, ValueError):
+            return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -458,13 +470,15 @@ class Supervisor:
                 f.flush()
                 os.fsync(f.fileno())
 
-            state.patch_data(
-                {
-                    "overrule_consumed": marker,
-                    "overrule_evidence": public_evidence,
-                    "overrule_verified": True,
-                }
-            )
+            patch_payload = {
+                "overrule_consumed": marker,
+                "overrule_evidence": public_evidence,
+                "overrule_verified": True,
+            }
+            if hasattr(state, "patch_data"):
+                state.patch_data(patch_payload)
+            elif hasattr(state, "data") and isinstance(state.data, dict):
+                state.data.update(patch_payload)
             state.transition(
                 "FORCE_COMPLETE",
                 reason=f"QC overruled: {public_evidence['assertions'][0]}",
