@@ -1,8 +1,9 @@
 """Tests for dry-run / simulation mode."""
 
 import os
+
 import pytest
-from unittest.mock import patch
+
 from orchestrator.goal import Goal, Plan
 from orchestrator.supervisor import Supervisor
 
@@ -23,8 +24,12 @@ def _make_contract(task_id, output_path=None):
             "inputs": [],
             "outputs": [{"path": output_path or f"scratch/{task_id}_out.txt"}],
             "acceptance_checks": [
-                {"id": f"{task_id}-chk", "kind": "file_exists",
-                 "path": output_path or f"scratch/{task_id}_out.txt", "expected": True},
+                {
+                    "id": f"{task_id}-chk",
+                    "kind": "file_exists",
+                    "path": output_path or f"scratch/{task_id}_out.txt",
+                    "expected": True,
+                },
             ],
             "qc": {"required": False, "lens": "code_correctness"},
         },
@@ -32,7 +37,6 @@ def _make_contract(task_id, output_path=None):
 
 
 class TestDryRun:
-
     @pytest.mark.fast
     def test_dry_run_skips_worker(self, tmp_path):
         goal = Goal(goal_id="g_dry1", title="Dry1", description="desc")
@@ -102,5 +106,6 @@ class TestDryRun:
         sup = Supervisor(goal, plan, workspace_root=str(tmp_path), run_dir=run_dir, dry_run=True)
         sup.execute_plan()
         from orchestrator.state import load_state
+
         state = load_state(os.path.join(run_dir, "d6", "state.json"))
         assert state.status in ("COMPLETE", "complete")

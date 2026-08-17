@@ -4,11 +4,10 @@ import json
 import os
 import sys
 import time
-import re
-from .exceptions import WorkerError
-from .llm import call_llm, LLMError
+
+from .llm import LLMError, call_llm
 from .models import ModelRegistry
-from .token_gate import preflight, TokenGateError
+from .token_gate import TokenGateError, preflight
 
 
 def _safe_stderr(msg):
@@ -44,17 +43,19 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
         "",
     ]
     if scratch_dir:
-        lines.extend([
-            "Scratch/temp directory (write helpers here, not in production paths):",
-            f"  {scratch_dir}",
-            "",
-        ])
+        lines.extend(
+            [
+                "Scratch/temp directory (write helpers here, not in production paths):",
+                f"  {scratch_dir}",
+                "",
+            ]
+        )
     lines.append("Required outputs:")
     for out in contract.outputs:
         lines.append(f"  - {out['path']}")
     lines.append("")
 
-    quality_spec = getattr(contract, 'quality_spec', {})
+    quality_spec = getattr(contract, "quality_spec", {})
     if quality_spec:
         lines.append("QUALITY SPECIFICATION (you will be judged on these):")
         if quality_spec.get("required_sections"):
@@ -74,12 +75,22 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
     if quality_profile == "adversarial_architecture_audit":
         lines.append("ADVERSARIAL ARCHITECTURE AUDIT MODE:")
         lines.append("- You are a SENIOR SYSTEMS ARCHITECT. Do NOT write a consulting-style summary.")
-        lines.append("- Your job is to CHALLENGE the system. Find contradictions, hidden assumptions, and over-engineering.")
+        lines.append(
+            "- Your job is to CHALLENGE the system. Find contradictions, hidden assumptions, and over-engineering."
+        )
         lines.append("- Disagree with the source where it is wrong, overstated, or internally inconsistent.")
-        lines.append("- Generate concrete implementation artifacts not present in the source (JSON schemas, risk tables, test plans).")
-        lines.append("- Enumerate specific edge case scenarios with mitigation strategies — not just categories, actual scenarios.")
-        lines.append("- Propose at least one radically simpler alternative architecture that challenges the current design.")
-        lines.append("- Produce implementable recommendations: each must target a specific file/module with an implementation shape.")
+        lines.append(
+            "- Generate concrete implementation artifacts not present in the source (JSON schemas, risk tables, test plans)."
+        )
+        lines.append(
+            "- Enumerate specific edge case scenarios with mitigation strategies — not just categories, actual scenarios."
+        )
+        lines.append(
+            "- Propose at least one radically simpler alternative architecture that challenges the current design."
+        )
+        lines.append(
+            "- Produce implementable recommendations: each must target a specific file/module with an implementation shape."
+        )
         lines.append("- Include a 90-day hardening plan with clear definitions of done per phase.")
         lines.append("- If the source claims something the reviewer does not have evidence for, say so directly.")
         lines.append("- 'Uncomfortable Truths' is a required section — write it honestly, do not soften the analysis.")
@@ -103,7 +114,7 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
 
     quality_profile = contract.worker.get("quality_profile", "")
     if quality_profile == "adversarial_architecture_audit":
-        input_paths = getattr(contract, 'inputs', [])
+        input_paths = getattr(contract, "inputs", [])
         if input_paths:
             lines.append("")
             lines.append("INPUT FILES TO ANALYZE (read these via your MCP tools):")
@@ -119,10 +130,10 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
                             with open(full, "r", encoding="utf-8", errors="replace") as f:
                                 content = f.read()
                             lines.append(f"  {path} ({len(content)} bytes)")
-                            lines.append(f"  First 3000 chars preview:")
+                            lines.append("  First 3000 chars preview:")
                             lines.append(content[:3000])
                             if len(content) > 3000:
-                                lines.append(f"  [... truncated, read the full file with MCP tools ...]")
+                                lines.append("  [... truncated, read the full file with MCP tools ...]")
                         except OSError as e:
                             lines.append(f"  {path} (read error: {e})")
 
@@ -146,11 +157,7 @@ def _cap_output(text, max_size=MAX_OUTPUT_SIZE):
         head_size = max_size // 2
         tail_size = max_size - head_size
         truncated_count = len(text) - (head_size + tail_size)
-        return (
-            text[:head_size]
-            + f"\n... [{truncated_count} chars truncated] ...\n"
-            + text[-tail_size:]
-        )
+        return text[:head_size] + f"\n... [{truncated_count} chars truncated] ...\n" + text[-tail_size:]
     return text or ""
 
 
@@ -184,12 +191,12 @@ def _materialize_outputs(contract, workspace_root, stdout):
     return written
 
 
-def _run_llm_worker(contract, workspace_root, run_dir, model,
-                    previous_failures=None, changed_approach=None,
-                    timeout_sec=900):
+def _run_llm_worker(
+    contract, workspace_root, run_dir, model, previous_failures=None, changed_approach=None, timeout_sec=900
+):
     """Invoke the generic LLM transport with a contract-derived brief."""
     task_id = contract.task_id
-    _safe_stderr(f'[worker] task={task_id} starting (model={model})')
+    _safe_stderr(f"[worker] task={task_id} starting (model={model})")
 
     brief = _build_brief(contract, previous_failures, changed_approach)
 
@@ -211,7 +218,7 @@ def _run_llm_worker(contract, workspace_root, run_dir, model,
         exit_code = 1
     except LLMError as e:
         elapsed = time.time() - start
-        _safe_stderr(f'[worker] task={task_id} model error: {e}')
+        _safe_stderr(f"[worker] task={task_id} model error: {e}")
         return {
             "success": False,
             "stdout": "",
@@ -222,7 +229,7 @@ def _run_llm_worker(contract, workspace_root, run_dir, model,
         }
     except Exception as e:
         elapsed = time.time() - start
-        _safe_stderr(f'[worker] task={task_id} error: {e}')
+        _safe_stderr(f"[worker] task={task_id} error: {e}")
         return {
             "success": False,
             "stdout": "",
@@ -252,7 +259,7 @@ def _run_llm_worker(contract, workspace_root, run_dir, model,
         f.write(stderr)
         f.write("\n")
 
-    _safe_stderr(f'[worker] task={task_id} finished (exit={exit_code}, elapsed={elapsed:.1f}s)')
+    _safe_stderr(f"[worker] task={task_id} finished (exit={exit_code}, elapsed={elapsed:.1f}s)")
 
     return {
         "success": exit_code == 0,
@@ -264,10 +271,9 @@ def _run_llm_worker(contract, workspace_root, run_dir, model,
     }
 
 
-def _fake_worker(contract, workspace_root, run_dir,
-                 previous_failures=None):
+def _fake_worker(contract, workspace_root, run_dir, previous_failures=None):
     task_id = contract.task_id
-    _safe_stderr(f'[worker] task={task_id} starting (model=fake)')
+    _safe_stderr(f"[worker] task={task_id} starting (model=fake)")
     fake_mode = os.environ.get("FAKE_WORKER", "")
     content = "FAKE_WORKER_OUTPUT"
     success = True
@@ -297,7 +303,7 @@ def _fake_worker(contract, workspace_root, run_dir,
             f.write(content)
         artifact_paths.append(full_path)
 
-    _safe_stderr(f'[worker] task={task_id} finished (exit={exit_code}, elapsed=0.01s)')
+    _safe_stderr(f"[worker] task={task_id} finished (exit={exit_code}, elapsed=0.01s)")
     return {
         "success": success,
         "stdout": "fake worker output",
@@ -308,12 +314,11 @@ def _fake_worker(contract, workspace_root, run_dir,
     }
 
 
-def _dispatch_worker(contract, workspace_root, run_dir, model,
-                     previous_failures=None, changed_approach=None,
-                     timeout_sec=300):
+def _dispatch_worker(
+    contract, workspace_root, run_dir, model, previous_failures=None, changed_approach=None, timeout_sec=300
+):
     """Run one worker invocation with the given model string (no fallback)."""
-    return _run_llm_worker(contract, workspace_root, run_dir, model,
-                           previous_failures, changed_approach, timeout_sec)
+    return _run_llm_worker(contract, workspace_root, run_dir, model, previous_failures, changed_approach, timeout_sec)
 
 
 def _default_backup_model(model):
@@ -325,8 +330,7 @@ def _default_backup_model(model):
     return ModelRegistry.FALLBACK
 
 
-def _merge_fallback_log(run_dir, primary_model, primary_result,
-                        backup_model, backup_result):
+def _merge_fallback_log(run_dir, primary_model, primary_result, backup_model, backup_result):
     """Append a provider-fallback section to worker_output.log."""
     try:
         log_path = os.path.join(run_dir, "worker_output.log")
@@ -338,9 +342,15 @@ def _merge_fallback_log(run_dir, primary_model, primary_result,
         pass
 
 
-def run_worker(contract, workspace_root, run_dir,
-               previous_failures=None, changed_approach=None,
-               timeout_sec=300, supervisor_attempt=1):
+def run_worker(
+    contract,
+    workspace_root,
+    run_dir,
+    previous_failures=None,
+    changed_approach=None,
+    timeout_sec=300,
+    supervisor_attempt=1,
+):
     """Invoke a worker with provider fallback.
 
     Primary provider comes from contract.worker.model (or WORKER_MODEL env).
@@ -367,14 +377,20 @@ def run_worker(contract, workspace_root, run_dir,
 
     if model.startswith("hybrid:"):
         from .hybrid_worker import run_hybrid_worker
-        return run_hybrid_worker(contract, workspace_root, run_dir,
-                                 previous_failures=previous_failures,
-                                 changed_approach=changed_approach,
-                                 timeout_sec=timeout_sec,
-                                 supervisor_attempt=supervisor_attempt)
 
-    result = _dispatch_worker(contract, workspace_root, run_dir, model,
-                              previous_failures, changed_approach, timeout_sec)
+        return run_hybrid_worker(
+            contract,
+            workspace_root,
+            run_dir,
+            previous_failures=previous_failures,
+            changed_approach=changed_approach,
+            timeout_sec=timeout_sec,
+            supervisor_attempt=supervisor_attempt,
+        )
+
+    result = _dispatch_worker(
+        contract, workspace_root, run_dir, model, previous_failures, changed_approach, timeout_sec
+    )
     result["provider"] = model
 
     if result.get("exit_code", -1) == 0:
@@ -387,10 +403,12 @@ def run_worker(contract, workspace_root, run_dir,
     if not backup or backup == model:
         return result
 
-    _safe_stderr(f'[worker] task={task_id} primary {model} failed '
-                 f'(exit={result.get("exit_code")}); falling back to {backup}')
-    backup_result = _dispatch_worker(contract, workspace_root, run_dir, backup,
-                                     previous_failures, changed_approach, timeout_sec)
+    _safe_stderr(
+        f"[worker] task={task_id} primary {model} failed (exit={result.get('exit_code')}); falling back to {backup}"
+    )
+    backup_result = _dispatch_worker(
+        contract, workspace_root, run_dir, backup, previous_failures, changed_approach, timeout_sec
+    )
     _merge_fallback_log(run_dir, model, result, backup, backup_result)
     backup_result["provider"] = backup
     backup_result["fallback_used"] = True

@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional
 
-
 VERDICT_PASS = "PASS"
 VERDICT_REJECT = "REJECT"
 VERDICT_CONDITIONAL_PASS = "CONDITIONAL_PASS"
@@ -114,9 +113,7 @@ class ReviewIssue:
             claim=d.get("claim", "") if isinstance(d.get("claim", ""), str) else str(d.get("claim", "")),
             evidence=d.get("evidence", "") if isinstance(d.get("evidence", ""), str) else "",
             recommended_action=(
-                d.get("recommended_action", "")
-                if isinstance(d.get("recommended_action", ""), str)
-                else ""
+                d.get("recommended_action", "") if isinstance(d.get("recommended_action", ""), str) else ""
             ),
         )
 
@@ -396,12 +393,8 @@ class ArbitrationVerdict:
         confidence = max(0.0, min(1.0, confidence))
         return cls(
             status=status,
-            winning_claims=[
-                c for c in d.get("winning_claims", []) if isinstance(c, str)
-            ],
-            discarded_claims=[
-                c for c in d.get("discarded_claims", []) if isinstance(c, str)
-            ],
+            winning_claims=[c for c in d.get("winning_claims", []) if isinstance(c, str)],
+            discarded_claims=[c for c in d.get("discarded_claims", []) if isinstance(c, str)],
             reason=d.get("reason", "") if isinstance(d.get("reason", ""), str) else "",
             confidence=confidence,
         )
@@ -453,15 +446,19 @@ class QualityPlaneVerdict:
             "issues": list(self.issues),
             "component_verdicts": list(self.component_verdicts),
             "review_artifacts": list(self.review_artifacts),
-            "synthesis_result": self.synthesis_result.to_dict() if isinstance(self.synthesis_result, SynthesisVerdict) else self.synthesis_result,
-            "arbitration_result": self.arbitration_result.to_dict() if isinstance(self.arbitration_result, ArbitrationVerdict) else self.arbitration_result,
+            "synthesis_result": self.synthesis_result.to_dict()
+            if isinstance(self.synthesis_result, SynthesisVerdict)
+            else self.synthesis_result,
+            "arbitration_result": self.arbitration_result.to_dict()
+            if isinstance(self.arbitration_result, ArbitrationVerdict)
+            else self.arbitration_result,
             "budget_used": dict(self.budget_used),
             "degraded": self.degraded,
             "degrade_reason": self.degrade_reason,
         }
-        if hasattr(self, '_qc_model') and self._qc_model:
+        if hasattr(self, "_qc_model") and self._qc_model:
             d["qc_model"] = self._qc_model
-        if hasattr(self, '_worker_model') and self._worker_model:
+        if hasattr(self, "_worker_model") and self._worker_model:
             d["worker_model"] = self._worker_model
         return d
 
@@ -497,17 +494,9 @@ class QualityPlaneVerdict:
             return [v for v in values if isinstance(v, dict)]
 
         synthesis_raw = d.get("synthesis_result")
-        synthesis_result = (
-            SynthesisVerdict.from_dict(synthesis_raw)
-            if isinstance(synthesis_raw, dict)
-            else None
-        )
+        synthesis_result = SynthesisVerdict.from_dict(synthesis_raw) if isinstance(synthesis_raw, dict) else None
         arb_raw = d.get("arbitration_result")
-        arbitration_result = (
-            ArbitrationVerdict.from_dict(arb_raw)
-            if isinstance(arb_raw, dict)
-            else None
-        )
+        arbitration_result = ArbitrationVerdict.from_dict(arb_raw) if isinstance(arb_raw, dict) else None
 
         return cls(
             passed=passed,
@@ -521,11 +510,7 @@ class QualityPlaneVerdict:
             arbitration_result=arbitration_result,
             budget_used=budget,
             degraded=bool(d.get("degraded", False)),
-            degrade_reason=(
-                d.get("degrade_reason", "")
-                if isinstance(d.get("degrade_reason", ""), str)
-                else ""
-            ),
+            degrade_reason=(d.get("degrade_reason", "") if isinstance(d.get("degrade_reason", ""), str) else ""),
         )
 
     @classmethod
@@ -599,10 +584,7 @@ def synthesize_artifacts(artifacts: List[ReviewArtifact], quality_spec: Optional
             dissent_preserved=True,
         )
 
-    has_evidence = any(
-        a.has_cited_evidence() and a.verdict != VERDICT_INSUFFICIENT_EVIDENCE
-        for a in artifacts
-    )
+    has_evidence = any(a.has_cited_evidence() and a.verdict != VERDICT_INSUFFICIENT_EVIDENCE for a in artifacts)
     if not has_evidence:
         return SynthesisVerdict(
             status=VERDICT_INSUFFICIENT_EVIDENCE,
@@ -630,10 +612,13 @@ def synthesize_artifacts(artifacts: List[ReviewArtifact], quality_spec: Optional
         hard = quality_spec.get("hard_failures") or []
         if isinstance(hard, list):
             for hf in hard:
-                if isinstance(hf, str) and hf and any(
-                    hf.lower() in (i.claim or "").lower()
-                    or hf.lower() in (i.path or "").lower()
-                    for i in all_issues
+                if (
+                    isinstance(hf, str)
+                    and hf
+                    and any(
+                        hf.lower() in (i.claim or "").lower() or hf.lower() in (i.path or "").lower()
+                        for i in all_issues
+                    )
                 ):
                     return SynthesisVerdict(
                         status=VERDICT_REJECT,

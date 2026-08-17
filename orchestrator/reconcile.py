@@ -1,11 +1,11 @@
 """Reconciliation — compares expected vs actual state for resume integrity."""
 
-import os
 import json
-from typing import Dict, List, Any, Optional
-from .goal import Plan
-from . import evidence as ev
+import os
+from typing import Any, Dict, List
 
+from . import evidence as ev
+from .goal import Plan
 
 RECONCILE_ISSUE_OUTPUT_MISSING = "output_missing"
 RECONCILE_ISSUE_FILE_MISSING = "file_missing"
@@ -39,8 +39,9 @@ class ReconciliationIssue:
 class ReconciliationReport:
     """Full reconciliation result for a goal plan."""
 
-    def __init__(self, goal_id: str, passed: bool, issues: List[ReconciliationIssue],
-                 total_tasks: int, checked_tasks: int):
+    def __init__(
+        self, goal_id: str, passed: bool, issues: List[ReconciliationIssue], total_tasks: int, checked_tasks: int
+    ):
         self.goal_id = goal_id
         self.passed = passed
         self.issues = issues
@@ -80,9 +81,13 @@ def run_reconciliation(goal_id: str, plan: Plan, workspace_root: str, run_dir: s
             continue
 
         from .state import load_state
+
         state = load_state(state_file)
         if state.status.upper() not in (
-            "COMPLETE", "VERIFIED", "DEGRADED_PASS", "FORCE_COMPLETE",
+            "COMPLETE",
+            "VERIFIED",
+            "DEGRADED_PASS",
+            "FORCE_COMPLETE",
         ):
             continue
 
@@ -100,13 +105,15 @@ def run_reconciliation(goal_id: str, plan: Plan, workspace_root: str, run_dir: s
                 continue
             abs_path = os.path.join(workspace_root, out_path) if not os.path.isabs(out_path) else out_path
             if not os.path.exists(abs_path):
-                issues.append(ReconciliationIssue(
-                    task_id=task_id,
-                    path=out_path,
-                    issue_type=RECONCILE_ISSUE_OUTPUT_MISSING,
-                    expected="file_exists",
-                    actual="not_found",
-                ))
+                issues.append(
+                    ReconciliationIssue(
+                        task_id=task_id,
+                        path=out_path,
+                        issue_type=RECONCILE_ISSUE_OUTPUT_MISSING,
+                        expected="file_exists",
+                        actual="not_found",
+                    )
+                )
 
         completed_count += 1
 
@@ -117,40 +124,47 @@ def run_reconciliation(goal_id: str, plan: Plan, workspace_root: str, run_dir: s
             if not abs_path:
                 continue
             if not os.path.exists(abs_path):
-                issues.append(ReconciliationIssue(
-                    task_id=task_id,
-                    path=e.get("relative_path", "?"),
-                    issue_type=RECONCILE_ISSUE_FILE_MISSING,
-                    expected="file_exists",
-                    actual="not_found",
-                ))
+                issues.append(
+                    ReconciliationIssue(
+                        task_id=task_id,
+                        path=e.get("relative_path", "?"),
+                        issue_type=RECONCILE_ISSUE_FILE_MISSING,
+                        expected="file_exists",
+                        actual="not_found",
+                    )
+                )
                 continue
             stored_hash = e.get("sha256", "")
             if stored_hash:
                 current_hash = ev._sha256(abs_path)
                 if stored_hash != current_hash:
-                    issues.append(ReconciliationIssue(
-                        task_id=task_id,
-                        path=e.get("relative_path", "?"),
-                        issue_type=RECONCILE_ISSUE_HASH_CHANGED,
-                        expected=stored_hash,
-                        actual=current_hash,
-                    ))
+                    issues.append(
+                        ReconciliationIssue(
+                            task_id=task_id,
+                            path=e.get("relative_path", "?"),
+                            issue_type=RECONCILE_ISSUE_HASH_CHANGED,
+                            expected=stored_hash,
+                            actual=current_hash,
+                        )
+                    )
 
     for c in plan.contracts:
         task_id = c["task_id"]
         state_file = os.path.join(run_dir, task_id, "state.json")
         if os.path.isfile(state_file):
             from .state import load_state
+
             state = load_state(state_file)
             if state.status.upper() == "COMPLETE" and task_id not in ledger:
-                issues.append(ReconciliationIssue(
-                    task_id=task_id,
-                    path="",
-                    issue_type=RECONCILE_ISSUE_LEDGER_MISSING,
-                    expected="ledger_entries",
-                    actual="no_entries",
-                ))
+                issues.append(
+                    ReconciliationIssue(
+                        task_id=task_id,
+                        path="",
+                        issue_type=RECONCILE_ISSUE_LEDGER_MISSING,
+                        expected="ledger_entries",
+                        actual="no_entries",
+                    )
+                )
 
     passed = len(issues) == 0
     return ReconciliationReport(
@@ -165,8 +179,10 @@ def run_reconciliation(goal_id: str, plan: Plan, workspace_root: str, run_dir: s
 def format_report(report: ReconciliationReport) -> str:
     """Format a reconciliation report as human-readable string."""
     if report.passed:
-        return (f"Reconciliation PASSED for {report.goal_id} "
-                f"({report.checked_tasks}/{report.total_tasks} tasks checked, no issues).")
+        return (
+            f"Reconciliation PASSED for {report.goal_id} "
+            f"({report.checked_tasks}/{report.total_tasks} tasks checked, no issues)."
+        )
     lines = [f"Reconciliation FAILED for {report.goal_id} — {report.failed_tasks} issue(s):"]
     for iss in report.issues:
         lines.append(f"  [{iss.issue_type}] {iss.task_id}: {iss.path or '(no path)'}")

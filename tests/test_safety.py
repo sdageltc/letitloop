@@ -1,43 +1,45 @@
 """Tests for orchestrator safety module."""
 
 import pytest
-from orchestrator.goal import Goal, Plan
-from orchestrator.limits import ResourceLimits, DEFAULT_LIMITS
-from orchestrator.state import State
-from orchestrator.failure import MAX_SAME_CLASS_STRIKES
+
 from orchestrator.contract import Contract
+from orchestrator.goal import Plan
+from orchestrator.limits import ResourceLimits
 from orchestrator.safety import (
     SafetyIssue,
     SafetyReport,
     check_contract_validity,
     check_dependency_cycles,
+    check_failsafe,
     check_resource_adequacy,
     check_workspace_health,
-    check_failsafe,
-    run_safety_checks,
     format_safety_report,
+    run_safety_checks,
 )
+from orchestrator.state import State
 
 pytestmark = pytest.mark.fast
 
 
 def _make_valid_contract(task_id):
     return {
-        'task_id': task_id,
-        'depends_on': [],
-        'status': 'DRAFTED',
-        'contract': {
-            'task_id': task_id,
-            'title': f'Task {task_id}',
-            'status': 'DRAFTED',
-            'risk_tier': 'auto',
-            'workspace_scope': {'allow': ['scratch/'], 'deny': []},
-            'objective': 'safety test',
-            'worker': {'model': 'test', 'max_attempts': 1},
-            'inputs': [],
-            'outputs': [{'path': f'scratch/{task_id}_out.txt'}],
-            'acceptance_checks': [{'id': f'{task_id}-chk', 'kind': 'file_exists', 'path': f'scratch/{task_id}_out.txt', 'expected': True}],
-            'qc': {'required': False, 'lens': 'code_correctness'},
+        "task_id": task_id,
+        "depends_on": [],
+        "status": "DRAFTED",
+        "contract": {
+            "task_id": task_id,
+            "title": f"Task {task_id}",
+            "status": "DRAFTED",
+            "risk_tier": "auto",
+            "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            "objective": "safety test",
+            "worker": {"model": "test", "max_attempts": 1},
+            "inputs": [],
+            "outputs": [{"path": f"scratch/{task_id}_out.txt"}],
+            "acceptance_checks": [
+                {"id": f"{task_id}-chk", "kind": "file_exists", "path": f"scratch/{task_id}_out.txt", "expected": True}
+            ],
+            "qc": {"required": False, "lens": "code_correctness"},
         },
     }
 

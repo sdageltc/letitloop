@@ -1,10 +1,10 @@
 """Failure classification — categorizes contract execution failures for retry routing."""
 
 import os
-from typing import Dict, Any, Optional
-from .state import State
-from .contract import Contract
+from typing import Any, Dict, Optional
 
+from .contract import Contract
+from .state import State
 
 FAILURE_CLASS_TIMEOUT = "timeout"
 FAILURE_CLASS_PREFLIGHT_MISSING_INPUT = "preflight_missing_input"
@@ -36,6 +36,7 @@ def classify_failure(state: State, contract: Optional[Contract] = None) -> str:
         if preflight_path and isinstance(preflight_path, str) and os.path.isfile(preflight_path):
             try:
                 import json as _json
+
                 with open(preflight_path, "r", encoding="utf-8") as f:
                     pdata = _json.load(f)
                 for r in pdata.get("preflight_checks", []):
@@ -51,6 +52,7 @@ def classify_failure(state: State, contract: Optional[Contract] = None) -> str:
             if isinstance(ev_path, str) and os.path.isfile(ev_path):
                 try:
                     import json as _json
+
                     with open(ev_path, "r", encoding="utf-8") as f:
                         vdata = _json.load(f)
                     for r in vdata.get("verification_results", []):
@@ -90,31 +92,71 @@ def suggest_remediation(failure_class: str, attempt: int, max_attempts: int) -> 
     rem_attempts = max_attempts - attempt
     if failure_class == FAILURE_CLASS_TIMEOUT:
         if attempt < max_attempts:
-            return {"action": "retry", "reason": f"timed out (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)", "requires_new_approach": True}
-        return {"action": "split", "reason": f"timed out after {max_attempts} attempts — split into smaller subtasks", "requires_new_approach": False}
+            return {
+                "action": "retry",
+                "reason": f"timed out (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)",
+                "requires_new_approach": True,
+            }
+        return {
+            "action": "split",
+            "reason": f"timed out after {max_attempts} attempts — split into smaller subtasks",
+            "requires_new_approach": False,
+        }
 
     if failure_class in (FAILURE_CLASS_VERIFIER_OUTPUT_MISSING, FAILURE_CLASS_WORKER_EMPTY_OUTPUT):
         if attempt < max_attempts:
-            return {"action": "retry", "reason": f"output missing (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)", "requires_new_approach": True}
-        return {"action": "split", "reason": f"output missing after {max_attempts} attempts — split into smaller subtasks", "requires_new_approach": False}
+            return {
+                "action": "retry",
+                "reason": f"output missing (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)",
+                "requires_new_approach": True,
+            }
+        return {
+            "action": "split",
+            "reason": f"output missing after {max_attempts} attempts — split into smaller subtasks",
+            "requires_new_approach": False,
+        }
 
     if failure_class == FAILURE_CLASS_VERIFIER_CONTENT_MISMATCH:
         if attempt < max_attempts:
-            return {"action": "retry", "reason": f"content mismatch (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)", "requires_new_approach": True}
-        return {"action": "split", "reason": f"content mismatch after {max_attempts} attempts — split", "requires_new_approach": False}
+            return {
+                "action": "retry",
+                "reason": f"content mismatch (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)",
+                "requires_new_approach": True,
+            }
+        return {
+            "action": "split",
+            "reason": f"content mismatch after {max_attempts} attempts — split",
+            "requires_new_approach": False,
+        }
 
     if failure_class == FAILURE_CLASS_WORKER_NONZERO_EXIT:
         if attempt < max_attempts:
-            return {"action": "retry", "reason": f"worker nonzero exit (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)", "requires_new_approach": True}
-        return {"action": "split", "reason": f"worker failed after {max_attempts} attempts", "requires_new_approach": False}
+            return {
+                "action": "retry",
+                "reason": f"worker nonzero exit (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)",
+                "requires_new_approach": True,
+            }
+        return {
+            "action": "split",
+            "reason": f"worker failed after {max_attempts} attempts",
+            "requires_new_approach": False,
+        }
 
     if failure_class in (FAILURE_CLASS_PREFLIGHT_MISSING_INPUT, FAILURE_CLASS_CONTRACT_INVALID):
         return {"action": "replan", "reason": "contract/input issue — needs replanning", "requires_new_approach": False}
 
     if attempt < max_attempts:
-        return {"action": "retry", "reason": f"unclassified failure (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)", "requires_new_approach": True}
+        return {
+            "action": "retry",
+            "reason": f"unclassified failure (attempt {attempt}/{max_attempts}, {rem_attempts} attempts remaining)",
+            "requires_new_approach": True,
+        }
 
-    return {"action": "replan", "reason": f"unclassified failure after {max_attempts} attempts", "requires_new_approach": False}
+    return {
+        "action": "replan",
+        "reason": f"unclassified failure after {max_attempts} attempts",
+        "requires_new_approach": False,
+    }
 
 
 def count_consecutive_same_class(state: State, failure_class: str) -> int:
@@ -146,10 +188,11 @@ FINGERPRINT_FIELDS = {"decomposition", "strategy", "format_strategy", "validatio
 
 def compute_strategy_fingerprint(state: State) -> str:
     """Compute a hash of the approach fingerprints for divergence checking.
-    
+
     Uses the last recorded changed_approach if available.
     """
     import hashlib
+
     if state.changed_approaches:
         raw = state.changed_approaches[-1]
     else:
@@ -159,12 +202,13 @@ def compute_strategy_fingerprint(state: State) -> str:
 
 def is_divergent(state: State, new_approach: str) -> bool:
     """Check if a new approach fingerprint differs from prior non-divergent ones.
-    
+
     Returns True (divergent) if the fingerprint is new or if there is no prior
     fingerprint to compare against. Returns False (not divergent) if this
     exact approach has been tried before in the same task.
     """
     import hashlib
+
     new_hash = hashlib.md5(new_approach.encode()).hexdigest()[:12]
     for old_approach in state.changed_approaches[:-1]:
         old_hash = hashlib.md5(old_approach.encode()).hexdigest()[:12]

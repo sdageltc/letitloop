@@ -1,12 +1,14 @@
 """Tests for LLM goal decomposer planner."""
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from orchestrator.goal import Goal
-from orchestrator.planner import decompose_goal, _parse_llm_json, _preferences_block
+
 from orchestrator.exceptions import PlannerError
 from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
+from orchestrator.planner import _parse_llm_json, _preferences_block, decompose_goal
 
 pytestmark = pytest.mark.fast
 
@@ -15,12 +17,7 @@ def test_parse_llm_json_skips_leading_example_block():
     """A leading ```json example/schema block must not shadow the real plan."""
     example = json.dumps({"contracts": [{"task_id": "example", "depends_on": []}]})
     real = json.dumps({"contracts": [{"task_id": "real-1", "depends_on": []}]})
-    stdout = (
-        "Here is a schema example:\n"
-        f"```json\n{example}\n```\n"
-        "Now the actual plan:\n"
-        f"```json\n{real}\n```\n"
-    )
+    stdout = f"Here is a schema example:\n```json\n{example}\n```\nNow the actual plan:\n```json\n{real}\n```\n"
     data = _parse_llm_json(stdout)
     assert data["contracts"][0]["task_id"] == "real-1"
 
@@ -67,26 +64,28 @@ def test_planner_decomposes_simple_goal(tmp_path):
         description="Create a Python script that prints hello world",
     )
 
-    llm_output_json = json.dumps({
-        "contracts": [
-            {
-                "task_id": "test-llm-step-1",
-                "title": "Step 1: Write script",
-                "type": "implementation",
-                "objective": "Create a Python script that prints hello world",
-                "output_path": "scratch/phase2/test-llm_step1.py",
-                "depends_on": [],
-                "acceptance_checks": [
-                    {
-                        "id": "check-1",
-                        "kind": "content_regex",
-                        "path": "scratch/phase2/test-llm_step1.py",
-                        "expected": ".+",
-                    }
-                ],
-            }
-        ]
-    })
+    llm_output_json = json.dumps(
+        {
+            "contracts": [
+                {
+                    "task_id": "test-llm-step-1",
+                    "title": "Step 1: Write script",
+                    "type": "implementation",
+                    "objective": "Create a Python script that prints hello world",
+                    "output_path": "scratch/phase2/test-llm_step1.py",
+                    "depends_on": [],
+                    "acceptance_checks": [
+                        {
+                            "id": "check-1",
+                            "kind": "content_regex",
+                            "path": "scratch/phase2/test-llm_step1.py",
+                            "expected": ".+",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
 
     with patch("orchestrator.planner.call_llm") as mock_llm:
         mock_llm.return_value = {

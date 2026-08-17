@@ -2,11 +2,11 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
-from .goal import Plan, ContractGraph
-from .limits import ResourceLimits, check_limits
-from .failure import count_consecutive_same_class, MAX_SAME_CLASS_STRIKES
+from .failure import MAX_SAME_CLASS_STRIKES, count_consecutive_same_class
+from .goal import Plan
+from .limits import ResourceLimits
 
 
 @dataclass
@@ -50,30 +50,34 @@ def check_contract_validity(plan: Plan) -> List[SafetyIssue]:
     contract_required = {"title", "objective", "worker", "outputs", "acceptance_checks"}
 
     def _as_dict(c):
-        return c if isinstance(c, dict) else c._raw if hasattr(c, '_raw') else {}
+        return c if isinstance(c, dict) else c._raw if hasattr(c, "_raw") else {}
 
     for c in plan.contracts:
         c = _as_dict(c)
         tid = c.get("task_id", "?")
         missing = required_fields - set(c.keys())
         if missing:
-            issues.append(SafetyIssue(
-                issue_type="missing_contract_field",
-                severity="error",
-                message=f"contract {tid} missing fields: {missing}",
-                task_id=tid,
-            ))
+            issues.append(
+                SafetyIssue(
+                    issue_type="missing_contract_field",
+                    severity="error",
+                    message=f"contract {tid} missing fields: {missing}",
+                    task_id=tid,
+                )
+            )
 
         contract = c.get("contract", {})
         if contract:
             missing_contract = contract_required - set(contract.keys())
             if missing_contract:
-                issues.append(SafetyIssue(
-                    issue_type="missing_contract_detail",
-                    severity="error",
-                    message=f"contract {tid} missing contract detail fields: {missing_contract}",
-                    task_id=tid,
-                ))
+                issues.append(
+                    SafetyIssue(
+                        issue_type="missing_contract_detail",
+                        severity="error",
+                        message=f"contract {tid} missing contract detail fields: {missing_contract}",
+                        task_id=tid,
+                    )
+                )
 
     return issues
 
@@ -82,8 +86,9 @@ def check_dependency_cycles(plan: Plan) -> List[SafetyIssue]:
     """Detect cycles in task dependency graph."""
     issues = []
     adj: Dict[str, List[str]] = {}
+
     def _as_dict(c):
-        return c if isinstance(c, dict) else c._raw if hasattr(c, '_raw') else {}
+        return c if isinstance(c, dict) else c._raw if hasattr(c, "_raw") else {}
 
     for c in plan.contracts:
         c = _as_dict(c)
@@ -102,13 +107,15 @@ def check_dependency_cycles(plan: Plan) -> List[SafetyIssue]:
                 if _dfs(dep):
                     return True
             elif dep in rec_stack:
-                issues.append(SafetyIssue(
-                    issue_type="dependency_cycle",
-                    severity="error",
-                    message=f"dependency cycle detected involving {node} -> {dep}",
-                    task_id=node,
-                    details={"cycle_node": dep},
-                ))
+                issues.append(
+                    SafetyIssue(
+                        issue_type="dependency_cycle",
+                        severity="error",
+                        message=f"dependency cycle detected involving {node} -> {dep}",
+                        task_id=node,
+                        details={"cycle_node": dep},
+                    )
+                )
                 return True
         rec_stack.discard(node)
         return False
@@ -123,23 +130,25 @@ def check_dependency_cycles(plan: Plan) -> List[SafetyIssue]:
 def check_resource_adequacy(plan: Plan, limits: ResourceLimits) -> List[SafetyIssue]:
     """Check that plan-level resource demands don't exceed limits."""
     issues = []
+
     def _as_dict(c):
-        return c if isinstance(c, dict) else c._raw if hasattr(c, '_raw') else {}
+        return c if isinstance(c, dict) else c._raw if hasattr(c, "_raw") else {}
 
     total_attempts = sum(
-        cc.get("contract", {}).get("worker", {}).get("max_attempts", 1)
-        if isinstance(cc.get("contract"), dict) else 1
+        cc.get("contract", {}).get("worker", {}).get("max_attempts", 1) if isinstance(cc.get("contract"), dict) else 1
         for cc in (_as_dict(c) for c in plan.contracts)
     )
-    total_tasks = len(plan.contracts)
+    len(plan.contracts)
 
     if total_attempts > limits.max_attempts_global:
-        issues.append(SafetyIssue(
-            issue_type="resource_exceeded",
-            severity="warning",
-            message=f"total max attempts ({total_attempts}) exceed global limit ({limits.max_attempts_global})",
-            details={"total_attempts": total_attempts, "limit": limits.max_attempts_global},
-        ))
+        issues.append(
+            SafetyIssue(
+                issue_type="resource_exceeded",
+                severity="warning",
+                message=f"total max attempts ({total_attempts}) exceed global limit ({limits.max_attempts_global})",
+                details={"total_attempts": total_attempts, "limit": limits.max_attempts_global},
+            )
+        )
 
     return issues
 
@@ -148,11 +157,13 @@ def check_workspace_health(workspace_root: str) -> List[SafetyIssue]:
     """Verify workspace directories exist and are writable."""
     issues = []
     if not os.path.isdir(workspace_root):
-        issues.append(SafetyIssue(
-            issue_type="workspace_missing",
-            severity="error",
-            message=f"workspace root does not exist: {workspace_root}",
-        ))
+        issues.append(
+            SafetyIssue(
+                issue_type="workspace_missing",
+                severity="error",
+                message=f"workspace root does not exist: {workspace_root}",
+            )
+        )
         return issues
 
     test_path = os.path.join(workspace_root, ".safety_test")
@@ -161,12 +172,14 @@ def check_workspace_health(workspace_root: str) -> List[SafetyIssue]:
             f.write("ok")
         os.remove(test_path)
     except OSError as e:
-        issues.append(SafetyIssue(
-            issue_type="workspace_not_writable",
-            severity="error",
-            message=f"workspace root not writable: {e}",
-            details={"error": str(e)},
-        ))
+        issues.append(
+            SafetyIssue(
+                issue_type="workspace_not_writable",
+                severity="error",
+                message=f"workspace root not writable: {e}",
+                details={"error": str(e)},
+            )
+        )
 
     return issues
 
@@ -223,11 +236,13 @@ def run_safety_checks(
             if result:
                 failed += 1
         except Exception as e:
-            issues.append(SafetyIssue(
-                issue_type="check_crashed",
-                severity="error",
-                message=f"safety check '{name}' crashed: {type(e).__name__}: {e}",
-            ))
+            issues.append(
+                SafetyIssue(
+                    issue_type="check_crashed",
+                    severity="error",
+                    message=f"safety check '{name}' crashed: {type(e).__name__}: {e}",
+                )
+            )
             failed += 1
 
     critical = any(i.severity == "error" for i in issues)

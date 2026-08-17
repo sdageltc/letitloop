@@ -4,8 +4,10 @@ import copy
 import json
 import os
 import tempfile
+
 import pytest
-from orchestrator.contract import validate_contract, load_contract, check_path_allowed, validate_contract_against_plan
+
+from orchestrator.contract import check_path_allowed, load_contract, validate_contract, validate_contract_against_plan
 
 pytestmark = pytest.mark.fast
 
@@ -14,32 +16,14 @@ VALID_CONTRACT = {
     "title": "Test contract",
     "status": "drafted",
     "risk_tier": "auto",
-    "workspace_scope": {
-        "allow": ["scratch/test/"],
-        "deny": ["AGENTS.md"]
-    },
+    "workspace_scope": {"allow": ["scratch/test/"], "deny": ["AGENTS.md"]},
     "objective": "Create a test file",
-    "worker": {
-        "model": "openai:gpt-4o-mini",
-        "max_attempts": 3
-    },
+    "worker": {"model": "openai:gpt-4o-mini", "max_attempts": 3},
     "inputs": [],
-    "outputs": [
-        {"path": "scratch/test/output.txt"}
-    ],
-    "acceptance_checks": [
-        {
-            "id": "check1",
-            "kind": "command",
-            "command": "python --version",
-            "expected": 0
-        }
-    ],
-    "qc": {
-        "required": False,
-        "lens": "code_correctness"
-    },
-    "next_action": "preflight"
+    "outputs": [{"path": "scratch/test/output.txt"}],
+    "acceptance_checks": [{"id": "check1", "kind": "command", "command": "python --version", "expected": 0}],
+    "qc": {"required": False, "lens": "code_correctness"},
+    "next_action": "preflight",
 }
 
 
@@ -71,6 +55,7 @@ def test_unknown_top_level_key_still_rejected():
 
 def test_contract_exposes_quality_plan():
     from orchestrator.contract import Contract
+
     raw = copy.deepcopy(VALID_CONTRACT)
     raw["quality_plan"] = {"mode": "panel"}
     contract = Contract(raw)
@@ -79,12 +64,23 @@ def test_contract_exposes_quality_plan():
 
 def test_contract_quality_plan_none_by_default():
     from orchestrator.contract import Contract
+
     contract = Contract(copy.deepcopy(VALID_CONTRACT))
     assert contract.quality_plan is None
 
 
 def test_missing_required_field():
-    for field in ["task_id", "title", "status", "risk_tier", "objective", "worker", "outputs", "acceptance_checks", "qc"]:
+    for field in [
+        "task_id",
+        "title",
+        "status",
+        "risk_tier",
+        "objective",
+        "worker",
+        "outputs",
+        "acceptance_checks",
+        "qc",
+    ]:
         raw = copy.deepcopy(VALID_CONTRACT)
         del raw[field]
         errors = validate_contract(raw, workspace_root="/tmp")
@@ -206,26 +202,17 @@ def test_output_in_deny_list():
 
 class TestCheckPathAllowed:
     def test_allowed_path_ok(self):
-        ok, err = check_path_allowed("scratch/test/foo.txt",
-                                     ["scratch/test/"],
-                                     [],
-                                     "/workspace")
+        ok, err = check_path_allowed("scratch/test/foo.txt", ["scratch/test/"], [], "/workspace")
         assert ok
         assert err is None
 
     def test_path_outside_allow(self):
-        ok, err = check_path_allowed("other/foo.txt",
-                                     ["scratch/test/"],
-                                     [],
-                                     "/workspace")
+        ok, err = check_path_allowed("other/foo.txt", ["scratch/test/"], [], "/workspace")
         assert not ok
         assert "not in allow-list" in err
 
     def test_path_in_deny(self):
-        ok, err = check_path_allowed("scratch/test/bar.txt",
-                                     ["scratch/test/"],
-                                     ["scratch/test/bar.txt"],
-                                     "/workspace")
+        ok, err = check_path_allowed("scratch/test/bar.txt", ["scratch/test/"], ["scratch/test/bar.txt"], "/workspace")
         assert not ok
         assert "deny-list" in err
 

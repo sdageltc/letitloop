@@ -1,11 +1,11 @@
 """Tests for impossibility theorem artifacts."""
 
-import os
 import json
-import pytest
+import os
+
 from orchestrator import impossibility as imp
-from orchestrator.state import State
 from orchestrator.contract import Contract
+from orchestrator.state import State
 
 
 def _make_contract(task_id="imp-test-task"):
@@ -32,8 +32,10 @@ def test_build_artifact_contains_required_fields():
     state.data["last_failure_class"] = "timeout"
 
     art = imp.build_artifact(
-        goal_id="test-goal", task_id="imp-test-task",
-        contract=contract, state=state,
+        goal_id="test-goal",
+        task_id="imp-test-task",
+        contract=contract,
+        state=state,
         failure_class="timeout",
     )
     assert art["artifact_type"] == "impossibility_theorem"
@@ -52,8 +54,10 @@ def test_write_artifact_creates_files(tmp_path):
     state.add_worker_result({"exit_code": 1, "stdout": "", "stderr": "fail"})
 
     json_path, md_path = imp.write_impossibility(
-        contract=contract, state=state,
-        goal_id="test-goal", workspace_root=str(tmp_path),
+        contract=contract,
+        state=state,
+        goal_id="test-goal",
+        workspace_root=str(tmp_path),
         failure_class="worker_nonzero_exit",
     )
 
@@ -73,8 +77,10 @@ def test_artifact_contains_evidence_paths(tmp_path):
     state.add_evidence("verification", str(tmp_path / "verify.json"))
 
     art = imp.build_artifact(
-        goal_id="test-goal", task_id="imp-test-task",
-        contract=contract, state=state,
+        goal_id="test-goal",
+        task_id="imp-test-task",
+        contract=contract,
+        state=state,
     )
     assert "preflight" in art["evidence_paths"]
     assert "verification" in art["evidence_paths"]
@@ -87,8 +93,10 @@ def test_artifact_includes_rejected_approaches():
     state.record_approach("try method B")
 
     art = imp.build_artifact(
-        goal_id="test-goal", task_id="imp-test-task",
-        contract=contract, state=state,
+        goal_id="test-goal",
+        task_id="imp-test-task",
+        contract=contract,
+        state=state,
     )
     assert "try method A" in art["rejected_approaches"]
     assert "try method B" in art["rejected_approaches"]

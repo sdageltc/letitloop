@@ -16,20 +16,15 @@ import json
 import math
 import os
 import re
-import shutil
-import sys
-import tempfile
-import threading
 import time
-import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from .component_slicer import ComponentSlice, slice_components
-from .llm import call_llm, LLMError
+from .llm import LLMError, call_llm
+from .models import ModelRegistry
 from .provider_scheduler import CallSpec, ProviderScheduler
 from .qc_review import _build_qc_prompt, _redact_secrets, _select_qc_model, run_qc_review
 from .quality_plan import (
-    MODE_ARBITRATION_ONLY,
     MODE_COMPONENT_PANEL,
     MODE_PANEL,
     MODE_SINGLE,
@@ -38,19 +33,18 @@ from .quality_plan import (
     ReviewerRole,
     validate_quality_plan,
 )
-from .models import ModelRegistry
 from .review_artifact import (
+    VERDICT_CONDITIONAL_PASS,
+    VERDICT_ERROR,
+    VERDICT_INSUFFICIENT_EVIDENCE,
+    VERDICT_PASS,
+    VERDICT_REJECT,
     ArbitrationVerdict,
     EvidenceRead,
     QualityPlaneVerdict,
     ReviewArtifact,
     ReviewIssue,
     synthesize_artifacts,
-    VERDICT_CONDITIONAL_PASS,
-    VERDICT_ERROR,
-    VERDICT_INSUFFICIENT_EVIDENCE,
-    VERDICT_PASS,
-    VERDICT_REJECT,
 )
 
 MIN_REVIEWER_TIMEOUT_SEC = 15
@@ -66,6 +60,7 @@ def _norm_path(path: str) -> str:
     if re.match(r"^[A-Za-z]:", normalized):
         return normalized[0].lower() + normalized[1:]
     return normalized
+
 
 _REVIEWER_HOOK: Optional[Callable] = None
 
@@ -92,13 +87,10 @@ def _invoke_reviewer(
         hook = _REVIEWER_HOOK
         try:
             import inspect
+
             signature = inspect.signature(hook)
-            accepts_timeout = (
-                "timeout_sec" in signature.parameters
-                or any(
-                    parameter.kind == inspect.Parameter.VAR_KEYWORD
-                    for parameter in signature.parameters.values()
-                )
+            accepts_timeout = "timeout_sec" in signature.parameters or any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()
             )
         except (TypeError, ValueError):
             accepts_timeout = False
@@ -120,8 +112,7 @@ def _invoke_reviewer(
             "[MASTER_CONTEXT]\n"
             "[CONTEXT_COMPLETE]\n"
             "The following payload is the complete review context. Do not read "
-            "additional files to reconstruct missing context.\n\n"
-            + prompt
+            "additional files to reconstruct missing context.\n\n" + prompt
         )
 
     try:
@@ -159,7 +150,8 @@ def _fake_raw_response(fake_mode: str, prompt: str = "") -> dict:
         return {"status": "PASS", "score": 0.95, "issues": [], "files_reviewed": paths}
     if fake_mode == "REJECT":
         return {
-            "status": "REJECT", "score": 0.4,
+            "status": "REJECT",
+            "score": 0.4,
             # CRITICAL maps to P0 so synthesis yields a true REJECT,
             # matching the legacy FAKE_QC=REJECT semantics.
             "issues": [{"severity": "CRITICAL", "description": "intentional test rejection"}],
@@ -174,7 +166,9 @@ def _fake_raw_response(fake_mode: str, prompt: str = "") -> dict:
 def _extract_prompt_paths(prompt: str) -> List[str]:
     """Extract file paths embedded as ``--- <path> (N bytes) ---`` markers."""
     paths = []
-    for m in re.finditer(r"^--- (.+?)(?: ---)? \((?:read error: .*|file not found|\d+ bytes)\)(?: ---)?$", prompt, re.MULTILINE):
+    for m in re.finditer(
+        r"^--- (.+?)(?: ---)? \((?:read error: .*|file not found|\d+ bytes)\)(?: ---)?$", prompt, re.MULTILINE
+    ):
         p = m.group(1).strip()
         if p and p not in paths:
             paths.append(p)
@@ -182,6 +176,7 @@ def _extract_prompt_paths(prompt: str) -> List[str]:
 
 
 # ── Persona prompt building ───────────────────────────────────────────────
+
 
 def _build_persona_prompt(base_prompt: str, role: ReviewerRole) -> str:
     """Append persona-specific instructions to a base review prompt."""
@@ -194,22 +189,24 @@ def _build_persona_prompt(base_prompt: str, role: ReviewerRole) -> str:
     if role.focus:
         parts.append(f"Specific concerns: {', '.join(role.focus)}")
     parts.append("")
-    parts.extend([
-        "=== EVIDENCE REQUIREMENTS ===",
-        "Every implementation or verification claim MUST include all of:",
-        "1. repository-relative file path;",
-        "2. function or class name;",
-        "3. exact line range;",
-        "4. a quoted code excerpt from that line range;",
-        "5. evidence type: implementation, verification, or observation.",
-        "Filename-only, keyword-only, and source-file-present claims are invalid "
-        "and cannot support an implementation or verification conclusion.",
-        "Use this evidence shape when reporting an issue:",
-        '{"path":"orchestrator/example.py","symbol":"run_task",'
-        '"line_range":"120-136","excerpt":"...exact source text...",'
-        '"type":"implementation"}',
-        "",
-    ])
+    parts.extend(
+        [
+            "=== EVIDENCE REQUIREMENTS ===",
+            "Every implementation or verification claim MUST include all of:",
+            "1. repository-relative file path;",
+            "2. function or class name;",
+            "3. exact line range;",
+            "4. a quoted code excerpt from that line range;",
+            "5. evidence type: implementation, verification, or observation.",
+            "Filename-only, keyword-only, and source-file-present claims are invalid "
+            "and cannot support an implementation or verification conclusion.",
+            "Use this evidence shape when reporting an issue:",
+            '{"path":"orchestrator/example.py","symbol":"run_task",'
+            '"line_range":"120-136","excerpt":"...exact source text...",'
+            '"type":"implementation"}',
+            "",
+        ]
+    )
     # NEW-5: the base prompt was redacted by _build_qc_prompt, but the
     # persona section (desc/focus) is appended AFTER — a secret in a
     # configured persona would leak. Redact the complete joined prompt.
@@ -217,6 +214,7 @@ def _build_persona_prompt(base_prompt: str, role: ReviewerRole) -> str:
 
 
 # ── Component review dispatch ─────────────────────────────────────────────
+
 
 def _error_artifact(
     reviewer_id: str,
@@ -247,19 +245,8 @@ def _normalize_issue_evidence(value: Any) -> str:
         return str(value) if value is not None else ""
 
     path = value.get("path") or value.get("file") or ""
-    symbol = (
-        value.get("symbol")
-        or value.get("function")
-        or value.get("class")
-        or value.get("function_or_class")
-        or ""
-    )
-    line_range = (
-        value.get("line_range")
-        or value.get("lines")
-        or value.get("line")
-        or ""
-    )
+    symbol = value.get("symbol") or value.get("function") or value.get("class") or value.get("function_or_class") or ""
+    line_range = value.get("line_range") or value.get("lines") or value.get("line") or ""
     excerpt = value.get("excerpt") or value.get("quote") or value.get("code") or ""
     evidence_type = value.get("type") or value.get("evidence_type") or ""
 
@@ -293,7 +280,10 @@ def _parse_reviewer_response(
     try:
         if not isinstance(raw, dict):
             return _error_artifact(
-                reviewer_id, role, model, component_id,
+                reviewer_id,
+                role,
+                model,
+                component_id,
                 "malformed reviewer response",
             )
 
@@ -307,22 +297,30 @@ def _parse_reviewer_response(
         }
         if not isinstance(status, str) or status not in valid_statuses:
             return _error_artifact(
-                reviewer_id, role, model, component_id,
+                reviewer_id,
+                role,
+                model,
+                component_id,
                 "unknown status",
             )
 
         issues_raw = raw.get("issues", [])
-        if not isinstance(issues_raw, list) or any(
-            not isinstance(issue, dict) for issue in issues_raw
-        ):
+        if not isinstance(issues_raw, list) or any(not isinstance(issue, dict) for issue in issues_raw):
             return _error_artifact(
-                reviewer_id, role, model, component_id,
+                reviewer_id,
+                role,
+                model,
+                component_id,
                 "malformed issues",
             )
 
         severity_map = {
-            "CRITICAL": "P0", "MAJOR": "P1", "MINOR": "P2",
-            "P0": "P0", "P1": "P1", "P2": "P2",
+            "CRITICAL": "P0",
+            "MAJOR": "P1",
+            "MINOR": "P2",
+            "P0": "P0",
+            "P1": "P1",
+            "P2": "P2",
         }
         issues = []
         for item in issues_raw:
@@ -332,7 +330,10 @@ def _parse_reviewer_response(
                 # response — fail closed rather than silently downgrading
                 # a potential blocker to non-blocking P3.
                 return _error_artifact(
-                    reviewer_id, role, model, component_id,
+                    reviewer_id,
+                    role,
+                    model,
+                    component_id,
                     f"unknown severity: {raw_severity!r}",
                 )
             severity = severity_map[raw_severity]
@@ -343,18 +344,20 @@ def _parse_reviewer_response(
                 line = 0
 
             claim = item.get("description") or item.get("claim") or ""
-            issues.append(ReviewIssue(
-                severity=severity,
-                path=item.get("path", "") if isinstance(item.get("path", ""), str) else "",
-                line=line,
-                claim=claim if isinstance(claim, str) else str(claim),
-                evidence=_normalize_issue_evidence(item.get("evidence", "")),
-                recommended_action=(
-                    item.get("recommended_action", "")
-                    if isinstance(item.get("recommended_action", ""), str)
-                    else ""
-                ),
-            ))
+            issues.append(
+                ReviewIssue(
+                    severity=severity,
+                    path=item.get("path", "") if isinstance(item.get("path", ""), str) else "",
+                    line=line,
+                    claim=claim if isinstance(claim, str) else str(claim),
+                    evidence=_normalize_issue_evidence(item.get("evidence", "")),
+                    recommended_action=(
+                        item.get("recommended_action", "")
+                        if isinstance(item.get("recommended_action", ""), str)
+                        else ""
+                    ),
+                )
+            )
 
         try:
             score = float(raw.get("score", 0.0))
@@ -363,38 +366,26 @@ def _parse_reviewer_response(
         if not math.isfinite(score) or score < 0.0 or score > 1.0:
             score = 0.0
 
-        evidence_read = [
-            EvidenceRead(path=f)
-            for f in (component_files or [])
-        ]
+        evidence_read = [EvidenceRead(path=f) for f in (component_files or [])]
         # F7: an issue that names a component file counts as a cited
         # evidence read; plain file inclusion stays origin="provided".
         cited_paths = {
             _norm_path(p)
             for issue in issues
-            for p in (
-                [issue.path] if issue.path else []
-            ) + ([issue.evidence] if issue.evidence else [])
+            for p in ([issue.path] if issue.path else []) + ([issue.evidence] if issue.evidence else [])
             if p
         }
         # F5: an explicit structured "files_reviewed" assertion from the
         # reviewer is also cited evidence (demonstrates engagement).
         files_reviewed = raw.get("files_reviewed", [])
         if isinstance(files_reviewed, list):
-            cited_paths.update(
-                _norm_path(p)
-                for p in files_reviewed
-                if isinstance(p, str) and p.strip()
-            )
+            cited_paths.update(_norm_path(p) for p in files_reviewed if isinstance(p, str) and p.strip())
         for er in evidence_read:
             base = _norm_path(er.path)
             # N5/F-NEW-1: "*" is not a file and substring matches are not
             # evidence. A citation counts only when it is an exact path or
             # an exact basename of a real component file.
-            if any(
-                cite == base or base.endswith("/" + cite)
-                for cite in cited_paths
-            ):
+            if any(cite == base or base.endswith("/" + cite) for cite in cited_paths):
                 er.origin = "cited"
         # 0.9 QC evidence gate: PASS requires at least one cited evidence read
         if status == VERDICT_PASS:
@@ -417,7 +408,10 @@ def _parse_reviewer_response(
         )
     except Exception:
         return _error_artifact(
-            reviewer_id, role, model, component_id,
+            reviewer_id,
+            role,
+            model,
+            component_id,
             "normalization failure",
         )
 
@@ -478,7 +472,7 @@ def _run_component_reviews(
     different persona from the quality_plan's reviewer list.
     Phase 7: uses ProviderScheduler to respect per-provider concurrency.
     """
-    quality_spec = getattr(contract, 'quality_spec', {})
+    quality_spec = getattr(contract, "quality_spec", {})
 
     reviewers = list(quality_plan.reviewers) if quality_plan.reviewers else [ReviewerRole("reviewer")]
     max_per_component = max(quality_plan.budget.max_reviewers_per_component, 1)
@@ -496,22 +490,21 @@ def _run_component_reviews(
             quality_spec=quality_spec,
         )
         if getattr(component, "description", ""):
-            base_prompt = base_prompt + (
-                "\n=== COMPONENT DESCRIPTION ===\n"
-                f"{component.description}\n"
-            )
+            base_prompt = base_prompt + (f"\n=== COMPONENT DESCRIPTION ===\n{component.description}\n")
         for role in active_reviewers:
             persona_prompt = _build_persona_prompt(base_prompt, role)
             call_id = f"comp_{i}_{role.role}_{call_idx}"
-            all_calls.append(CallSpec(
-                call_id=call_id,
-                prompt=persona_prompt,
-                model=_resolve_reviewer_model(role),
-                reviewer_id=f"component_{i}_{role.role}",
-                role=role.role,
-                component_id=component.id,
-                component_files=component.files,
-            ))
+            all_calls.append(
+                CallSpec(
+                    call_id=call_id,
+                    prompt=persona_prompt,
+                    model=_resolve_reviewer_model(role),
+                    reviewer_id=f"component_{i}_{role.role}",
+                    role=role.role,
+                    component_id=component.id,
+                    component_files=component.files,
+                )
+            )
             call_map[call_id] = (i, role, component, persona_prompt)
             call_idx += 1
 
@@ -535,10 +528,7 @@ def _run_component_reviews(
         return min(120, max(MIN_REVIEWER_TIMEOUT_SEC, int(deadline - time.monotonic())))
 
     def _invoke_one(spec: CallSpec) -> ReviewArtifact:
-        if (
-            deadline is not None
-            and (deadline - time.monotonic()) < MIN_REVIEWER_TIMEOUT_SEC
-        ):
+        if deadline is not None and (deadline - time.monotonic()) < MIN_REVIEWER_TIMEOUT_SEC:
             return _error_artifact(
                 spec.reviewer_id,
                 spec.role,
@@ -548,7 +538,9 @@ def _run_component_reviews(
             )
         try:
             raw = _invoke_reviewer(
-                spec.prompt, spec.model, workspace_root,
+                spec.prompt,
+                spec.model,
+                workspace_root,
                 timeout_sec=_timeout_for_spec(),
             )
             return _raw_to_artifact(
@@ -627,7 +619,10 @@ def _component_verdict_to_qp_verdict(
                 arbitration_skip_reason = "wall-clock deadline exhausted"
             else:
                 arbitration_result = _run_arbitration(
-                    artifacts, synthesis, quality_plan.arbitration, workspace_root,
+                    artifacts,
+                    synthesis,
+                    quality_plan.arbitration,
+                    workspace_root,
                     deadline=deadline,
                 )
             # A failed reviewer call (ERROR artifact) is never curable by
@@ -644,9 +639,7 @@ def _component_verdict_to_qp_verdict(
                 # synthesis state (INSUFFICIENT_EVIDENCE, CONDITIONAL_PASS) to
                 # PASS — it only resolves an actual P0-based rejection.
                 if not has_error and synthesis.status == VERDICT_REJECT and synthesis.p0_blockers:
-                    blocker_claims = [
-                        b.claim for b in synthesis.p0_blockers if b.claim
-                    ]
+                    blocker_claims = [b.claim for b in synthesis.p0_blockers if b.claim]
                     winning_claims = arbitration_result.winning_claims or []
                     # Claim-scoped containment (N4): an arbiter PASS may only
                     # clear P0 blockers whose claims it explicitly addresses in
@@ -665,9 +658,7 @@ def _component_verdict_to_qp_verdict(
                         # N4: only components whose artifacts contributed a
                         # covered claim are resolved by the arbiter PASS;
                         # unrelated components keep their own verdicts.
-                        winning_lower = [
-                            w.lower() for w in winning_claims if isinstance(w, str)
-                        ]
+                        winning_lower = [w.lower() for w in winning_claims if isinstance(w, str)]
                         for a in artifacts:
                             if not a.component_id or a.verdict == VERDICT_PASS:
                                 continue
@@ -680,18 +671,16 @@ def _component_verdict_to_qp_verdict(
                                 resolved_component_ids.add(a.component_id)
                     elif synthesis.p0_blockers:
                         synthesis.status = VERDICT_REJECT
-            elif (
-                arbitration_result.status == VERDICT_REJECT
-                and synthesis.status not in (VERDICT_REJECT, VERDICT_ERROR)
+            elif arbitration_result.status == VERDICT_REJECT and synthesis.status not in (
+                VERDICT_REJECT,
+                VERDICT_ERROR,
             ):
                 synthesis.status = VERDICT_REJECT
                 # N4: the arbiter REJECT resolves the disputed components
                 # (any component with a non-PASS artifact); components that
                 # passed cleanly keep their own verdicts.
                 resolved_component_ids = {
-                    a.component_id
-                    for a in artifacts
-                    if a.component_id and a.verdict != VERDICT_PASS
+                    a.component_id for a in artifacts if a.component_id and a.verdict != VERDICT_PASS
                 }
         else:
             arbitration_skipped = True
@@ -728,9 +717,7 @@ def _component_verdict_to_qp_verdict(
                 # components whose claims the arbiter resolved receive the
                 # global synthesis status; unrelated components keep their
                 # own worst-case verdict (component-level truth preserved).
-                "status": synthesis.status
-                if (arbitration_result and c.id in resolved_component_ids)
-                else raw_worst,
+                "status": synthesis.status if (arbitration_result and c.id in resolved_component_ids) else raw_worst,
                 "raw_status": raw_worst,
                 "score": round(avg_score, 4),
                 "issues": all_issues,
@@ -786,9 +773,10 @@ def _synthesis_reason(status: str, passed: bool, p0_blockers: list, p1_fixes: li
 
 # ── Model policy resolution ──────────────────────────────────────────────
 
+
 def _resolve_reviewer_model(role) -> str:
     """Map a ReviewerRole's model_policy to a concrete model ID."""
-    policy = role.model_policy if hasattr(role, 'model_policy') else "default"
+    policy = role.model_policy if hasattr(role, "model_policy") else "default"
     mapping = {
         "default": ModelRegistry.default_qc(),
         "premium": ModelRegistry.OPUS,
@@ -800,7 +788,7 @@ def _resolve_reviewer_model(role) -> str:
 
 def _resolve_arbitration_model(arb_policy) -> str:
     """Map ArbitrationPolicy.model_policy to a concrete model ID."""
-    policy = arb_policy.model_policy if hasattr(arb_policy, 'model_policy') else "default"
+    policy = arb_policy.model_policy if hasattr(arb_policy, "model_policy") else "default"
     mapping = {
         "default": ModelRegistry.default_qc(),
         "premium": ModelRegistry.OPUS,
@@ -811,6 +799,7 @@ def _resolve_arbitration_model(arb_policy) -> str:
 
 
 # ── Arbitration ─────────────────────────────────────────────────────────────
+
 
 def _should_arbitrate(
     artifacts: List[ReviewArtifact],
@@ -861,7 +850,7 @@ def _build_arbitration_prompt(
     ]
 
     for i, a in enumerate(artifacts):
-        lines.append(f"\n--- Reviewer {i+1}: {a.role} (confidence={a.confidence}) ---")
+        lines.append(f"\n--- Reviewer {i + 1}: {a.role} (confidence={a.confidence}) ---")
         lines.append(f"  Verdict: {a.verdict}")
         for issue in a.issues:
             lines.append(f"  [{issue.severity}] {issue.claim} (evidence: {issue.evidence or 'none'})")
@@ -951,6 +940,7 @@ def _raw_to_arbitration_verdict(raw: dict) -> ArbitrationVerdict:
 
 # ── Public API ────────────────────────────────────────────────────────────
 
+
 def _apply_quality_spec_gates(verdict, quality_spec):
     """Enforce deterministic quality_spec gates on a legacy-path verdict.
 
@@ -966,10 +956,15 @@ def _apply_quality_spec_gates(verdict, quality_spec):
     hard = quality_spec.get("hard_failures") or []
     if isinstance(hard, list):
         for hf in hard:
-            if isinstance(hf, str) and hf and any(
-                hf.lower() in str(i.get("description") or i.get("claim") or "").lower()
-                or hf.lower() in str(i.get("path") or "").lower()
-                for i in issues if isinstance(i, dict)
+            if (
+                isinstance(hf, str)
+                and hf
+                and any(
+                    hf.lower() in str(i.get("description") or i.get("claim") or "").lower()
+                    or hf.lower() in str(i.get("path") or "").lower()
+                    for i in issues
+                    if isinstance(i, dict)
+                )
             ):
                 verdict.passed = False
                 verdict.status = VERDICT_REJECT
@@ -1006,7 +1001,7 @@ def run_quality_plane(
     output_paths: List[str],
     verification_results: List[Dict[str, Any]],
     workspace_root: str,
-    quality_plan = None,
+    quality_plan=None,
 ) -> QualityPlaneVerdict:
     """Evaluate output quality. Gateway for all quality review paths.
 
@@ -1059,11 +1054,19 @@ def run_quality_plane(
 
     if qp is not None and qp.mode == MODE_COMPONENT_PANEL:
         verdict = _run_component_quality_plane(
-            contract, output_paths, verification_results, workspace_root, qp,
+            contract,
+            output_paths,
+            verification_results,
+            workspace_root,
+            qp,
         )
     elif qp is not None and qp.mode == MODE_PANEL:
         verdict = _run_panel_quality_plane(
-            contract, output_paths, verification_results, workspace_root, qp,
+            contract,
+            output_paths,
+            verification_results,
+            workspace_root,
+            qp,
         )
     elif qp is not None and qp.mode != MODE_SINGLE:
         # Any other non-None mode is an unsupported configuration error:
@@ -1078,7 +1081,7 @@ def run_quality_plane(
         # Legacy path (SINGLE or no plan)
         qc_result = run_qc_review(contract, output_paths, verification_results, workspace_root)
         qc_model = _select_qc_model(contract)
-        worker_model = contract.worker.get("model", "unknown") if hasattr(contract, 'worker') else "unknown"
+        worker_model = contract.worker.get("model", "unknown") if hasattr(contract, "worker") else "unknown"
 
         verdict = QualityPlaneVerdict.from_qc_verdict(qc_result)
         verdict.add_model_metadata(qc_model=qc_model, worker_model=worker_model)
@@ -1111,13 +1114,23 @@ def _run_panel_quality_plane(
 
     deadline = _deadline_for(quality_plan)
     artifacts = _run_component_reviews(
-        contract, [component], verification_results, workspace_root, quality_plan,
-        scheduler=scheduler, deadline=deadline,
+        contract,
+        [component],
+        verification_results,
+        workspace_root,
+        quality_plan,
+        scheduler=scheduler,
+        deadline=deadline,
     )
 
     return _component_verdict_to_qp_verdict(
-        artifacts, [component], quality_plan, workspace_root, scheduler=scheduler,
-        deadline=deadline, quality_spec=getattr(contract, "quality_spec", {}),
+        artifacts,
+        [component],
+        quality_plan,
+        workspace_root,
+        scheduler=scheduler,
+        deadline=deadline,
+        quality_spec=getattr(contract, "quality_spec", {}),
     )
 
 
@@ -1144,32 +1157,19 @@ def _validate_explicit_components(
         return [], ["max_components must be a positive integer"]
 
     if len(declared_components) > max_components:
-        return [], [
-            f"explicit component count {len(declared_components)} exceeds "
-            f"max_components {max_components}"
-        ]
+        return [], [f"explicit component count {len(declared_components)} exceeds max_components {max_components}"]
 
     canonical_workspace_root = os.path.normcase(os.path.realpath(workspace_root))
 
     def canonicalize_and_confine(path, label):
         try:
             canonical_path = os.path.normcase(os.path.realpath(path))
-            if (
-                os.path.commonpath(
-                    [canonical_path, canonical_workspace_root]
-                )
-                != canonical_workspace_root
-            ):
-                errors.append(
-                    f"{label} outside workspace root: {path!r}"
-                )
+            if os.path.commonpath([canonical_path, canonical_workspace_root]) != canonical_workspace_root:
+                errors.append(f"{label} outside workspace root: {path!r}")
                 return None
             return canonical_path
         except ValueError:
-            errors.append(
-                f"{label} cannot compare with workspace root "
-                f"(different drives or invalid path): {path!r}"
-            )
+            errors.append(f"{label} cannot compare with workspace root (different drives or invalid path): {path!r}")
             return None
 
     canonical_outputs = {}
@@ -1181,10 +1181,7 @@ def _validate_explicit_components(
         if canonical_output is None:
             continue
         if canonical_output in canonical_outputs:
-            errors.append(
-                f"duplicate declared output after canonicalization: "
-                f"{output_path!r}"
-            )
+            errors.append(f"duplicate declared output after canonicalization: {output_path!r}")
             continue
         canonical_outputs[canonical_output] = output_path
 
@@ -1213,29 +1210,21 @@ def _validate_explicit_components(
         seen_component_ids.add(component_id)
 
         if not isinstance(files, list) or not files:
-            errors.append(
-                f"component {component_id!r} must declare a non-empty files list"
-            )
+            errors.append(f"component {component_id!r} must declare a non-empty files list")
             continue
         if not isinstance(description, str):
-            errors.append(
-                f"component {component_id!r} description must be a string"
-            )
+            errors.append(f"component {component_id!r} description must be a string")
             continue
 
         slice_files = []
         component_seen = set()
         for declared_file in files:
             if not isinstance(declared_file, str) or not declared_file:
-                errors.append(
-                    f"component {component_id!r} contains an invalid file path"
-                )
+                errors.append(f"component {component_id!r} contains an invalid file path")
                 continue
 
             resolved_file = (
-                declared_file
-                if os.path.isabs(declared_file)
-                else os.path.join(workspace_root, declared_file)
+                declared_file if os.path.isabs(declared_file) else os.path.join(workspace_root, declared_file)
             )
             canonical_file = canonicalize_and_confine(
                 resolved_file,
@@ -1245,17 +1234,11 @@ def _validate_explicit_components(
                 continue
 
             if canonical_file not in canonical_outputs:
-                errors.append(
-                    f"component {component_id!r} references unknown output: "
-                    f"{declared_file!r}"
-                )
+                errors.append(f"component {component_id!r} references unknown output: {declared_file!r}")
                 continue
 
             if canonical_file in component_seen:
-                errors.append(
-                    f"component {component_id!r} repeats file: "
-                    f"{declared_file!r}"
-                )
+                errors.append(f"component {component_id!r} repeats file: {declared_file!r}")
                 continue
             component_seen.add(canonical_file)
 
@@ -1282,15 +1265,10 @@ def _validate_explicit_components(
             errors.append(f"component {component_id!r} is empty")
 
     missing_outputs = [
-        output_path
-        for canonical_output, output_path in canonical_outputs.items()
-        if canonical_output not in seen_files
+        output_path for canonical_output, output_path in canonical_outputs.items() if canonical_output not in seen_files
     ]
     if missing_outputs:
-        errors.append(
-            "explicit components omit outputs: "
-            + ", ".join(repr(path) for path in missing_outputs)
-        )
+        errors.append("explicit components omit outputs: " + ", ".join(repr(path) for path in missing_outputs))
 
     if errors:
         return [], errors
@@ -1338,11 +1316,21 @@ def _run_component_quality_plane(
 
     deadline = _deadline_for(quality_plan)
     artifacts = _run_component_reviews(
-        contract, components, verification_results, workspace_root, quality_plan,
-        scheduler=scheduler, deadline=deadline,
+        contract,
+        components,
+        verification_results,
+        workspace_root,
+        quality_plan,
+        scheduler=scheduler,
+        deadline=deadline,
     )
 
     return _component_verdict_to_qp_verdict(
-        artifacts, components, quality_plan, workspace_root, scheduler=scheduler,
-        deadline=deadline, quality_spec=getattr(contract, "quality_spec", {}),
+        artifacts,
+        components,
+        quality_plan,
+        workspace_root,
+        scheduler=scheduler,
+        deadline=deadline,
+        quality_spec=getattr(contract, "quality_spec", {}),
     )

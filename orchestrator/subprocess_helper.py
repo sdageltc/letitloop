@@ -2,16 +2,22 @@
 
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from typing import Optional, Tuple
 
 
 class BoundedSubprocessResult:
-    def __init__(self, success: bool, stdout: str = "", stderr: str = "",
-                 exit_code: int = -1, elapsed_sec: float = 0.0,
-                 timed_out: bool = False, error: str = ""):
+    def __init__(
+        self,
+        success: bool,
+        stdout: str = "",
+        stderr: str = "",
+        exit_code: int = -1,
+        elapsed_sec: float = 0.0,
+        timed_out: bool = False,
+        error: str = "",
+    ):
         self.success = success
         self.stdout = stdout
         self.stderr = stderr
@@ -68,7 +74,8 @@ def run_bounded_subprocess(
     except subprocess.TimeoutExpired:
         elapsed = time.time() - start
         return BoundedSubprocessResult(
-            success=False, timed_out=True,
+            success=False,
+            timed_out=True,
             stderr=f"subprocess timed out after {timeout_sec}s",
             elapsed_sec=elapsed,
             error="timeout",
@@ -76,7 +83,9 @@ def run_bounded_subprocess(
     except OSError as e:
         elapsed = time.time() - start
         return BoundedSubprocessResult(
-            success=False, stderr=str(e), elapsed_sec=elapsed,
+            success=False,
+            stderr=str(e),
+            elapsed_sec=elapsed,
             error=f"oserror: {e}",
         )
 
@@ -87,12 +96,7 @@ def write_temp_prompt(content: str, prefix: str = "prompt") -> Tuple[str, str]:
     Caller MUST remove the file in a finally block (e.g. via safe_temp_remove).
     """
     tmp = tempfile.NamedTemporaryFile(
-        mode="w",
-        prefix=f"{prefix}_",
-        suffix=".txt",
-        delete=False,
-        encoding="utf-8",
-        dir=tempfile.gettempdir()
+        mode="w", prefix=f"{prefix}_", suffix=".txt", delete=False, encoding="utf-8", dir=tempfile.gettempdir()
     )
     if hasattr(os, "chmod"):
         try:

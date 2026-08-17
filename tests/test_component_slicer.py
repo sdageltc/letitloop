@@ -3,13 +3,12 @@
 import os
 import tempfile
 
-import pytest
 from orchestrator.component_slicer import (
     ComponentSlice,
-    slice_components,
-    merge_component_results,
-    _group_key,
     _describe_component,
+    _group_key,
+    merge_component_results,
+    slice_components,
 )
 
 
@@ -82,7 +81,8 @@ class TestSliceComponents:
 
     def test_merges_smallest_groups_when_over_limit(self):
         paths = [
-            "a/1.py", "a/2.py",
+            "a/1.py",
+            "a/2.py",
             "b/1.py",
             "c/1.py",
             "d/1.py",
@@ -107,7 +107,7 @@ class TestSliceComponents:
     def test_root_files_grouped_by_extension(self):
         paths = ["main.py", "utils.py", "main.rs", "Makefile"]
         slices = slice_components(paths, max_components=5)
-        py_comp = [s for s in slices if s.id == "component_0" or any("main.py" in f for f in s.files)]
+        [s for s in slices if s.id == "component_0" or any("main.py" in f for f in s.files)]
         assert any(s for s in slices if any(f.endswith(".py") for f in s.files))
 
     def test_mixed_dirs_and_root_files(self):
@@ -195,6 +195,7 @@ class TestMergeComponentResults:
         merged = merge_component_results([c1, c2])
         assert merged == ["a.py"]
 
+
 class TestGroupKeyAbsolutePaths:
     def test_drive_letter_stripped(self):
         assert _group_key("C:/workspace/project/src/file.py") == "workspace"
@@ -239,7 +240,6 @@ class TestGroupKeyAbsolutePaths:
 
 class TestValidateExplicitComponents:
     def test_explicit_components_reject_declared_path_outside_workspace(self, tmp_path):
-        import os as _os
         from orchestrator.quality_plane import _validate_explicit_components
 
         workspace = tmp_path / "workspace"
@@ -266,10 +266,7 @@ class TestValidateExplicitComponents:
         assert components == []
         assert any("outside workspace root" in error for error in errors)
 
-    def test_explicit_components_reject_output_outside_workspace_even_if_declared(
-        self, tmp_path
-    ):
-        import os as _os
+    def test_explicit_components_reject_output_outside_workspace_even_if_declared(self, tmp_path):
         from orchestrator.quality_plane import _validate_explicit_components
 
         workspace = tmp_path / "workspace"
@@ -288,10 +285,9 @@ class TestValidateExplicitComponents:
         assert components == []
         assert any("output path outside workspace root" in error for error in errors)
 
-    def test_explicit_components_fail_closed_when_commonpath_rejects_drive_mix(
-        self, tmp_path, monkeypatch
-    ):
+    def test_explicit_components_fail_closed_when_commonpath_rejects_drive_mix(self, tmp_path, monkeypatch):
         import os as _os
+
         import orchestrator.quality_plane as quality_plane
         from orchestrator.quality_plane import _validate_explicit_components
 
@@ -323,9 +319,7 @@ class TestValidateExplicitComponents:
         assert components == []
         assert any("cannot compare" in error for error in errors)
 
-    def test_explicit_components_valid_partition_preserves_ids_and_descriptions(
-        self, tmp_path
-    ):
+    def test_explicit_components_valid_partition_preserves_ids_and_descriptions(self, tmp_path):
         from orchestrator.quality_plane import _validate_explicit_components
 
         workspace = tmp_path / "workspace"

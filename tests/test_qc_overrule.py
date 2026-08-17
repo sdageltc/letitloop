@@ -30,6 +30,7 @@ def _valid_evidence(secret="correct-secret", check_id="unit", stdout="recorded v
 
 # --- verify_overrule pure function ---
 
+
 def test_verify_overrule_rejects_empty_secret():
     valid, errors = verify_overrule(
         _valid_evidence(),
@@ -114,6 +115,7 @@ def test_verify_overrule_constant_time_hash_compare():
 
 
 # --- Supervisor._qc_overrule ---
+
 
 class _Graph:
     def __init__(self):
@@ -263,9 +265,7 @@ def test_force_complete_still_works_as_break_glass(tmp_path):
     assert supervisor.graph.completed == [task_id]
 
 
-def test_qc_overrule_consumes_once_across_concurrent_callers_and_restart(
-    tmp_path, monkeypatch
-):
+def test_qc_overrule_consumes_once_across_concurrent_callers_and_restart(tmp_path, monkeypatch):
     state = _State()
     supervisor_a = _overrule_supervisor(tmp_path, state)
     supervisor_b = _overrule_supervisor(tmp_path, state)
@@ -282,9 +282,7 @@ def test_qc_overrule_consumes_once_across_concurrent_callers_and_restart(
 
     def invoke(supervisor):
         barrier.wait()
-        results.append(
-            supervisor._qc_overrule("task-1", dict(evidence), "correct-secret")
-        )
+        results.append(supervisor._qc_overrule("task-1", dict(evidence), "correct-secret"))
 
     first = threading.Thread(target=invoke, args=(supervisor_a,))
     second = threading.Thread(target=invoke, args=(supervisor_b,))
@@ -307,12 +305,7 @@ def test_qc_overrule_consumes_once_across_concurrent_callers_and_restart(
         lambda state_path, journal_dir: restarted_state,
     )
 
-    assert (
-        supervisor_after_restart._qc_overrule(
-            "task-1", dict(evidence), "correct-secret"
-        )
-        == "FAILED"
-    )
+    assert supervisor_after_restart._qc_overrule("task-1", dict(evidence), "correct-secret") == "FAILED"
     assert restarted_state.status == "QC_REJECTED"
 
 
@@ -325,7 +318,5 @@ def test_overrule_secret_file_is_created_mode_0600(tmp_path):
 
     secret_path = tmp_path / "run" / "overrule.secret"
     assert secret_path.is_file()
-    assert secret_hash == hashlib.sha256(
-        secret_path.read_text(encoding="utf-8").strip().encode("utf-8")
-    ).hexdigest()
+    assert secret_hash == hashlib.sha256(secret_path.read_text(encoding="utf-8").strip().encode("utf-8")).hexdigest()
     assert (secret_path.stat().st_mode & 0o777) == 0o600

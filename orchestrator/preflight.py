@@ -1,12 +1,10 @@
 """Preflight checks: required files, commands, output allow-list, secrets/ports."""
 
+import json
 import os
 import shlex
-import subprocess
-import json
 
-CHECK_KINDS = {"required_files", "required_commands", "output_allow_list",
-               "required_secrets", "local_ports"}
+CHECK_KINDS = {"required_files", "required_commands", "output_allow_list", "required_secrets", "local_ports"}
 
 
 def _check_required_file(path):
@@ -17,6 +15,7 @@ def _check_required_file(path):
 
 def _check_command(name):
     import shutil
+
     resolved = shutil.which(name)
     if resolved:
         return True, None
@@ -25,6 +24,7 @@ def _check_command(name):
 
 def _check_output_allowed(path, allowed_paths, denied_paths, workspace_root):
     from .contract import check_path_allowed
+
     ok, err = check_path_allowed(path, allowed_paths, denied_paths, workspace_root)
     if not ok:
         return False, err
@@ -60,12 +60,14 @@ def run_preflight(contract, workspace_root, run_dir):
             path = inp["path"]
             full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
             ok, msg = _check_required_file(full_path)
-            results.append({
-                "check_id": f"input_file:{path}",
-                "kind": "required_files",
-                "passed": ok,
-                "message": msg or f"input file exists: {path}",
-            })
+            results.append(
+                {
+                    "check_id": f"input_file:{path}",
+                    "kind": "required_files",
+                    "passed": ok,
+                    "message": msg or f"input file exists: {path}",
+                }
+            )
 
     for out in contract.outputs:
         if isinstance(out, str):
@@ -73,12 +75,14 @@ def run_preflight(contract, workspace_root, run_dir):
         if isinstance(out, dict) and "path" in out:
             path = out["path"]
             ok, msg = _check_output_allowed(path, allow, deny, workspace_root)
-            results.append({
-                "check_id": f"output_allowed:{path}",
-                "kind": "output_allow_list",
-                "passed": ok,
-                "message": msg or f"output path allowed: {path}",
-            })
+            results.append(
+                {
+                    "check_id": f"output_allowed:{path}",
+                    "kind": "output_allow_list",
+                    "passed": ok,
+                    "message": msg or f"output path allowed: {path}",
+                }
+            )
 
     for check in contract.acceptance_checks:
         if check["kind"] == "command":
@@ -86,35 +90,43 @@ def run_preflight(contract, workspace_root, run_dir):
             try:
                 cmd_parts = shlex.split(cmd_ident)
             except ValueError:
-                results.append({
-                    "check_id": f"command:{cmd_ident}",
-                    "kind": "required_commands",
-                    "passed": False,
-                    "message": f"malformed command string: {cmd_ident!r}",
-                })
+                results.append(
+                    {
+                        "check_id": f"command:{cmd_ident}",
+                        "kind": "required_commands",
+                        "passed": False,
+                        "message": f"malformed command string: {cmd_ident!r}",
+                    }
+                )
                 continue
             cmd_name = cmd_parts[0] if cmd_parts else cmd_ident
             ok, msg = _check_command(cmd_name)
-            results.append({
-                "check_id": f"command:{cmd_name}",
-                "kind": "required_commands",
-                "passed": ok,
-                "message": msg or f"command available: {cmd_name}",
-            })
+            results.append(
+                {
+                    "check_id": f"command:{cmd_name}",
+                    "kind": "required_commands",
+                    "passed": ok,
+                    "message": msg or f"command available: {cmd_name}",
+                }
+            )
 
-    results.append({
-        "check_id": "secrets",
-        "kind": "required_secrets",
-        "passed": True,
-        "message": "secret injection unsupported in Phase 1 (skipping)",
-    })
+    results.append(
+        {
+            "check_id": "secrets",
+            "kind": "required_secrets",
+            "passed": True,
+            "message": "secret injection unsupported in Phase 1 (skipping)",
+        }
+    )
 
-    results.append({
-        "check_id": "local_ports",
-        "kind": "local_ports",
-        "passed": True,
-        "message": "local port checking unsupported in Phase 1 (skipping)",
-    })
+    results.append(
+        {
+            "check_id": "local_ports",
+            "kind": "local_ports",
+            "passed": True,
+            "message": "local port checking unsupported in Phase 1 (skipping)",
+        }
+    )
 
     evidence["preflight_checks"] = results
     all_passed = all(r["passed"] for r in results)

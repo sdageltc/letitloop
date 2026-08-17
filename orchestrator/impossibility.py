@@ -1,13 +1,12 @@
 """Impossibility theorem — durable artifacts for escalated/failed tasks."""
 
-import os
 import json
+import os
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
-from .state import State
 from .contract import Contract
-
+from .state import State
 
 IMPOSSIBILITY_DIR = os.path.join("scratch", "impossibility")
 
@@ -35,8 +34,10 @@ def build_artifact(
     workspace_root: str = "",
 ) -> Dict[str, Any]:
     """Build a structured impossibility artifact dict for an escalated task."""
+
     def _as_dict(c):
-        return c if isinstance(c, dict) else c._raw if hasattr(c, '_raw') else {}
+        return c if isinstance(c, dict) else c._raw if hasattr(c, "_raw") else {}
+
     c = _as_dict(contract)
 
     return {
@@ -44,10 +45,10 @@ def build_artifact(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "goal_id": goal_id,
         "task_id": task_id,
-        "title": c.get('title', ''),
-        "objective": c.get('objective', ''),
+        "title": c.get("title", ""),
+        "objective": c.get("objective", ""),
         "failure_class": failure_class or state.data.get("last_failure_class", "unknown"),
-        "max_attempts": c.get('worker', {}).get("max_attempts", 1),
+        "max_attempts": c.get("worker", {}).get("max_attempts", 1),
         "attempts_made": state.attempt,
         "worker_runs": len(state.worker_results),
         "worker_results": [
@@ -60,10 +61,7 @@ def build_artifact(
             for r in state.worker_results
         ],
         "rejected_approaches": list(state.changed_approaches),
-        "events": [
-            {"from": e["from"], "to": e["to"], "reason": e.get("reason", "")}
-            for e in state.events
-        ],
+        "events": [{"from": e["from"], "to": e["to"], "reason": e.get("reason", "")} for e in state.events],
         "evidence_paths": dict(state.evidence),
         "last_stderr_preview": _maybe_stderr_preview(state),
         "last_stdout_preview": _maybe_last_stdout(state),

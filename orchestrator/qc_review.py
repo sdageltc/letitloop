@@ -9,10 +9,9 @@ import math
 import os
 import re
 
-from .llm import call_llm, LLMError
+from .llm import LLMError, call_llm
 from .models import ModelRegistry
 from .quality_lenses import get_lens
-
 
 QC_STATUS_PASS = "PASS"
 QC_STATUS_REJECT = "REJECT"
@@ -22,9 +21,17 @@ VALID_QC_STATUSES = {QC_STATUS_PASS, QC_STATUS_REJECT, QC_STATUS_INSUFFICIENT_EV
 
 
 class QCVerdict:
-    def __init__(self, passed: bool, reason: str, details: str = "",
-                 status: str = "", score: float = 0.0, issues: list = None,
-                 dimension_scores: dict = None, dimension_reasoning: dict = None):
+    def __init__(
+        self,
+        passed: bool,
+        reason: str,
+        details: str = "",
+        status: str = "",
+        score: float = 0.0,
+        issues: list = None,
+        dimension_scores: dict = None,
+        dimension_reasoning: dict = None,
+    ):
         self.passed = passed
         self.reason = reason
         self.details = details
@@ -78,7 +85,11 @@ def _redact_secrets(text: str) -> str:
 
 
 def _build_qc_prompt(contract, output_paths, verification_results, quality_spec=None) -> str:
-    qc_lens = contract.qc.get("lens", "code_correctness") if hasattr(contract, 'qc') and isinstance(contract.qc, dict) else "code_correctness"
+    qc_lens = (
+        contract.qc.get("lens", "code_correctness")
+        if hasattr(contract, "qc") and isinstance(contract.qc, dict)
+        else "code_correctness"
+    )
     lens = get_lens(qc_lens)
     dim_scores_json = lens.dim_scores_json()
     dim_reasoning_json = lens.dim_reasoning_json()
@@ -101,7 +112,9 @@ def _build_qc_prompt(contract, output_paths, verification_results, quality_spec=
         "=== ACCEPTANCE CRITERIA ===",
     ]
     for chk in contract.acceptance_checks:
-        lines.append(f"  - {chk.get('kind')}: {chk.get('path', chk.get('command', ''))} expected={chk.get('expected', '?')}")
+        lines.append(
+            f"  - {chk.get('kind')}: {chk.get('path', chk.get('command', ''))} expected={chk.get('expected', '?')}"
+        )
     lines.append("")
     if quality_spec:
         lines.append("=== QUALITY SPECIFICATION ===")
@@ -147,37 +160,47 @@ def _fake_qc_review(contract, output_paths, verification_results, workspace_root
 
     if fake_mode == "PASS":
         return QCVerdict(
-            passed=True, reason="fake QC PASS",
+            passed=True,
+            reason="fake QC PASS",
             details="Deterministic fake QC approval",
-            status=QC_STATUS_PASS, score=0.95,
+            status=QC_STATUS_PASS,
+            score=0.95,
             issues=[{"severity": "MINOR", "description": "cosmetic"}],
         )
     elif fake_mode == "REJECT":
         return QCVerdict(
-            passed=False, reason="fake QC REJECT",
+            passed=False,
+            reason="fake QC REJECT",
             details="Deterministic fake QC rejection for testing",
-            status=QC_STATUS_REJECT, score=0.4,
+            status=QC_STATUS_REJECT,
+            score=0.4,
             issues=[{"severity": "MAJOR", "description": "intentional test rejection"}],
         )
     elif fake_mode == "INSUFFICIENT_EVIDENCE":
         return QCVerdict(
-            passed=False, reason="fake QC INSUFFICIENT_EVIDENCE",
+            passed=False,
+            reason="fake QC INSUFFICIENT_EVIDENCE",
             details="Deterministic fake insufficient evidence for testing",
-            status=QC_STATUS_INSUFFICIENT_EVIDENCE, score=0.0,
+            status=QC_STATUS_INSUFFICIENT_EVIDENCE,
+            score=0.0,
             issues=[],
         )
     elif fake_mode == "ERROR":
         return QCVerdict(
-            passed=False, reason="fake QC ERROR",
+            passed=False,
+            reason="fake QC ERROR",
             details="Simulated provider error for testing",
-            status=QC_STATUS_ERROR, score=0.0,
+            status=QC_STATUS_ERROR,
+            score=0.0,
             issues=[{"severity": "CRITICAL", "description": "provider error"}],
         )
     elif fake_mode == "MALFORMED":
         return QCVerdict(
-            passed=False, reason="QC reviewer returned unparseable output",
+            passed=False,
+            reason="QC reviewer returned unparseable output",
             details="not a valid json response {{{broken",
-            status=QC_STATUS_ERROR, score=0.0,
+            status=QC_STATUS_ERROR,
+            score=0.0,
             issues=[],
         )
 
@@ -194,7 +217,7 @@ def run_qc_review(contract, output_paths, verification_results, workspace_root) 
     if os.environ.get("FAKE_QC", ""):
         return _fake_qc_review(contract, output_paths, verification_results, workspace_root)
 
-    quality_spec = getattr(contract, 'quality_spec', {})
+    quality_spec = getattr(contract, "quality_spec", {})
     prompt = _build_qc_prompt(contract, output_paths, verification_results, quality_spec=quality_spec)
 
     qc_model = _select_qc_model(contract)
@@ -206,11 +229,11 @@ def run_qc_review(contract, output_paths, verification_results, workspace_root) 
         return QCVerdict(False, f"QC invocation error: {e}", "")
 
     stdout = stdout.strip()
-    if stdout.startswith('```'):
+    if stdout.startswith("```"):
         stdout = stdout[3:]
-        if stdout.startswith('json'):
+        if stdout.startswith("json"):
             stdout = stdout[4:]
-        stdout = stdout.rsplit('```', 1)[0].strip()
+        stdout = stdout.rsplit("```", 1)[0].strip()
     try:
         parsed = json.loads(stdout)
         if isinstance(parsed, dict):
@@ -231,9 +254,7 @@ def run_qc_review(contract, output_paths, verification_results, workspace_root) 
                 score = 0.0
             score = max(0.0, min(1.0, score))
             issues_raw = parsed.get("issues", [])
-            issues = [
-                i for i in issues_raw if isinstance(i, dict)
-            ] if isinstance(issues_raw, list) else []
+            issues = [i for i in issues_raw if isinstance(i, dict)] if isinstance(issues_raw, list) else []
             dimension_scores = parsed.get("dimension_scores", {})
             if not isinstance(dimension_scores, dict):
                 dimension_scores = {}
@@ -246,8 +267,12 @@ def run_qc_review(contract, output_paths, verification_results, workspace_root) 
                 if not details:
                     details = "QC reviewer could not determine quality from available evidence"
             return QCVerdict(
-                passed=passed, reason=reason, details=details,
-                status=status, score=score, issues=issues,
+                passed=passed,
+                reason=reason,
+                details=details,
+                status=status,
+                score=score,
+                issues=issues,
                 dimension_scores=dimension_scores,
                 dimension_reasoning=dimension_reasoning,
             )

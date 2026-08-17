@@ -15,25 +15,24 @@ import hashlib
 import json
 import os
 import sys
-import pathlib
 
-from .contract import load_contract, validate_contract
-from .state import (
-    create_initial_state, load_state, save_state,
-    IllegalTransitionError, StateError,
-)
+from .approval import format_approval_reasons, requires_approval
+from .contract import load_contract
+from .generator import generate_contracts
+from .goal import Goal, Plan
+from .handoff import build_handoff
+from .plan_preview import render_plan_preview, write_plan_preview
+from .preferences import apply_preferences_to_goal, collect_preferences
 from .preflight import run_preflight
+from .state import (
+    IllegalTransitionError,
+    create_initial_state,
+    load_state,
+    save_state,
+)
+from .supervisor import Supervisor
 from .verifier import run_verification
 from .worker import run_worker
-from .handoff import build_handoff
-from .goal import Goal, Plan, ContractGraph
-from .generator import generate_contracts
-from .supervisor import Supervisor
-from .replanner import suggest_fix, replan
-from .preferences import collect_preferences, apply_preferences_to_goal
-from .approval import requires_approval, format_approval_reasons
-from .plan_preview import render_plan_preview, write_plan_preview
-
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DEFAULT_RUN_DIR = os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs")
@@ -100,8 +99,7 @@ def cmd_create(args):
 
 def cmd_preflight(args):
     state = _get_state(args.task_id)
-    contract, _ = load_contract(state.data.get("contract_path", ""),
-                                 workspace_root=WORKSPACE_ROOT)
+    contract, _ = load_contract(state.data.get("contract_path", ""), workspace_root=WORKSPACE_ROOT)
     if contract is None:
         print("error: contract not found in state", file=sys.stderr)
         sys.exit(1)
@@ -114,9 +112,9 @@ def cmd_preflight(args):
         print(f"error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    print(f'[orchestrator] preflight: running checks for {args.task_id}', file=sys.stderr)
+    print(f"[orchestrator] preflight: running checks for {args.task_id}", file=sys.stderr)
     passed, results, evidence_path = run_preflight(contract, WORKSPACE_ROOT, run_dir)
-    print(f'[orchestrator] preflight: complete for {args.task_id}', file=sys.stderr)
+    print(f"[orchestrator] preflight: complete for {args.task_id}", file=sys.stderr)
 
     if evidence_path:
         state.add_evidence("preflight", evidence_path)
@@ -126,15 +124,10 @@ def cmd_preflight(args):
         print(f"  [{status}] {r['check_id']}: {r['message']}")
 
     if passed:
-        state.transition("READY", reason="all preflight checks passed",
-                         evidence_path=evidence_path)
+        state.transition("READY", reason="all preflight checks passed", evidence_path=evidence_path)
     else:
-        state.transition("PREFLIGHT_FAILED",
-                         reason="one or more preflight checks failed",
-                         evidence_path=evidence_path)
-        state.transition("BLOCKED",
-                         reason="preflight failures block execution",
-                         evidence_path=evidence_path)
+        state.transition("PREFLIGHT_FAILED", reason="one or more preflight checks failed", evidence_path=evidence_path)
+        state.transition("BLOCKED", reason="preflight failures block execution", evidence_path=evidence_path)
 
     _save(state)
     print(f"Task {args.task_id} now: {state.status}")
@@ -142,8 +135,7 @@ def cmd_preflight(args):
 
 def cmd_work(args):
     state = _get_state(args.task_id)
-    contract, _ = load_contract(state.data.get("contract_path", ""),
-                                 workspace_root=WORKSPACE_ROOT)
+    contract, _ = load_contract(state.data.get("contract_path", ""), workspace_root=WORKSPACE_ROOT)
     if contract is None:
         print("error: contract not found", file=sys.stderr)
         sys.exit(1)
@@ -153,17 +145,16 @@ def cmd_work(args):
         state.transition("WORKING", reason="worker invocation started")
         _save(state)
     except IllegalTransitionError:
-        print(f'error: cannot work from state {state.status}', file=sys.stderr)
+        print(f"error: cannot work from state {state.status}", file=sys.stderr)
         legal = sorted(state.legal_transitions())
-        print(f'  legal next states: {legal}', file=sys.stderr)
-        if 'RETRY_PENDING' in legal or 'READY' in legal:
-            print('  suggest: ensure task is in READY or RETRY_PENDING state before running work', file=sys.stderr)
+        print(f"  legal next states: {legal}", file=sys.stderr)
+        if "RETRY_PENDING" in legal or "READY" in legal:
+            print("  suggest: ensure task is in READY or RETRY_PENDING state before running work", file=sys.stderr)
         sys.exit(1)
 
     max_attempts = contract.worker.get("max_attempts", 3)
     if state.attempt > max_attempts:
-        state.transition("ESCALATED",
-                         reason=f"attempt {state.attempt} exceeds max {max_attempts}")
+        state.transition("ESCALATED", reason=f"attempt {state.attempt} exceeds max {max_attempts}")
         _save(state)
         _write_impossibility(contract, state)
         print(f"Task {args.task_id} ESCALATED: all {max_attempts} attempts exhausted")
@@ -179,19 +170,17 @@ def cmd_work(args):
         if state.changed_approaches:
             changed_approach = state.changed_approaches[-1]
 
-    print(f'[orchestrator] work: starting worker for {args.task_id}', file=sys.stderr)
-    result = run_worker(contract, WORKSPACE_ROOT, run_dir,
-                        previous_failures=previous_failures,
-                        changed_approach=changed_approach)
-    print(f'[orchestrator] work: worker returned', file=sys.stderr)
+    print(f"[orchestrator] work: starting worker for {args.task_id}", file=sys.stderr)
+    result = run_worker(
+        contract, WORKSPACE_ROOT, run_dir, previous_failures=previous_failures, changed_approach=changed_approach
+    )
+    print("[orchestrator] work: worker returned", file=sys.stderr)
 
     state.add_worker_result(result)
-    state.add_evidence(f"worker_attempt_{state.attempt}",
-                       os.path.join(run_dir, "worker_output.log"))
+    state.add_evidence(f"worker_attempt_{state.attempt}", os.path.join(run_dir, "worker_output.log"))
 
     kind = "initial" if state.attempt == 1 else "retry"
-    state.transition("VERIFYING",
-                     reason=f"worker {kind} attempt {state.attempt} complete (exit={result['exit_code']})")
+    state.transition("VERIFYING", reason=f"worker {kind} attempt {state.attempt} complete (exit={result['exit_code']})")
     _save(state)
 
     print(f"Worker attempt {state.attempt} finished (exit={result['exit_code']}, {result['elapsed_sec']:.1f}s)")
@@ -200,8 +189,7 @@ def cmd_work(args):
 
 def cmd_verify(args):
     state = _get_state(args.task_id)
-    contract, _ = load_contract(state.data.get("contract_path", ""),
-                                 workspace_root=WORKSPACE_ROOT)
+    contract, _ = load_contract(state.data.get("contract_path", ""), workspace_root=WORKSPACE_ROOT)
     if contract is None:
         print("error: contract not found", file=sys.stderr)
         sys.exit(1)
@@ -210,17 +198,17 @@ def cmd_verify(args):
     try:
         state.transition("VERIFYING", reason="verification started")
         _save(state)
-    except IllegalTransitionError as e:
+    except IllegalTransitionError:
         if state.status != "VERIFYING":
-            print(f'error: cannot verify from state {state.status}', file=sys.stderr)
+            print(f"error: cannot verify from state {state.status}", file=sys.stderr)
             legal = sorted(state.legal_transitions())
-            print(f'  legal next states: {legal}', file=sys.stderr)
-            print(f'  suggest: verify requires VERIFYING state', file=sys.stderr)
+            print(f"  legal next states: {legal}", file=sys.stderr)
+            print("  suggest: verify requires VERIFYING state", file=sys.stderr)
             sys.exit(1)
 
-    print(f'[orchestrator] verify: running checks for {args.task_id}', file=sys.stderr)
+    print(f"[orchestrator] verify: running checks for {args.task_id}", file=sys.stderr)
     all_passed, results, evidence_path = run_verification(contract, WORKSPACE_ROOT, run_dir)
-    print(f'[orchestrator] verify: checks complete for {args.task_id}', file=sys.stderr)
+    print(f"[orchestrator] verify: checks complete for {args.task_id}", file=sys.stderr)
 
     if evidence_path:
         state.add_evidence("verification", evidence_path)
@@ -235,26 +223,29 @@ def cmd_verify(args):
         if not qc_required:
             state.transition("COMPLETE", reason="all checks passed, no QC required")
     else:
-        state.transition("VERIFICATION_FAILED", reason="one or more checks failed",
-                         evidence_path=evidence_path)
+        state.transition("VERIFICATION_FAILED", reason="one or more checks failed", evidence_path=evidence_path)
 
     _save(state)
-    print(f"Task {args.task_id} now: {state.status} ({state.attempt}/{contract.worker.get('max_attempts', 3)} attempts)")
+    print(
+        f"Task {args.task_id} now: {state.status} ({state.attempt}/{contract.worker.get('max_attempts', 3)} attempts)"
+    )
 
 
 def cmd_retry(args):
     state = _get_state(args.task_id)
-    contract, _ = load_contract(state.data.get("contract_path", ""),
-                                 workspace_root=WORKSPACE_ROOT)
+    contract, _ = load_contract(state.data.get("contract_path", ""), workspace_root=WORKSPACE_ROOT)
     if contract is None:
         print("error: contract not found", file=sys.stderr)
         sys.exit(1)
 
     max_attempts = contract.worker.get("max_attempts", 3)
     if state.status not in ("RETRY_PENDING", "VERIFICATION_FAILED", "QC_REJECTED", "QC_CONDITIONAL_PASS"):
-        print(f'error: cannot retry from state {state.status}', file=sys.stderr)
-        print('  legal retry source states: VERIFICATION_FAILED, QC_REJECTED, QC_CONDITIONAL_PASS, RETRY_PENDING', file=sys.stderr)
-        print(f'  current state transitions: {sorted(state.legal_transitions())}', file=sys.stderr)
+        print(f"error: cannot retry from state {state.status}", file=sys.stderr)
+        print(
+            "  legal retry source states: VERIFICATION_FAILED, QC_REJECTED, QC_CONDITIONAL_PASS, RETRY_PENDING",
+            file=sys.stderr,
+        )
+        print(f"  current state transitions: {sorted(state.legal_transitions())}", file=sys.stderr)
         sys.exit(1)
 
     state.increment_attempt()
@@ -264,8 +255,7 @@ def cmd_retry(args):
     if state.attempt > max_attempts:
         if state.status == "VERIFICATION_FAILED":
             state.transition("RETRY_PENDING", reason=f"retrying as attempt {state.attempt}")
-        state.transition("ESCALATED",
-                         reason=f"max attempts ({max_attempts}) reached, no further retries")
+        state.transition("ESCALATED", reason=f"max attempts ({max_attempts}) reached, no further retries")
         _save(state)
         _write_impossibility(contract, state)
         print(f"Task {args.task_id} ESCALATED: all {max_attempts} attempts exhausted")
@@ -289,8 +279,8 @@ def cmd_qc_pass(args):
     elif state.status in ("QC_RUNNING", "QC_REJECTED", "QC_CONDITIONAL_PASS"):
         pass
     else:
-        print(f'error: cannot start QC from state {state.status}', file=sys.stderr)
-        print('  expected states: VERIFIED, QC_RUNNING, QC_REJECTED, QC_CONDITIONAL_PASS', file=sys.stderr)
+        print(f"error: cannot start QC from state {state.status}", file=sys.stderr)
+        print("  expected states: VERIFIED, QC_RUNNING, QC_REJECTED, QC_CONDITIONAL_PASS", file=sys.stderr)
         sys.exit(1)
 
     if args.passed:
@@ -337,8 +327,7 @@ def cmd_doctor(args):
         sys.exit(1)
     state = load_state(sp)
 
-    contract, _ = load_contract(state.data.get("contract_path", ""),
-                                 workspace_root=WORKSPACE_ROOT)
+    contract, _ = load_contract(state.data.get("contract_path", ""), workspace_root=WORKSPACE_ROOT)
 
     print(f"Task:           {state.task_id}")
     print(f"Status:         {state.status}")
@@ -379,7 +368,7 @@ def cmd_doctor(args):
             has_imp = args.task_id in f.read()
     print(f"Impossibility log entries for this task: {has_imp}")
 
-    blocked = (state.status == "BLOCKED")
+    blocked = state.status == "BLOCKED"
     print(f"Blocked:        {blocked}")
     print(f"In progress:    {state.status in ('WORKING', 'VERIFYING')}")
     print(f"Run dir:        {run_dir}")
@@ -417,8 +406,7 @@ def _write_impossibility(contract, state):
             for r in state.worker_results
         ],
         "rejected_approaches": list(state.changed_approaches),
-        "events": [{"from": e["from"], "to": e["to"], "reason": e["reason"]}
-                   for e in state.events],
+        "events": [{"from": e["from"], "to": e["to"], "reason": e["reason"]} for e in state.events],
     }
     os.makedirs(os.path.dirname(IMPOSSIBILITY_LOG), exist_ok=True)
     with open(IMPOSSIBILITY_LOG, "a", encoding="utf-8") as f:
@@ -493,7 +481,7 @@ def cmd_propose(args):
 
     # Output summary
     print(f"Goal: {goal_id}")
-    print(f"  Status: created")
+    print("  Status: created")
     print(f"  Goal file: {goal_path}")
     print(f"  Plan file: {plan_path}")
     print(f"  Preview:   {preview_path}")
@@ -590,8 +578,7 @@ def cmd_run_approved(args):
     approval_path = os.path.join(run_dir, "approval.json")
     if not os.path.isfile(approval_path):
         print(
-            f"error: no approval record found for goal {goal_id}; "
-            "run 'propose' and 'approve' before execution",
+            f"error: no approval record found for goal {goal_id}; run 'propose' and 'approve' before execution",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -733,7 +720,8 @@ def _load_plan(goal_id):
 def cmd_plan_check(args):
     """Run quality checks on a plan without executing."""
     from .plan_quality import check_plan_quality, format_warnings, plan_is_safe
-    goal = _load_goal(args.goal_id)
+
+    _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     warnings = check_plan_quality(plan, workspace_root=WORKSPACE_ROOT)
     print(format_warnings(warnings))
@@ -761,7 +749,6 @@ def cmd_supervise_resume(args):
     _print_json(res)
 
 
-
 def cmd_supervise_status(args):
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
@@ -777,8 +764,9 @@ def cmd_goal_result(args):
 
 def cmd_failure_report(args):
     """Show failure classification and remediation for each contract in a goal."""
-    from .failure import classify_failure, suggest_remediation, count_consecutive_same_class
+    from .failure import classify_failure, count_consecutive_same_class, suggest_remediation
     from .state import load_state
+
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
@@ -788,16 +776,18 @@ def cmd_failure_report(args):
         tid = c["task_id"]
         state_file = os.path.join(run_dir, tid, "state.json")
         if not os.path.isfile(state_file):
-            reports.append({
-                "task_id": tid,
-                "status": "no_state",
-                "failure_class": "none",
-                "attempt": 0,
-                "max_attempts": 1,
-                "consecutive_same_class": 0,
-                "remediation": "none",
-                "reason": "not yet executed",
-            })
+            reports.append(
+                {
+                    "task_id": tid,
+                    "status": "no_state",
+                    "failure_class": "none",
+                    "attempt": 0,
+                    "max_attempts": 1,
+                    "consecutive_same_class": 0,
+                    "remediation": "none",
+                    "reason": "not yet executed",
+                }
+            )
             continue
 
         state = load_state(state_file)
@@ -806,32 +796,36 @@ def cmd_failure_report(args):
         max_attempts = contract.worker.get("max_attempts", 1) if contract else 1
 
         if state.status in ("COMPLETE", "complete", "VERIFIED", "QC_PASSED"):
-            reports.append({
-                "task_id": tid,
-                "status": state.status,
-                "failure_class": "none",
-                "attempt": state.attempt,
-                "max_attempts": max_attempts,
-                "consecutive_same_class": 0,
-                "remediation": "none",
-                "reason": "completed successfully",
-            })
+            reports.append(
+                {
+                    "task_id": tid,
+                    "status": state.status,
+                    "failure_class": "none",
+                    "attempt": state.attempt,
+                    "max_attempts": max_attempts,
+                    "consecutive_same_class": 0,
+                    "remediation": "none",
+                    "reason": "completed successfully",
+                }
+            )
             continue
 
         fclass = classify_failure(state, contract)
         strikes = count_consecutive_same_class(state, fclass) if state.worker_results else 0
         rem = suggest_remediation(fclass, state.attempt, max_attempts)
 
-        reports.append({
-            "task_id": tid,
-            "status": state.status,
-            "failure_class": fclass,
-            "attempt": state.attempt,
-            "max_attempts": max_attempts,
-            "consecutive_same_class": strikes,
-            "remediation": rem["action"],
-            "reason": rem["reason"],
-        })
+        reports.append(
+            {
+                "task_id": tid,
+                "status": state.status,
+                "failure_class": fclass,
+                "attempt": state.attempt,
+                "max_attempts": max_attempts,
+                "consecutive_same_class": strikes,
+                "remediation": rem["action"],
+                "reason": rem["reason"],
+            }
+        )
 
     if args.json:
         _print_json(reports)
@@ -961,6 +955,7 @@ def cmd_evidence_flow(args):
 def cmd_reconcile(args):
     """Run reconciliation check on a goal's plan."""
     from . import reconcile as rec
+
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
@@ -977,6 +972,7 @@ def cmd_scope_check(args):
     """Run scope check on a completed goal to detect scope violations."""
     from . import scope as sc
     from .state import load_state
+
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
@@ -1013,6 +1009,7 @@ def cmd_scope_check(args):
 def cmd_provenance(args):
     """Show provenance graph for a goal — contract lineage, I/O chains."""
     from . import provenance as prov
+
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
@@ -1070,21 +1067,21 @@ def cmd_inspect(args):
     print(f"Next actions:    {info['legal_transitions']}")
     print(f"Events:          {info['events_count']}")
     print(f"Worker runs:     {info['worker_runs']}")
-    if info['last_worker_result']:
-        wr = info['last_worker_result']
+    if info["last_worker_result"]:
+        wr = info["last_worker_result"]
         print(f"Last exit code:  {wr.get('exit_code', '?')}")
         print(f"Last elapsed:    {wr.get('elapsed_sec', '?')}s")
-    if info.get('failure_class'):
+    if info.get("failure_class"):
         print(f"Failure class:   {info['failure_class']}")
-    if info.get('crash_reason'):
+    if info.get("crash_reason"):
         print(f"Crash reason:    {info['crash_reason']}")
-    if info.get('scope_violations'):
+    if info.get("scope_violations"):
         print(f"Scope violations: {len(info['scope_violations'])}")
     print(f"Contract:        {info.get('contract_title', '?')}")
     print(f"Objective:       {info.get('contract_objective', '?')}")
     print(f"Task dir:        {info['task_dir']}")
     print("Evidence files:")
-    for key, ef in info.get('evidence_files', {}).items():
+    for key, ef in info.get("evidence_files", {}).items():
         print(f"  [{ef['exists'] and 'OK' or 'MISSING'}] {key}: {ef['path']}")
 
 
@@ -1101,6 +1098,7 @@ def cmd_dryrun(args):
 def cmd_config(args):
     """Show current orchestrator configuration."""
     from .config import OrchestratorConfig
+
     cfg = OrchestratorConfig.load(args.path) if args.path else OrchestratorConfig.load()
     print(cfg.display())
 
@@ -1108,6 +1106,7 @@ def cmd_config(args):
 def cmd_audit(args):
     """Show audit log for a goal."""
     from . import audit as audit_mod
+
     goal = _load_goal(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     entries = audit_mod.query_audit(run_dir, goal_id=args.goal_id, action_type=args.action, task_id=args.task_id)
@@ -1120,6 +1119,7 @@ def cmd_audit(args):
 def cmd_metrics(args):
     """Show runtime metrics for a goal."""
     from . import metrics as metrics_mod
+
     goal = _load_goal(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     metrics_path = os.path.join(run_dir, "metrics.json")
@@ -1135,9 +1135,10 @@ def cmd_metrics(args):
 
 def cmd_safety_check(args):
     """Run pre-execution safety checks on a plan."""
-    from .safety import run_safety_checks, format_safety_report
     from .limits import DEFAULT_LIMITS
-    goal = _load_goal(args.goal_id)
+    from .safety import format_safety_report, run_safety_checks
+
+    _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     report = run_safety_checks(plan, WORKSPACE_ROOT, limits=DEFAULT_LIMITS)
     if args.json:
@@ -1151,6 +1152,7 @@ def cmd_safety_check(args):
 def cmd_checkpoint_list(args):
     """List checkpoints for a goal."""
     from . import checkpoint as cp_mod
+
     goal = _load_goal(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     entries = cp_mod.list_checkpoints(run_dir)
@@ -1162,12 +1164,15 @@ def cmd_checkpoint_list(args):
         return
     print(f"Checkpoints for goal {args.goal_id}:")
     for e in entries:
-        print(f"  iter={e['iteration']} status={e['goal_status']} contracts={e['total_contracts']} time={e['timestamp']}")
+        print(
+            f"  iter={e['iteration']} status={e['goal_status']} contracts={e['total_contracts']} time={e['timestamp']}"
+        )
 
 
 def cmd_checkpoint_recover(args):
     """Recover plan state from latest checkpoint."""
     from . import checkpoint as cp_mod
+
     goal = _load_goal(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     recovery = cp_mod.recover_from_checkpoint(run_dir)
@@ -1190,6 +1195,7 @@ def cmd_checkpoint_recover(args):
 def cmd_checkpoint_clear(args):
     """Remove all checkpoints for a goal."""
     from . import checkpoint as cp_mod
+
     goal = _load_goal(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     count = cp_mod.clear_checkpoints(run_dir)
@@ -1199,8 +1205,9 @@ def cmd_checkpoint_clear(args):
 def cmd_feedback(args):
     """Show failure feedback history for a goal."""
     from . import feedback as fb_mod
+
     goal = _load_goal(args.goal_id)
-    plan = _load_plan(args.goal_id)
+    _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     records = fb_mod.load_feedback(goal.goal_id, run_dir)
     if args.json:
@@ -1212,6 +1219,7 @@ def cmd_feedback(args):
 def cmd_error_inspect(args):
     """Inspect structured errors for a goal's contracts."""
     from . import errors as err_mod
+
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
@@ -1226,7 +1234,7 @@ def cmd_error_inspect(args):
 
 def cmd_evidence_ledger(args):
     goal = _load_goal(args.goal_id)
-    plan = _load_plan(args.goal_id)
+    _load_plan(args.goal_id)
     run_dir = _run_dir(goal.goal_id)
     from . import evidence as ev
 
@@ -1263,16 +1271,17 @@ def cmd_evidence_ledger(args):
 def cmd_impossibility(args):
     """Show impossibility artifact for an escalated task."""
     from . import impossibility as imp
+
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
-    run_dir = _run_dir(goal.goal_id)
+    _run_dir(goal.goal_id)
 
     artifacts_found = []
     for c in plan.contracts:
         tid = c["task_id"]
         art_dir = os.path.join(WORKSPACE_ROOT, imp.artifact_dir(args.goal_id, tid))
         json_path = os.path.join(art_dir, "impossibility.json")
-        md_path = os.path.join(art_dir, "impossibility.md")
+        os.path.join(art_dir, "impossibility.md")
         if os.path.isfile(json_path):
             with open(json_path, "r", encoding="utf-8") as f:
                 artifact = json.load(f)
@@ -1296,13 +1305,20 @@ def cmd_impossibility(args):
         print()
 
 
+def cmd_dashboard(args):
+    """Render rich terminal UI dashboard for active run directory."""
+    from .tui import print_dashboard
+
+    run_dir = getattr(args, "run_dir", DEFAULT_RUN_DIR)
+    print_dashboard(run_dir)
+
+
 def main():
     global DEFAULT_RUN_DIR
     parser = argparse.ArgumentParser(
         description="Phase-1 Durable Macro-Task Orchestrator",
     )
-    parser.add_argument("--run-dir", default=DEFAULT_RUN_DIR,
-                        help=f"run state directory (default: {DEFAULT_RUN_DIR})")
+    parser.add_argument("--run-dir", default=DEFAULT_RUN_DIR, help=f"run state directory (default: {DEFAULT_RUN_DIR})")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1461,6 +1477,8 @@ def main():
     p_dryrun = sub.add_parser("dry-run", help="Simulate plan execution without real worker calls")
     p_dryrun.add_argument("goal_id", help="Goal ID")
 
+    sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
+
     cmds = {
         "create": cmd_create,
         "preflight": cmd_preflight,
@@ -1472,6 +1490,7 @@ def main():
         "handoff": cmd_handoff,
         "status": cmd_status,
         "doctor": cmd_doctor,
+        "dashboard": cmd_dashboard,
         "goal-create": cmd_goal_create,
         "propose": cmd_propose,
         "approve": cmd_approve,
@@ -1521,7 +1540,6 @@ def main():
         "inspect": cmd_inspect,
     }
 
-
     a = parser.parse_args()
     DEFAULT_RUN_DIR = a.run_dir  # noqa: PLW0603
     cmds[a.command](a)
@@ -1529,4 +1547,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

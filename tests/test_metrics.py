@@ -1,8 +1,10 @@
 """Unit tests for orchestrator/metrics.py module."""
 
 import time
+
 import pytest
-from orchestrator.metrics import MetricsCollector, PhaseRecord, MetricsSnapshot
+
+from orchestrator.metrics import MetricsCollector, PhaseRecord
 
 
 def test_start_end_phase():

@@ -1,14 +1,13 @@
 """Tests for telemetry collector."""
 
 import os
-import pytest
-from orchestrator.telemetry import record_event, load_events, summarize
+
+from orchestrator.telemetry import load_events, record_event, summarize
 
 
 def test_record_and_load(tmp_path):
     run_dir = str(tmp_path)
-    record_event(run_dir, "contract_started", task_id="t1", goal_id="g1",
-                 payload={"model": "test"})
+    record_event(run_dir, "contract_started", task_id="t1", goal_id="g1", payload={"model": "test"})
     events = load_events(run_dir)
     assert len(events) == 1
     assert events[0]["event_type"] == "contract_started"

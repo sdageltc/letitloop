@@ -5,19 +5,14 @@ import hashlib
 import json
 import os
 import re
-import sys
-import tempfile
-import subprocess
-import uuid
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
-from . import verifier as verify_mod
-from .contract import validate_contract, requires_semantic_qc
+from .contract import requires_semantic_qc, validate_contract
 from .exceptions import PlannerError
 from .goal import Goal, Plan
-from .llm import call_llm, LLMError
-from .plan_quality import check_plan_quality, plan_is_safe
+from .llm import LLMError, call_llm
 from .models import ModelRegistry
+from .plan_quality import check_plan_quality, plan_is_safe
 
 WORKER_MODEL = ModelRegistry.default_worker()
 GENERATED_DIR = os.path.join("orchestrator", "fixtures", "generated")
@@ -25,9 +20,16 @@ GENERATED_DIR = os.path.join("orchestrator", "fixtures", "generated")
 HYBRID_MODEL = ModelRegistry.hybrid()
 
 _ADVERSARIAL_SECTIONS = [
-    "Executive Verdict", "System Map", "Core Strengths", "Critical Contradictions",
-    "Uncomfortable Truths", "Failure Modes & Edge Cases", "Concrete Schemas & Artifacts",
-    "Test Specifications", "Alternative Architectures", "90-Day Hardening Plan",
+    "Executive Verdict",
+    "System Map",
+    "Core Strengths",
+    "Critical Contradictions",
+    "Uncomfortable Truths",
+    "Failure Modes & Edge Cases",
+    "Concrete Schemas & Artifacts",
+    "Test Specifications",
+    "Alternative Architectures",
+    "90-Day Hardening Plan",
 ]
 
 _TASK_TYPE_TO_WORKER = {
@@ -36,7 +38,11 @@ _TASK_TYPE_TO_WORKER = {
     "research": {"model": WORKER_MODEL, "max_attempts": 2},
     "verification": {"model": WORKER_MODEL, "max_attempts": 2},
     "aggregation": {"model": WORKER_MODEL, "max_attempts": 2},
-    "adversarial_audit": {"model": WORKER_MODEL, "max_attempts": 3, "quality_profile": "adversarial_architecture_audit"},
+    "adversarial_audit": {
+        "model": WORKER_MODEL,
+        "max_attempts": 3,
+        "quality_profile": "adversarial_architecture_audit",
+    },
 }
 
 _TASK_TYPE_CHECKS = {
@@ -224,7 +230,7 @@ def _extract_first_balanced_json_object(text: str) -> str:
         elif char == "}":
             depth -= 1
             if depth == 0:
-                return text[start:index + 1]
+                return text[start : index + 1]
     return ""
 
 
@@ -262,7 +268,7 @@ def _all_balanced_json_objects(text: str) -> List[str]:
             elif char == "}":
                 depth -= 1
                 if depth == 0:
-                    results.append(text[start:index + 1])
+                    results.append(text[start : index + 1])
                     start = index + 1
                     break
         else:
@@ -365,9 +371,7 @@ def _checks_for_output(task_type: str, output_path: str) -> List[Dict[str, Any]]
     if extension == ".md":
         if task_type == "adversarial_audit":
             checks = _TASK_TYPE_CHECKS["adversarial_audit"]("chk")
-            checks.append(
-                {"id": "chk-render", "kind": "render", "path": "PLACEHOLDER", "expected": "markdown"}
-            )
+            checks.append({"id": "chk-render", "kind": "render", "path": "PLACEHOLDER", "expected": "markdown"})
             return checks
         return [
             {"id": "chk-sections", "kind": "required_sections", "path": "PLACEHOLDER", "expected": []},
@@ -424,7 +428,7 @@ def decompose_goal(
     out_dir = os.path.join(workspace_root, GENERATED_DIR)
     os.makedirs(out_dir, exist_ok=True)
 
-    plan_summary = llm_data.get("summary", "")
+    llm_data.get("summary", "")
     contracts_plan_meta = []
 
     for idx, raw_c in enumerate(llm_data["contracts"]):
@@ -506,15 +510,17 @@ def decompose_goal(
             rel_contract_path = os.path.relpath(contract_file_path, workspace_root)
         except ValueError:
             rel_contract_path = os.path.abspath(contract_file_path)
-        contracts_plan_meta.append({
-            "task_id": task_id,
-            "depends_on": depends_on,
-            "status": "DRAFTED",
-            "contract_path": rel_contract_path,
-            "contract": contract_dict,
-            "type": task_type,
-            "objective": objective,
-        })
+        contracts_plan_meta.append(
+            {
+                "task_id": task_id,
+                "depends_on": depends_on,
+                "status": "DRAFTED",
+                "contract_path": rel_contract_path,
+                "contract": contract_dict,
+                "type": task_type,
+                "objective": objective,
+            }
+        )
 
     plan = Plan(goal_id=goal.goal_id, contracts=contracts_plan_meta)
     quality_warnings = check_plan_quality(plan, workspace_root=workspace_root)

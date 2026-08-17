@@ -1,11 +1,8 @@
 """Tests for provider_scheduler.py — deterministic scheduling logic."""
 
-import pytest
 from orchestrator.provider_scheduler import (
     CallSpec,
     ProviderScheduler,
-    ScheduleWave,
-    UsageRecord,
     _extract_provider,
 )
 
@@ -161,10 +158,7 @@ class TestGeminiModelExtraction:
     def test_gemini_calls_serialize_at_one_concurrent(self):
         """Calls to the same provider must serialize at one-per-wave."""
         sched = ProviderScheduler()
-        calls = [
-            CallSpec(call_id=f"c{i}", prompt=f"p{i}", model="gemini:gemini-3.6-flash")
-            for i in range(4)
-        ]
+        calls = [CallSpec(call_id=f"c{i}", prompt=f"p{i}", model="gemini:gemini-3.6-flash") for i in range(4)]
         waves = sched.schedule(calls)
         assert all(len(w.calls) == 1 for w in waves)
         assert len(waves) == 4

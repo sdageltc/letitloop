@@ -1,12 +1,20 @@
 """Tests for review_artifact.py — pure schema logic, zero model calls."""
 
-import pytest
 from orchestrator.review_artifact import (
-    ReviewArtifact, ReviewIssue, EvidenceRead, SynthesisVerdict,
-    ArbitrationVerdict, QualityPlaneVerdict, synthesize_artifacts,
-    VERDICT_PASS, VERDICT_REJECT, VERDICT_CONDITIONAL_PASS,
-    VERDICT_INSUFFICIENT_EVIDENCE, VERDICT_ERROR,
-    ISSUE_SEVERITY_P0, ISSUE_SEVERITY_P1, ISSUE_SEVERITY_P2, ISSUE_SEVERITY_P3,
+    ISSUE_SEVERITY_P0,
+    ISSUE_SEVERITY_P1,
+    ISSUE_SEVERITY_P2,
+    VERDICT_CONDITIONAL_PASS,
+    VERDICT_ERROR,
+    VERDICT_INSUFFICIENT_EVIDENCE,
+    VERDICT_PASS,
+    VERDICT_REJECT,
+    ArbitrationVerdict,
+    EvidenceRead,
+    QualityPlaneVerdict,
+    ReviewArtifact,
+    ReviewIssue,
+    synthesize_artifacts,
 )
 
 
@@ -152,12 +160,18 @@ class TestSynthesizeArtifacts:
 
     def test_unanimous_pass(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
-            evidence_read=[EvidenceRead("f.py", origin="cited")], verdict=VERDICT_PASS, confidence=0.9,
+            reviewer_id="r1",
+            role="maintainer",
+            evidence_read=[EvidenceRead("f.py", origin="cited")],
+            verdict=VERDICT_PASS,
+            confidence=0.9,
         )
         a2 = ReviewArtifact(
-            reviewer_id="r2", role="architect",
-            evidence_read=[EvidenceRead("f.py", origin="cited")], verdict=VERDICT_PASS, confidence=0.85,
+            reviewer_id="r2",
+            role="architect",
+            evidence_read=[EvidenceRead("f.py", origin="cited")],
+            verdict=VERDICT_PASS,
+            confidence=0.85,
         )
         result = synthesize_artifacts([a1, a2])
         assert result.status == VERDICT_PASS
@@ -165,15 +179,19 @@ class TestSynthesizeArtifacts:
 
     def test_p0_blocker_causes_reject(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
-            verdict=VERDICT_PASS, confidence=0.9,
+            verdict=VERDICT_PASS,
+            confidence=0.9,
             issues=[ReviewIssue(severity=ISSUE_SEVERITY_P0, claim="critical bug", evidence="exists at line 42")],
         )
         a2 = ReviewArtifact(
-            reviewer_id="r2", role="architect",
+            reviewer_id="r2",
+            role="architect",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
-            verdict=VERDICT_PASS, confidence=0.85,
+            verdict=VERDICT_PASS,
+            confidence=0.85,
         )
         result = synthesize_artifacts([a1, a2])
         assert result.status == VERDICT_REJECT
@@ -182,9 +200,11 @@ class TestSynthesizeArtifacts:
 
     def test_p1_issues_cause_conditional_pass(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
-            verdict=VERDICT_PASS, confidence=0.8,
+            verdict=VERDICT_PASS,
+            confidence=0.8,
             issues=[ReviewIssue(severity=ISSUE_SEVERITY_P1, claim="test gap", evidence="line 30: missing edge case")],
         )
         result = synthesize_artifacts([a1])
@@ -193,9 +213,11 @@ class TestSynthesizeArtifacts:
 
     def test_p0_with_claim_but_no_evidence_still_blocks(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
-            verdict=VERDICT_REJECT, confidence=0.0,
+            verdict=VERDICT_REJECT,
+            confidence=0.0,
             issues=[
                 ReviewIssue(severity=ISSUE_SEVERITY_P0, claim="unsupported claim", evidence=""),
             ],
@@ -206,9 +228,11 @@ class TestSynthesizeArtifacts:
 
     def test_empty_claim_skipped_from_blockers(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
-            verdict=VERDICT_REJECT, confidence=0.0,
+            verdict=VERDICT_REJECT,
+            confidence=0.0,
             issues=[
                 ReviewIssue(severity=ISSUE_SEVERITY_P0, claim=""),
             ],
@@ -219,9 +243,11 @@ class TestSynthesizeArtifacts:
 
     def test_dissent_preserved(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
-            verdict=VERDICT_PASS, confidence=0.9,
+            verdict=VERDICT_PASS,
+            confidence=0.9,
             dissent=["architecture is overengineered"],
         )
         result = synthesize_artifacts([a1])
@@ -229,13 +255,15 @@ class TestSynthesizeArtifacts:
 
     def test_score_averaging(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="x",
+            reviewer_id="r1",
+            role="x",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
             verdict=VERDICT_PASS,
             confidence=1.0,
         )
         a2 = ReviewArtifact(
-            reviewer_id="r2", role="y",
+            reviewer_id="r2",
+            role="y",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
             verdict=VERDICT_PASS,
             confidence=0.5,
@@ -247,7 +275,8 @@ class TestSynthesizeArtifacts:
         """A reviewer explicitly returning INSUFFICIENT_EVIDENCE must not
         count as having reviewed the files — even with files assigned."""
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
             verdict=VERDICT_INSUFFICIENT_EVIDENCE,
             confidence=0.0,
@@ -258,7 +287,8 @@ class TestSynthesizeArtifacts:
     def test_error_verdict_never_passes(self):
         """A failed reviewer call must synthesize to ERROR, never PASS."""
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
             verdict="ERROR",
             confidence=0.0,
@@ -268,13 +298,15 @@ class TestSynthesizeArtifacts:
 
     def test_error_verdict_dominates_pass(self):
         a1 = ReviewArtifact(
-            reviewer_id="r1", role="maintainer",
+            reviewer_id="r1",
+            role="maintainer",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
             verdict="PASS",
             confidence=0.9,
         )
         a2 = ReviewArtifact(
-            reviewer_id="r2", role="architect",
+            reviewer_id="r2",
+            role="architect",
             evidence_read=[EvidenceRead("f.py", origin="cited")],
             verdict="ERROR",
             confidence=0.0,

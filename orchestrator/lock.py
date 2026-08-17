@@ -1,14 +1,13 @@
 """Lock file — prevents concurrent execution of the same goal."""
 
-import os
+import hashlib
 import json
+import os
 import socket
+import sys
 import time
 from datetime import datetime, timezone
 from typing import Optional
-
-import sys
-import hashlib
 
 LOCK_FILENAME = ".goal.lock"
 STALE_TIMEOUT_SEC = 300  # 5 minutes
@@ -47,15 +46,19 @@ class FileLock:
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump({"pid": os.getpid(), "hostname": socket.gethostname(),
-                               "created_at": datetime.now(timezone.utc).isoformat()}, f)
+                    json.dump(
+                        {
+                            "pid": os.getpid(),
+                            "hostname": socket.gethostname(),
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                        },
+                        f,
+                    )
                 self._acquired = True
                 return
             except FileExistsError:
                 if time.monotonic() >= deadline:
-                    raise LockHeldError(
-                        f"File lock not acquired within {self.timeout_sec}s: {self.path}"
-                    )
+                    raise LockHeldError(f"File lock not acquired within {self.timeout_sec}s: {self.path}")
                 time.sleep(self.poll_sec)
 
     def release(self) -> None:
@@ -112,10 +115,7 @@ def _process_start_token(pid: int) -> Optional[str]:
                 )
                 if not ok:
                     return None
-                value = (
-                    (int(creation.dwHighDateTime) << 32)
-                    | int(creation.dwLowDateTime)
-                )
+                value = (int(creation.dwHighDateTime) << 32) | int(creation.dwLowDateTime)
                 return f"win:{value}"
             finally:
                 ctypes.windll.kernel32.CloseHandle(handle)
@@ -128,7 +128,7 @@ def _process_start_token(pid: int) -> Optional[str]:
             line = f.read()
         closing_paren = line.rfind(")")
         if closing_paren >= 0:
-            fields = line[closing_paren + 2:].split()
+            fields = line[closing_paren + 2 :].split()
             # The suffix begins at field 3; starttime is field 22.
             if len(fields) > 19:
                 return f"proc:{fields[19]}"
@@ -137,6 +137,7 @@ def _process_start_token(pid: int) -> Optional[str]:
 
     try:
         import psutil
+
         return f"psutil:{psutil.Process(pid).create_time():.6f}"
     except (ImportError, OSError, ValueError, TypeError):
         return None
@@ -150,10 +151,7 @@ def _pid_alive(pid: int, expected_start_token: Optional[str] = None) -> bool:
         actual_start_token = _process_start_token(pid)
         # A supplied identity token requires successful identity
         # verification. PID existence alone is insufficient.
-        return (
-            actual_start_token is not None
-            and actual_start_token == expected_start_token
-        )
+        return actual_start_token is not None and actual_start_token == expected_start_token
 
     try:
         os.kill(pid, 0)
@@ -339,12 +337,7 @@ def release_lock(run_dir: str) -> bool:
         return False
 
     second_raw, current_lock = _read_lock_snapshot(run_dir)
-    if (
-        second_raw is None
-        or current_lock is None
-        or second_raw != first_raw
-        or current_lock != lock
-    ):
+    if second_raw is None or current_lock is None or second_raw != first_raw or current_lock != lock:
         return False
 
     try:

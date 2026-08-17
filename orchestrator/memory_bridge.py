@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
 LOCK_TTL_SEC = 35.0
 STALE_TTL_SEC = 30.0
@@ -96,9 +96,7 @@ class MemoryBridge:
                 if self._steal_stale_lock():
                     continue
                 if time.time() >= deadline:
-                    raise TimeoutError(
-                        f"timed out acquiring memory bridge lock for {self.path}"
-                    )
+                    raise TimeoutError(f"timed out acquiring memory bridge lock for {self.path}")
                 time.sleep(0.01)
 
     def _release_lock(self) -> None:

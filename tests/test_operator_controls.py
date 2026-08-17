@@ -1,76 +1,76 @@
 """Tests for Phase 3 operator controls (pause, cancel, inspect)."""
 
 import os
-import pytest
-from unittest.mock import patch
 
-from orchestrator.state import State, create_initial_state, load_state, save_state
 from orchestrator.goal import Goal, Plan
+from orchestrator.state import State, load_state, save_state
 from orchestrator.supervisor import Supervisor
 
 
 def _make_contract(task_id):
     return {
-        'task_id': task_id,
-        'depends_on': [],
-        'status': 'DRAFTED',
-        'contract': {
-            'task_id': task_id,
-            'title': f'Task {task_id}',
-            'status': 'DRAFTED',
-            'risk_tier': 'auto',
-            'workspace_scope': {'allow': ['scratch/'], 'deny': []},
-            'objective': 'operator control test',
-            'worker': {'model': 'test', 'max_attempts': 1},
-            'inputs': [],
-            'outputs': [{'path': f'scratch/{task_id}_out.txt'}],
-            'acceptance_checks': [{'id': f'{task_id}-chk', 'kind': 'file_exists', 'path': f'scratch/{task_id}_out.txt', 'expected': True}],
-            'qc': {'required': False, 'lens': 'code_correctness'},
+        "task_id": task_id,
+        "depends_on": [],
+        "status": "DRAFTED",
+        "contract": {
+            "task_id": task_id,
+            "title": f"Task {task_id}",
+            "status": "DRAFTED",
+            "risk_tier": "auto",
+            "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            "objective": "operator control test",
+            "worker": {"model": "test", "max_attempts": 1},
+            "inputs": [],
+            "outputs": [{"path": f"scratch/{task_id}_out.txt"}],
+            "acceptance_checks": [
+                {"id": f"{task_id}-chk", "kind": "file_exists", "path": f"scratch/{task_id}_out.txt", "expected": True}
+            ],
+            "qc": {"required": False, "lens": "code_correctness"},
         },
     }
 
 
 def test_pause_state_legal():
-    state = State(task_id='t1', status='READY')
+    state = State(task_id="t1", status="READY")
     res = state.pause()
     assert res is True
-    assert state.status == 'PAUSED'
+    assert state.status == "PAUSED"
 
 
 def test_pause_from_terminal_fails():
-    state = State(task_id='t1', status='COMPLETE')
+    state = State(task_id="t1", status="COMPLETE")
     res = state.pause()
     assert res is False
-    assert state.status == 'COMPLETE'
+    assert state.status == "COMPLETE"
 
 
 def test_cancel_state_legal():
-    state = State(task_id='t1', status='READY')
+    state = State(task_id="t1", status="READY")
     res = state.cancel()
     assert res is True
-    assert state.status == 'CANCELLED'
+    assert state.status == "CANCELLED"
 
 
 def test_cancel_from_terminal_fails():
-    state = State(task_id='t1', status='COMPLETE')
+    state = State(task_id="t1", status="COMPLETE")
     res = state.cancel()
     assert res is False
-    assert state.status == 'COMPLETE'
+    assert state.status == "COMPLETE"
 
 
 def test_cancel_is_terminal():
-    state = State(task_id='t1', status='CANCELLED')
+    state = State(task_id="t1", status="CANCELLED")
     assert state.is_terminal() is True
 
 
 def test_paused_can_resume():
-    state = State(task_id='t1', status='PAUSED')
-    assert 'READY' in state.legal_transitions()
+    state = State(task_id="t1", status="PAUSED")
+    assert "READY" in state.legal_transitions()
 
 
 def test_paused_can_cancel():
-    state = State(task_id='t1', status='PAUSED')
-    assert 'CANCELLED' in state.legal_transitions()
+    state = State(task_id="t1", status="PAUSED")
+    assert "CANCELLED" in state.legal_transitions()
 
 
 def test_supervisor_pause_plan(tmp_path, monkeypatch):

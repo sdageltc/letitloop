@@ -26,6 +26,8 @@ dev = [
 
 [project.scripts]
 lil = "orchestrator.cli:main"
+letitloop = "orchestrator.cli:main"
+letitloop-mcp = "orchestrator.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

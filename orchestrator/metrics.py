@@ -1,10 +1,10 @@
 """Runtime metrics collector — wall-clock per phase, attempt counters."""
 
-import os
 import json
+import os
 import time
-from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Dict, List
 
 
 @dataclass
@@ -57,7 +57,8 @@ class MetricsCollector:
         """Return phase records for the given task_id as dicts."""
         return [
             {"phase": r.phase, "task_id": r.task_id, "elapsed_sec": r.elapsed_sec, "timestamp": r.timestamp}
-            for r in self.phases if not task_id or r.task_id == task_id
+            for r in self.phases
+            if not task_id or r.task_id == task_id
         ]
 
     def record_attempt(self, task_id: str) -> None:
@@ -102,7 +103,7 @@ class MetricsCollector:
         }
 
     def save(self, path: str) -> None:
-        parent = os.path.dirname(path) or '.'
+        parent = os.path.dirname(path) or "."
         os.makedirs(parent, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)

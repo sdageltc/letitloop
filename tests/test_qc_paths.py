@@ -2,23 +2,26 @@
 
 import json
 import os
+
 import pytest
 
-from orchestrator.goal import Goal, Plan
-from orchestrator.supervisor import Supervisor
-from orchestrator.state import load_state
 from orchestrator.exceptions import PlannerError
+from orchestrator.goal import Goal, Plan
+from orchestrator.state import load_state
+from orchestrator.supervisor import Supervisor
 
 
 @pytest.fixture(autouse=True)
 def prevent_real_llm_calls(monkeypatch):
     def mock_planner(*args, **kwargs):
         raise PlannerError("Real LLM disabled in tests")
+
     monkeypatch.setattr("orchestrator.generator.decompose_goal", mock_planner)
 
 
-def _make_contract_dict(task_id, output_path, max_attempts=1, qc_required=True,
-                        check_kind="file_exists", check_expected=None):
+def _make_contract_dict(
+    task_id, output_path, max_attempts=1, qc_required=True, check_kind="file_exists", check_expected=None
+):
     checks = [{"id": f"check-{check_kind}", "kind": check_kind, "path": output_path}]
     if check_expected is not None:
         checks[0]["expected"] = check_expected
@@ -208,6 +211,7 @@ class TestQcPolicy:
     def test_requires_semantic_qc_checks(self):
         """Verify requires_semantic_qc for various risk/output/check combinations."""
         from orchestrator.contract import requires_semantic_qc
+
         assert requires_semantic_qc("qc_required", [{"path": "scratch/x.txt"}], []) is True
         assert requires_semantic_qc("human_required", [{"path": "scratch/x.txt"}], []) is True
         assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "file_exists"}]) is False
@@ -218,6 +222,7 @@ class TestQcPolicy:
     def test_requires_semantic_qc_policy_matrix(self):
         """Decision table for requires_semantic_qc."""
         from orchestrator.contract import requires_semantic_qc
+
         # Always QC: high risk tiers
         assert requires_semantic_qc("qc_required", [{"path": "scratch/x.txt"}], [{"kind": "file_exists"}]) is True
         assert requires_semantic_qc("human_required", [{"path": "scratch/x.txt"}], [{"kind": "file_exists"}]) is True
@@ -239,27 +244,52 @@ class TestQcPolicy:
         # Always QC: content_exact check
         assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "content_exact"}]) is True
         # Always QC: quality_spec with hard_failures
-        assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [], {"hard_failures": ["no placeholders"]}) is True
+        assert (
+            requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [], {"hard_failures": ["no placeholders"]})
+            is True
+        )
         # Always QC: quality_spec with minimum_score
         assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [], {"minimum_score": 0.8}) is True
         # Usually no QC: single scratch, file_exists only
         assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "file_exists"}]) is False
         # Usually no QC: trivial content_regex
-        assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "content_regex", "expected": ".+"}]) is False
-        assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "content_regex", "expected": ".*"}]) is False
+        assert (
+            requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "content_regex", "expected": ".+"}])
+            is False
+        )
+        assert (
+            requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "content_regex", "expected": ".*"}])
+            is False
+        )
         # Usually no QC: syntax + hygiene checks only
-        assert requires_semantic_qc("auto", [{"path": "scratch/x.py"}], [
-            {"kind": "syntax"}, {"kind": "hygiene"}, {"kind": "min_size"},
-        ]) is False
+        assert (
+            requires_semantic_qc(
+                "auto",
+                [{"path": "scratch/x.py"}],
+                [
+                    {"kind": "syntax"},
+                    {"kind": "hygiene"},
+                    {"kind": "min_size"},
+                ],
+            )
+            is False
+        )
         # QC for meaningful content_regex
-        assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "content_regex", "expected": "def main"}]) is True
+        assert (
+            requires_semantic_qc(
+                "auto", [{"path": "scratch/x.txt"}], [{"kind": "content_regex", "expected": "def main"}]
+            )
+            is True
+        )
         # QC for unknown check kind
         assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": "unknown_check"}]) is True
 
     def test_qc_verdict_roundtrip(self, tmp_path):
         from orchestrator.qc_review import QCVerdict
-        v = QCVerdict(passed=True, reason="test", status="PASS", score=0.9,
-                       issues=[{"severity": "MAINOR", "description": "test"}])
+
+        v = QCVerdict(
+            passed=True, reason="test", status="PASS", score=0.9, issues=[{"severity": "MAINOR", "description": "test"}]
+        )
         d = v.to_dict()
         assert d["passed"] is True
         assert d["status"] == "PASS"
@@ -326,6 +356,7 @@ class TestQualityPlanWiring:
 class TestQcStateTransitions:
     def test_qc_running_legal_transitions(self):
         from orchestrator.state import LEGAL_TRANSITIONS, STATES
+
         assert "QC_RUNNING" in STATES
         transitions = LEGAL_TRANSITIONS["QC_RUNNING"]
         assert "QC_PASSED" in transitions
@@ -334,6 +365,7 @@ class TestQcStateTransitions:
 
     def test_qc_insufficient_evidence_legal_transitions(self):
         from orchestrator.state import LEGAL_TRANSITIONS, STATES
+
         assert "QC_INSUFFICIENT_EVIDENCE" in STATES
         transitions = LEGAL_TRANSITIONS["QC_INSUFFICIENT_EVIDENCE"]
         assert "RETRY_PENDING" in transitions
@@ -371,9 +403,7 @@ def test_record_task_exception_preserves_qc_conditional_pass(tmp_path):
     supervisor._state_path = lambda task_id: str(tmp_path / task_id / "state.json")
     supervisor._load_or_create_state = lambda task_id, contract_path: state
     supervisor._safe_save = lambda saved_state, state_path: None
-    supervisor.graph = SimpleNamespace(
-        update_status=lambda task_id, status: graph_updates.append((task_id, status))
-    )
+    supervisor.graph = SimpleNamespace(update_status=lambda task_id, status: graph_updates.append((task_id, status)))
 
     supervisor._record_task_exception("task-1", RuntimeError("boom"))
 

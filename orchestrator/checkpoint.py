@@ -1,12 +1,10 @@
 """Checkpoint persist/recovery for durable plan execution."""
 
-import os
-import json
 import glob
-import time
+import json
+import os
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
-
+from typing import Any, Dict, List, Optional
 
 CHECKPOINT_PREFIX = "checkpoint_"
 CHECKPOINT_SUFFIX = ".json"
@@ -74,13 +72,15 @@ def _latest_checkpoint_path(cp_dir: str) -> Optional[str]:
     files = glob.glob(pattern)
     if not files:
         return None
+
     def _iter_num(path: str) -> int:
         base = os.path.basename(path)
-        num_part = base[len(CHECKPOINT_PREFIX):-len(CHECKPOINT_SUFFIX)]
+        num_part = base[len(CHECKPOINT_PREFIX) : -len(CHECKPOINT_SUFFIX)]
         try:
             return int(num_part)
         except ValueError:
             return 0
+
     files.sort(key=_iter_num, reverse=True)
     return files[0]
 
@@ -93,13 +93,15 @@ def _prune_checkpoints(cp_dir: str, max_checkpoints: int) -> None:
     files = glob.glob(pattern)
     if len(files) <= max_checkpoints:
         return
+
     def _iter_num(path: str) -> int:
         base = os.path.basename(path)
-        num_part = base[len(CHECKPOINT_PREFIX):-len(CHECKPOINT_SUFFIX)]
+        num_part = base[len(CHECKPOINT_PREFIX) : -len(CHECKPOINT_SUFFIX)]
         try:
             return int(num_part)
         except ValueError:
             return 0
+
     files.sort(key=_iter_num)
     if max_checkpoints > 0:
         remove = files[:-max_checkpoints]
@@ -124,13 +126,15 @@ def list_checkpoints(run_dir: str) -> List[Dict[str, Any]]:
         try:
             with open(f, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
-            entries.append({
-                "path": f,
-                "iteration": data.get("iteration", 0),
-                "timestamp": data.get("timestamp", ""),
-                "goal_status": data.get("goal_status", ""),
-                "total_contracts": data.get("total_contracts", 0),
-            })
+            entries.append(
+                {
+                    "path": f,
+                    "iteration": data.get("iteration", 0),
+                    "timestamp": data.get("timestamp", ""),
+                    "goal_status": data.get("goal_status", ""),
+                    "total_contracts": data.get("total_contracts", 0),
+                }
+            )
         except (json.JSONDecodeError, OSError):
             pass
     return entries

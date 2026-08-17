@@ -1,41 +1,42 @@
 """Tests for orchestrator/budget.py — budget guard and loop detector."""
 
 import pytest
+
 from orchestrator.budget import (
-    UsageLedger,
-    BudgetGuard,
     BudgetExhaustedError,
+    BudgetGuard,
     LoopDetector,
+    UsageLedger,
 )
 
 
 class TestUsageLedger:
     def test_starts_empty(self):
-        l = UsageLedger()
-        assert l.total_tokens == 0
-        assert l.total_cost_usd == 0.0
-        assert l.call_count == 0
+        ledger = UsageLedger()
+        assert ledger.total_tokens == 0
+        assert ledger.total_cost_usd == 0.0
+        assert ledger.call_count == 0
 
     def test_records_usage(self):
-        l = UsageLedger()
-        l.record("Implementer", "model-x", 1000, 200)
-        assert l.total_prompt_tokens == 1000
-        assert l.total_completion_tokens == 200
-        assert l.total_tokens == 1200
-        assert l.call_count == 1
-        assert l.total_cost_usd > 0
+        ledger = UsageLedger()
+        ledger.record("Implementer", "model-x", 1000, 200)
+        assert ledger.total_prompt_tokens == 1000
+        assert ledger.total_completion_tokens == 200
+        assert ledger.total_tokens == 1200
+        assert ledger.call_count == 1
+        assert ledger.total_cost_usd > 0
 
     def test_records_multiple_calls(self):
-        l = UsageLedger()
-        l.record("Implementer", "m1", 1000, 200)
-        l.record("Critic", "m2", 500, 100)
-        assert l.call_count == 2
-        assert l.total_tokens == 1800
+        ledger = UsageLedger()
+        ledger.record("Implementer", "m1", 1000, 200)
+        ledger.record("Critic", "m2", 500, 100)
+        assert ledger.call_count == 2
+        assert ledger.total_tokens == 1800
 
     def test_to_dict_includes_totals(self):
-        l = UsageLedger()
-        l.record("x", "m", 1000, 500)
-        d = l.to_dict()
+        ledger = UsageLedger()
+        ledger.record("x", "m", 1000, 500)
+        d = ledger.to_dict()
         assert d["total_tokens"] == 1500
         assert d["call_count"] == 1
         assert len(d["records"]) == 1

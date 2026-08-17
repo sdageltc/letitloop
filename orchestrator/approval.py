@@ -1,16 +1,29 @@
 """Approval classifier — decides whether a plan needs user approval."""
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
+
 from .goal import Plan
 
 DESTRUCTIVE_KEYWORDS = [
-    "delete", "remove", "rm ", "drop", "truncate",
-    "reset", "clear", "purge", "destroy",
+    "delete",
+    "remove",
+    "rm ",
+    "drop",
+    "truncate",
+    "reset",
+    "clear",
+    "purge",
+    "destroy",
 ]
 
 MACRO_TRIGGERS = [
-    "refactor", "migrate", "rewrite", "convert",
-    "architecture", "redesign", "restructure",
+    "refactor",
+    "migrate",
+    "rewrite",
+    "convert",
+    "architecture",
+    "redesign",
+    "restructure",
 ]
 
 

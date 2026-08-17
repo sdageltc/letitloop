@@ -4,10 +4,11 @@ Each test writes self-contained temp contracts, runs CLI via subprocess,
 and checks stdout/stderr and state.json outcomes.
 """
 
-import os
 import json
-import sys
+import os
 import subprocess
+import sys
+
 import pytest
 
 from orchestrator.llm import configured_providers
@@ -20,7 +21,7 @@ MODEL = "openai:gpt-4o-mini"
 REQUIRES_PROVIDER = pytest.mark.skipif(
     not configured_providers(),
     reason="no LLM provider configured — set OPENAI_API_KEY / GEMINI_API_KEY / "
-           "ANTHROPIC_API_KEY / DEEPSEEK_API_KEY or LLM_API_KEY+LLM_BASE_URL",
+    "ANTHROPIC_API_KEY / DEEPSEEK_API_KEY or LLM_API_KEY+LLM_BASE_URL",
 )
 
 BASE_CONTRACT = {
@@ -35,8 +36,7 @@ BASE_CONTRACT = {
     "inputs": [],
     "outputs": [{"path": "scratch/test_cli/output.txt"}],
     "acceptance_checks": [
-        {"id": "output_exists", "kind": "file_exists",
-         "path": "scratch/test_cli/output.txt", "expected": True},
+        {"id": "output_exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
     ],
     "qc": {"required": False, "lens": "code_correctness"},
     "next_action": "preflight",
@@ -68,7 +68,8 @@ def _run_cli(run_dir, *args, timeout=30, expect_fail=False):
     cmd = [sys.executable, "-m", CLI_MODULE, "--run-dir", str(run_dir)] + list(args)
     result = subprocess.run(
         cmd,
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         cwd=PROJECT_ROOT,
         timeout=timeout,
     )
@@ -130,15 +131,21 @@ class TestCliIntegration:
         # retry — no real API key required, fully reproducible.
         monkeypatch.setenv("FAKE_WORKER", "RETRY")
         tid = "cli-repair"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write scratch/test_cli/output.txt containing exactly '42'",
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "c1", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                     {"id": "c2", "kind": "content_exact",
-                      "path": "scratch/test_cli/output.txt", "expected": "FAKE_WORKER_OUTPUT"},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write scratch/test_cli/output.txt containing exactly '42'",
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "c1", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {
+                    "id": "c2",
+                    "kind": "content_exact",
+                    "path": "scratch/test_cli/output.txt",
+                    "expected": "FAKE_WORKER_OUTPUT",
+                },
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
 
         _run_cli(tmp_path, "create", rel)
@@ -172,15 +179,22 @@ class TestCliIntegration:
     @REQUIRES_PROVIDER
     def test_escalation(self, tmp_path):
         tid = "cli-escalation"
-        c = dict(BASE_CONTRACT, task_id=tid, objective="write output.txt containing 'IMPOSSIBLE'",
-                 worker={"model": MODEL, "max_attempts": 1},
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "c1", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                     {"id": "c2", "kind": "content_exact",
-                      "path": "scratch/test_cli/output.txt", "expected": "THIS IS IMPOSSIBLE BY DESIGN"},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="write output.txt containing 'IMPOSSIBLE'",
+            worker={"model": MODEL, "max_attempts": 1},
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "c1", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {
+                    "id": "c2",
+                    "kind": "content_exact",
+                    "path": "scratch/test_cli/output.txt",
+                    "expected": "THIS IS IMPOSSIBLE BY DESIGN",
+                },
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
 
         _run_cli(tmp_path, "create", rel)
@@ -211,8 +225,12 @@ class TestCliIntegration:
     @REQUIRES_PROVIDER
     def test_qc_required(self, tmp_path):
         tid = "cli-qc"
-        c = dict(BASE_CONTRACT, task_id=tid, objective="write output.txt containing 'ok'",
-                 qc={"required": True, "lens": "code_correctness"})
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="write output.txt containing 'ok'",
+            qc={"required": True, "lens": "code_correctness"},
+        )
         rel = _write_contract(c, f"{tid}.json")
 
         _run_cli(tmp_path, "create", rel)
@@ -256,8 +274,9 @@ class TestCliIntegration:
         r = _run_cli(tmp_path, "work", tid, expect_fail=True)
         assert r.returncode != 0
         err = (r.stderr or "").lower()
-        assert any(w in err for w in ("drafted", "ready", "retry_pending", "cannot transition", "illegal transition")), \
-            f"stderr missing expected keywords: {r.stderr}"
+        assert any(
+            w in err for w in ("drafted", "ready", "retry_pending", "cannot transition", "illegal transition")
+        ), f"stderr missing expected keywords: {r.stderr}"
 
     @pytest.mark.fast
     @pytest.mark.integration
@@ -314,15 +333,21 @@ class TestFakeWorker:
     def test_fake_worker_happy(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "1")
         tid = "fake-happy"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "exists", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                     {"id": "content", "kind": "content_exact",
-                      "path": "scratch/test_cli/output.txt", "expected": "FAKE_WORKER_OUTPUT"},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {
+                    "id": "content",
+                    "kind": "content_exact",
+                    "path": "scratch/test_cli/output.txt",
+                    "expected": "FAKE_WORKER_OUTPUT",
+                },
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
         _run_cli(tmp_path, "create", rel, timeout=10)
         _run_cli(tmp_path, "preflight", tid, timeout=10)
@@ -337,15 +362,21 @@ class TestFakeWorker:
     def test_fake_worker_repair(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "RETRY")
         tid = "fake-repair"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "exists", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                     {"id": "content", "kind": "content_exact",
-                      "path": "scratch/test_cli/output.txt", "expected": "FAKE_WORKER_OUTPUT"},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {
+                    "id": "content",
+                    "kind": "content_exact",
+                    "path": "scratch/test_cli/output.txt",
+                    "expected": "FAKE_WORKER_OUTPUT",
+                },
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
         _run_cli(tmp_path, "create", rel, timeout=10)
         _run_cli(tmp_path, "preflight", tid, timeout=10)
@@ -365,16 +396,22 @@ class TestFakeWorker:
     def test_fake_worker_escalation(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "FAIL")
         tid = "fake-escalation"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
-                 worker={"model": MODEL, "max_attempts": 1},
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "exists", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                     {"id": "content", "kind": "content_exact",
-                      "path": "scratch/test_cli/output.txt", "expected": "FAKE_WORKER_OUTPUT"},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
+            worker={"model": MODEL, "max_attempts": 1},
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {
+                    "id": "content",
+                    "kind": "content_exact",
+                    "path": "scratch/test_cli/output.txt",
+                    "expected": "FAKE_WORKER_OUTPUT",
+                },
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
         _run_cli(tmp_path, "create", rel, timeout=10)
         _run_cli(tmp_path, "preflight", tid, timeout=10)
@@ -389,13 +426,15 @@ class TestFakeWorker:
     def test_unicode_output(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "1")
         tid = "fake-unicode"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write unicode output file",
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "exists", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write unicode output file",
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
         _run_cli(tmp_path, "create", rel, timeout=10)
         _run_cli(tmp_path, "preflight", tid, timeout=10)
@@ -409,15 +448,21 @@ class TestFakeWorker:
     def test_progress_output(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "1")
         tid = "fake-progress-out"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write output file with FAKE_WORKER_OUTPUT",
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "exists", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                     {"id": "content", "kind": "content_exact",
-                      "path": "scratch/test_cli/output.txt", "expected": "FAKE_WORKER_OUTPUT"},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write output file with FAKE_WORKER_OUTPUT",
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {
+                    "id": "content",
+                    "kind": "content_exact",
+                    "path": "scratch/test_cli/output.txt",
+                    "expected": "FAKE_WORKER_OUTPUT",
+                },
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
         _run_cli(tmp_path, "create", rel, timeout=10)
         r2 = _run_cli(tmp_path, "preflight", tid, timeout=10)
@@ -435,13 +480,15 @@ class TestFakeWorker:
     def test_timeout_restart_diagnosis(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "1")
         tid = "fake-timeout-diag"
-        c = dict(BASE_CONTRACT, task_id=tid,
-                 objective="Write output file with FAKE_WORKER_OUTPUT",
-                 outputs=[{"path": "scratch/test_cli/output.txt"}],
-                 acceptance_checks=[
-                     {"id": "exists", "kind": "file_exists",
-                      "path": "scratch/test_cli/output.txt", "expected": True},
-                 ])
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective="Write output file with FAKE_WORKER_OUTPUT",
+            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            acceptance_checks=[
+                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
         _run_cli(tmp_path, "create", rel, timeout=10)
         _run_cli(tmp_path, "preflight", tid, timeout=10)
@@ -451,13 +498,17 @@ class TestFakeWorker:
         # chain stays replayable (direct state.json edits are ignored by
         # load_state, which replays the WAL authoritatively).
         from orchestrator.state import load_state, save_state
+
         sp = _state_path(tmp_path, tid)
         state = load_state(sp)
-        state.patch_worker_result(0, {
-            **state.worker_results[0],
-            "exit_code": -1,
-            "elapsed_sec": 300.0,
-        })
+        state.patch_worker_result(
+            0,
+            {
+                **state.worker_results[0],
+                "exit_code": -1,
+                "elapsed_sec": 300.0,
+            },
+        )
         save_state(state, sp)
 
         r = _run_cli(tmp_path, "doctor", tid)
@@ -476,10 +527,18 @@ class TestFakeWorker:
         gid = "phase2-proof-two-step"
 
         # 1. Create goal
-        _run_cli(tmp_path, "goal-create", "--goal-id", gid,
-                 "--title", "Two-step proof",
-                 "--description", "Step 1 creates a file, Step 2 validates it",
-                 "--constraints", '{"workspace_scope": {"allow": ["scratch/phase2/proof/"], "deny": []}}')
+        _run_cli(
+            tmp_path,
+            "goal-create",
+            "--goal-id",
+            gid,
+            "--title",
+            "Two-step proof",
+            "--description",
+            "Step 1 creates a file, Step 2 validates it",
+            "--constraints",
+            '{"workspace_scope": {"allow": ["scratch/phase2/proof/"], "deny": []}}',
+        )
 
         # 2. Plan goal
         _run_cli(tmp_path, "plan", gid)
@@ -501,4 +560,3 @@ class TestFakeWorker:
 
         assert c1_state is not None and c1_state["status"] in ("COMPLETE", "complete")
         assert c2_state is not None and c2_state["status"] in ("COMPLETE", "complete")
-

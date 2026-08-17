@@ -17,45 +17,47 @@ Public API is backward-compatible with the pre-0.5 snapshot state store:
   event-sourced records with seq/hash chain.
 """
 
+import copy
+import hashlib
 import json
 import os
-import copy
 import shutil
-import hashlib
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from .exceptions import StateError, IllegalTransitionError
+from typing import Any, Dict
 
+from .exceptions import IllegalTransitionError, StateError
 
 JOURNAL_FILENAME = "state.journal.jsonl"
 WAL_FILENAME = "state.wal.jsonl"
 SNAPSHOT_FILENAME = "state.json"
 STATE_SCHEMA_VERSION = 2
 
-STATES = frozenset({
-    "DRAFTED",
-    "PREFLIGHT_RUNNING",
-    "PREFLIGHT_FAILED",
-    "BLOCKED",
-    "READY",
-    "WORKING",
-    "VERIFYING",
-    "VERIFICATION_FAILED",
-    "RETRY_PENDING",
-    "CRASHED",
-    "ESCALATED",
-    "VERIFIED",
-    "QC_RUNNING",
-    "QC_REJECTED",
-    "QC_INSUFFICIENT_EVIDENCE",
-    "QC_CONDITIONAL_PASS",
-    "QC_PASSED",
-    "COMPLETE",
-    "FORCE_COMPLETE",
-    "DEGRADED_PASS",
-    "PAUSED",
-    "CANCELLED",
-})
+STATES = frozenset(
+    {
+        "DRAFTED",
+        "PREFLIGHT_RUNNING",
+        "PREFLIGHT_FAILED",
+        "BLOCKED",
+        "READY",
+        "WORKING",
+        "VERIFYING",
+        "VERIFICATION_FAILED",
+        "RETRY_PENDING",
+        "CRASHED",
+        "ESCALATED",
+        "VERIFIED",
+        "QC_RUNNING",
+        "QC_REJECTED",
+        "QC_INSUFFICIENT_EVIDENCE",
+        "QC_CONDITIONAL_PASS",
+        "QC_PASSED",
+        "COMPLETE",
+        "FORCE_COMPLETE",
+        "DEGRADED_PASS",
+        "PAUSED",
+        "CANCELLED",
+    }
+)
 
 TERMINAL_STATES = frozenset({"COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS", "ESCALATED", "BLOCKED", "CANCELLED"})
 
@@ -71,7 +73,14 @@ LEGAL_TRANSITIONS = {
     "RETRY_PENDING": {"WORKING", "ESCALATED", "QC_REJECTED", "PAUSED", "CANCELLED"},
     "CRASHED": {"RETRY_PENDING", "DRAFTED", "CANCELLED"},
     "VERIFIED": {"QC_RUNNING", "COMPLETE", "CANCELLED"},
-    "QC_RUNNING": {"QC_REJECTED", "QC_INSUFFICIENT_EVIDENCE", "QC_CONDITIONAL_PASS", "QC_PASSED", "PAUSED", "CANCELLED"},
+    "QC_RUNNING": {
+        "QC_REJECTED",
+        "QC_INSUFFICIENT_EVIDENCE",
+        "QC_CONDITIONAL_PASS",
+        "QC_PASSED",
+        "PAUSED",
+        "CANCELLED",
+    },
     "QC_REJECTED": {"RETRY_PENDING", "FORCE_COMPLETE", "ESCALATED", "CANCELLED"},
     "QC_INSUFFICIENT_EVIDENCE": {"RETRY_PENDING", "FORCE_COMPLETE", "ESCALATED", "CANCELLED"},
     "QC_CONDITIONAL_PASS": {"RETRY_PENDING", "FORCE_COMPLETE", "ESCALATED", "CANCELLED"},
@@ -147,10 +156,22 @@ class State:
         _hash_head: str — hash of last applied WAL event
     """
 
-    def __init__(self, task_id, status="DRAFTED", attempt=1,
-                 changed_approaches=None, events=None,
-                 evidence=None, worker_results=None, data=None,
-                 journal_dir=None, *, seq=0, hash_head="", schema_version=STATE_SCHEMA_VERSION):
+    def __init__(
+        self,
+        task_id,
+        status="DRAFTED",
+        attempt=1,
+        changed_approaches=None,
+        events=None,
+        evidence=None,
+        worker_results=None,
+        data=None,
+        journal_dir=None,
+        *,
+        seq=0,
+        hash_head="",
+        schema_version=STATE_SCHEMA_VERSION,
+    ):
         if status not in STATES and status is not None:
             raise StateError(f"invalid state: {status}")
         if not isinstance(attempt, int) or attempt < 1:
@@ -273,12 +294,14 @@ class State:
             self.evidence = dict(payload.get("evidence", {}))
             self.worker_results = list(payload.get("worker_results", []))
             self.data = dict(payload.get("data", {}))
-            self.events.append({
-                "timestamp": event["timestamp"],
-                "from": "",
-                "to": self.status,
-                "reason": event.get("reason", "state initialized"),
-            })
+            self.events.append(
+                {
+                    "timestamp": event["timestamp"],
+                    "from": "",
+                    "to": self.status,
+                    "reason": event.get("reason", "state initialized"),
+                }
+            )
         elif event_type == "TRANSITION":
             new_status = payload["to"]
             if new_status not in STATES:
@@ -324,23 +347,27 @@ class State:
                 raise IllegalTransitionError(f"cannot force-escalate a {self.status} task")
             self.status = "ESCALATED"
             self.data["escalation_reason"] = event.get("reason", "")
-            self.events.append({
-                "timestamp": event["timestamp"],
-                "from": payload.get("from", ""),
-                "to": "ESCALATED",
-                "reason": event.get("reason", "force escalation"),
-            })
+            self.events.append(
+                {
+                    "timestamp": event["timestamp"],
+                    "from": payload.get("from", ""),
+                    "to": "ESCALATED",
+                    "reason": event.get("reason", "force escalation"),
+                }
+            )
         elif event_type == "FORCE_BLOCK":
             if self.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS"):
                 raise IllegalTransitionError(f"cannot force-block a {self.status} task")
             self.status = "BLOCKED"
             self.data["block_reason"] = event.get("reason", "")
-            self.events.append({
-                "timestamp": event["timestamp"],
-                "from": payload.get("from", ""),
-                "to": "BLOCKED",
-                "reason": event.get("reason", "forced block"),
-            })
+            self.events.append(
+                {
+                    "timestamp": event["timestamp"],
+                    "from": payload.get("from", ""),
+                    "to": "BLOCKED",
+                    "reason": event.get("reason", "forced block"),
+                }
+            )
         elif event_type == "WORKER_RESULT_PATCH":
             idx = int(payload["index"])
             if idx < 0 or idx >= len(self.worker_results):
@@ -349,21 +376,25 @@ class State:
         elif event_type == "PAUSE":
             self._validate_transition(self.status, "PAUSED")
             self.status = "PAUSED"
-            self.events.append({
-                "timestamp": event["timestamp"],
-                "from": payload.get("from", ""),
-                "to": "PAUSED",
-                "reason": event.get("reason", "operator pause"),
-            })
+            self.events.append(
+                {
+                    "timestamp": event["timestamp"],
+                    "from": payload.get("from", ""),
+                    "to": "PAUSED",
+                    "reason": event.get("reason", "operator pause"),
+                }
+            )
         elif event_type == "CANCEL":
             self._validate_transition(self.status, "CANCELLED")
             self.status = "CANCELLED"
-            self.events.append({
-                "timestamp": event["timestamp"],
-                "from": payload.get("from", ""),
-                "to": "CANCELLED",
-                "reason": event.get("reason", "operator cancel"),
-            })
+            self.events.append(
+                {
+                    "timestamp": event["timestamp"],
+                    "from": payload.get("from", ""),
+                    "to": "CANCELLED",
+                    "reason": event.get("reason", "operator cancel"),
+                }
+            )
         else:
             raise StateError(f"unknown event_type: {event_type}")
 
@@ -374,13 +405,8 @@ class State:
         allowed = LEGAL_TRANSITIONS.get(old, set())
         if new not in allowed:
             if old in TERMINAL_STATES:
-                raise IllegalTransitionError(
-                    f"cannot transition from terminal state {old}"
-                )
-            raise IllegalTransitionError(
-                f"illegal transition: {old} -> {new} "
-                f"(allowed from {old}: {sorted(allowed)})"
-            )
+                raise IllegalTransitionError(f"cannot transition from terminal state {old}")
+            raise IllegalTransitionError(f"illegal transition: {old} -> {new} (allowed from {old}: {sorted(allowed)})")
 
     # ------------------------------------------------------------------
     # Public mutation API (all event-sourced)
@@ -393,14 +419,18 @@ class State:
             # never created via create_initial_state. Synthesize an INIT from
             # the current projection so the WAL chain starts cleanly instead of
             # mid-chain (fail-closed replay requires a leading INIT, seq=1).
-            self.append_event("INIT", {
-                "status": self.status,
-                "attempt": self.attempt,
-                "changed_approaches": list(self.changed_approaches),
-                "evidence": dict(self.evidence),
-                "worker_results": list(self.worker_results),
-                "data": dict(self.data),
-            }, reason="synthesized INIT for raw-constructed state")
+            self.append_event(
+                "INIT",
+                {
+                    "status": self.status,
+                    "attempt": self.attempt,
+                    "changed_approaches": list(self.changed_approaches),
+                    "evidence": dict(self.evidence),
+                    "worker_results": list(self.worker_results),
+                    "data": dict(self.data),
+                },
+                reason="synthesized INIT for raw-constructed state",
+            )
         event = self._build_event(event_type, payload, reason=reason)
         # Apply BEFORE persisting: _apply_event validates legality (transition
         # rules, seq/prev/hash) and raises with zero side effects on rejection.
@@ -419,8 +449,7 @@ class State:
             payload["evidence_path"] = evidence_path
         self.append_event("TRANSITION", payload, reason=reason)
 
-    def force_complete(self, reason="", failed_checks=None, output_hash="",
-                       waived_files=None, cleanup_decision=""):
+    def force_complete(self, reason="", failed_checks=None, output_hash="", waived_files=None, cleanup_decision=""):
         """Transition to FORCE_COMPLETE with auditable waiver metadata."""
         payload = {
             "reason": reason,
@@ -602,14 +631,18 @@ def _migrate_legacy_snapshot(d: dict, journal_dir: str) -> State:
     )
     state.data.setdefault("migrated_from_snapshot_v1", True)
     if journal_dir:
-        init_event = state._build_event("INIT", {
-            "status": state.status,
-            "attempt": state.attempt,
-            "changed_approaches": list(state.changed_approaches),
-            "evidence": dict(state.evidence),
-            "worker_results": list(state.worker_results),
-            "data": dict(state.data),
-        }, reason="migrated from snapshot v1")
+        init_event = state._build_event(
+            "INIT",
+            {
+                "status": state.status,
+                "attempt": state.attempt,
+                "changed_approaches": list(state.changed_approaches),
+                "evidence": dict(state.evidence),
+                "worker_results": list(state.worker_results),
+                "data": dict(state.data),
+            },
+            reason="migrated from snapshot v1",
+        )
         state._append_wal(init_event)
         state._seq = init_event["seq"]
         state._hash_head = init_event["event_hash"]
@@ -629,14 +662,18 @@ def create_initial_state(task_id, journal_dir=None):
     # Append INIT + a DRAFTED marker event so the WAL chain starts cleanly.
     # INIT carries the initial projection; replay must not require a
     # persisted snapshot to reconstruct the state.
-    state.append_event("INIT", {
-        "status": "DRAFTED",
-        "attempt": 1,
-        "changed_approaches": [],
-        "evidence": {},
-        "worker_results": [],
-        "data": {},
-    }, reason="state initialized")
+    state.append_event(
+        "INIT",
+        {
+            "status": "DRAFTED",
+            "attempt": 1,
+            "changed_approaches": [],
+            "evidence": {},
+            "worker_results": [],
+            "data": {},
+        },
+        reason="state initialized",
+    )
     return state
 
 
@@ -763,12 +800,14 @@ def recover_from_journal(journal_path, journal_dir=None):
                     task_id = entry.get("task_id", "")
                     last_status = entry.get("payload", {}).get("status", last_status)
                 elif entry.get("event_type") == "TRANSITION":
-                    events.append({
-                        "timestamp": entry.get("timestamp", ""),
-                        "from": entry.get("payload", {}).get("from", ""),
-                        "to": entry.get("payload", {}).get("to", last_status),
-                        "reason": entry.get("payload", {}).get("reason", ""),
-                    })
+                    events.append(
+                        {
+                            "timestamp": entry.get("timestamp", ""),
+                            "from": entry.get("payload", {}).get("from", ""),
+                            "to": entry.get("payload", {}).get("to", last_status),
+                            "reason": entry.get("payload", {}).get("reason", ""),
+                        }
+                    )
                     last_status = entry.get("payload", {}).get("to", last_status)
                 elif entry.get("from") is not None:
                     # Legacy journal line

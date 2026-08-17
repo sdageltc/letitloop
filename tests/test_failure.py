@@ -1,13 +1,13 @@
 """Tests for failure classification module."""
 
-import os
-import json
-import pytest
 from orchestrator.failure import (
-    classify_failure, suggest_remediation, count_consecutive_same_class,
-    FAILURE_CLASS_TIMEOUT, FAILURE_CLASS_VERIFIER_OUTPUT_MISSING,
-    FAILURE_CLASS_VERIFIER_CONTENT_MISMATCH, FAILURE_CLASS_WORKER_NONZERO_EXIT,
-    FAILURE_CLASS_UNKNOWN, MAX_SAME_CLASS_STRIKES, FAILURE_CLASS_PREFLIGHT_MISSING_INPUT,
+    FAILURE_CLASS_PREFLIGHT_MISSING_INPUT,
+    FAILURE_CLASS_TIMEOUT,
+    FAILURE_CLASS_WORKER_NONZERO_EXIT,
+    MAX_SAME_CLASS_STRIKES,
+    classify_failure,
+    count_consecutive_same_class,
+    suggest_remediation,
 )
 from orchestrator.state import State
 
@@ -42,6 +42,7 @@ def test_suggest_split_on_exhaustion():
 
 def test_suggest_replan_on_preflight():
     from orchestrator.failure import FAILURE_CLASS_PREFLIGHT_MISSING_INPUT
+
     rem = suggest_remediation(FAILURE_CLASS_PREFLIGHT_MISSING_INPUT, attempt=1, max_attempts=3)
     assert rem["action"] == "replan"
 

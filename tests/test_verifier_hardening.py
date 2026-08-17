@@ -1,12 +1,11 @@
 """Tests for hardened required_sections and render checks."""
 
 import os
-import pytest
 
 from orchestrator.verifier import (
-    _run_required_sections_check,
-    _run_render_check,
     _get_markdown_headings,
+    _run_render_check,
+    _run_required_sections_check,
 )
 
 
@@ -19,14 +18,7 @@ class TestMarkdownHeadings:
         assert "Subsection" in headings
 
     def test_headings_inside_code_blocks_excluded(self):
-        content = (
-            "# Real Section\n"
-            "```\n"
-            "# Fake Heading in Code\n"
-            "## Another fake\n"
-            "```\n"
-            "## Real Subsection\n"
-        )
+        content = "# Real Section\n```\n# Fake Heading in Code\n## Another fake\n```\n## Real Subsection\n"
         headings = _get_markdown_headings(content)
         assert "Real Section" in headings
         assert "Real Subsection" in headings

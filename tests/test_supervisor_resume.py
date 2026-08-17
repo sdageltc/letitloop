@@ -1,9 +1,11 @@
 """Tests for Supervisor resume functionality."""
 
 import os
+
 import pytest
-from orchestrator.goal import Goal
+
 from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 from orchestrator.supervisor import Supervisor
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))

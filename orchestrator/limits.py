@@ -1,7 +1,7 @@
 """Resource limit enforcement — wall-clock, output size, attempt caps."""
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 
 @dataclass

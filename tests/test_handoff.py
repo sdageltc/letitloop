@@ -1,11 +1,13 @@
 """Tests for session handoff generation."""
 
+import json
 import os
 import tempfile
-import json
+
 import pytest
-from orchestrator.state import create_initial_state, State
+
 from orchestrator.handoff import build_handoff
+from orchestrator.state import create_initial_state
 
 pytestmark = pytest.mark.fast
 
@@ -99,7 +101,7 @@ class TestBuildHandoff:
     def test_writes_to_run_dir(self):
         s = create_initial_state("write-test")
         with tempfile.TemporaryDirectory() as td:
-            handoff = build_handoff(s, run_dir=td)
+            build_handoff(s, run_dir=td)
             handoff_path = os.path.join(td, "handoff.json")
             assert os.path.isfile(handoff_path)
             with open(handoff_path) as f:

@@ -1,14 +1,16 @@
 """Tests for filesystem scope enforcement."""
 
-import os
 import json
+import os
+
 import pytest
-from orchestrator.goal import Goal
+
+from orchestrator import failure as fail_mod
+from orchestrator import scope as sc
 from orchestrator.contract import Contract
 from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 from orchestrator.supervisor import Supervisor
-from orchestrator import scope as sc
-from orchestrator import failure as fail_mod
 
 
 @pytest.fixture(autouse=True)
@@ -83,6 +85,7 @@ def test_detects_outside_scope_write(tmp_path):
 def test_failure_class_scope_violation(tmp_path):
     """Failure classifier returns scope_violation when scope_violations in state data."""
     from orchestrator.state import State
+
     state = State(task_id="scope-fail", status="VERIFICATION_FAILED")
     state.data["scope_violations"] = [{"path": "rogue.py", "violation_type": "outside_scope"}]
     fclass = fail_mod.classify_failure(state)
@@ -92,6 +95,7 @@ def test_failure_class_scope_violation(tmp_path):
 def test_no_scope_violation_without_data(tmp_path):
     """No scope_violation when scope_violations is absent from state data."""
     from orchestrator.state import State
+
     state = State(task_id="scope-clean", status="VERIFICATION_FAILED")
     fclass = fail_mod.classify_failure(state)
     assert fclass != fail_mod.FAILURE_CLASS_SCOPE_VIOLATION
@@ -156,7 +160,6 @@ def test_format_scope_result(tmp_path):
 
 def test_scope_check_empty_snapshot(tmp_path):
     """check_scope reports missing snapshot as scope violation."""
-    from orchestrator.contract import Contract
     raw = {
         "task_id": "no-snap",
         "title": "No snapshot",

@@ -5,24 +5,22 @@ better heuristics (scope-narrow, strategy-switch, merge), and explainable
 replan rationale metadata.
 """
 
-import os
 import json
-from typing import Dict, Any, Optional, List
+import os
+from typing import Any, Dict, List
 
-from .goal import Goal, Plan
-from .state import load_state, State
-from .contract import load_contract, validate_contract, requires_semantic_qc
-from .models import ModelRegistry
+from .contract import load_contract, requires_semantic_qc, validate_contract
 from .failure import (
+    FAILURE_CLASS_TASK_CRASHED,
+    FAILURE_CLASS_TIMEOUT,
+    FAILURE_CLASS_WORKER_EMPTY_OUTPUT,
+    FAILURE_CLASS_WORKER_NONZERO_EXIT,
     classify_failure,
     suggest_remediation,
-    FAILURE_CLASS_SCOPE_VIOLATION,
-    FAILURE_CLASS_TIMEOUT,
-    FAILURE_CLASS_TASK_CRASHED,
-    FAILURE_CLASS_WORKER_NONZERO_EXIT,
-    FAILURE_CLASS_WORKER_EMPTY_OUTPUT,
 )
-from . import evidence as ev
+from .goal import Goal, Plan
+from .models import ModelRegistry
+from .state import load_state
 
 
 class InspectResults:
@@ -187,17 +185,17 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
             all_passed = False
         fix = _rich_suggest_fix(task_id, info)
         suggested_actions[task_id] = fix
-        replan_evidence.append({
-            "task_id": task_id,
-            "status": info["status"],
-            "action": fix["action"],
-            "rationale": fix.get("rationale", {}),
-        })
+        replan_evidence.append(
+            {
+                "task_id": task_id,
+                "status": info["status"],
+                "action": fix["action"],
+                "rationale": fix.get("rationale", {}),
+            }
+        )
 
     if all_passed:
-        contracts = [
-            {"task_id": tid, "depends_on": [], "status": "complete"} for tid in results
-        ]
+        contracts = [{"task_id": tid, "depends_on": [], "status": "complete"} for tid in results]
         plan = Plan(goal_id=goal.goal_id, contracts=contracts)
         plan.replan_rationale = {
             "trigger": "all_completed",
@@ -214,15 +212,15 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
     split_rename_map: Dict[str, str] = {}
 
     contract_depends_on: Dict[str, List[str]] = {}
-    for c in getattr(goal, 'contracts', []):
+    for c in getattr(goal, "contracts", []):
         if isinstance(c, dict):
             tid = c.get("task_id", "")
             deps = c.get("depends_on", [])
             if tid:
                 contract_depends_on[tid] = list(deps)
-        elif hasattr(c, 'task_id'):
+        elif hasattr(c, "task_id"):
             tid = c.task_id
-            deps = getattr(c, 'depends_on', [])
+            deps = getattr(c, "depends_on", [])
             if tid:
                 contract_depends_on[tid] = list(deps)
 
@@ -253,8 +251,13 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
                 "worker": {"model": ModelRegistry.WORKER_PREFIXED, "max_attempts": 2},
                 "inputs": [],
                 "outputs": [{"path": out_a}],
-                "acceptance_checks": [{"id": f"{tid_a}-cmd", "kind": "command", "command": "python --version", "expected": 0}],
-                "qc": {"required": requires_semantic_qc("auto", [{"path": out_a}], [{"kind": "command"}]), "lens": "code_correctness"},
+                "acceptance_checks": [
+                    {"id": f"{tid_a}-cmd", "kind": "command", "command": "python --version", "expected": 0}
+                ],
+                "qc": {
+                    "required": requires_semantic_qc("auto", [{"path": out_a}], [{"kind": "command"}]),
+                    "lens": "code_correctness",
+                },
             }
             c_b = {
                 "task_id": tid_b,
@@ -266,8 +269,13 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
                 "worker": {"model": ModelRegistry.WORKER_PREFIXED, "max_attempts": 2},
                 "inputs": [{"path": out_a}],
                 "outputs": [{"path": out_b}],
-                "acceptance_checks": [{"id": f"{tid_b}-exists", "kind": "file_exists", "path": out_b, "expected": True}],
-                "qc": {"required": requires_semantic_qc("auto", [{"path": out_b}], [{"kind": "file_exists"}]), "lens": "code_correctness"},
+                "acceptance_checks": [
+                    {"id": f"{tid_b}-exists", "kind": "file_exists", "path": out_b, "expected": True}
+                ],
+                "qc": {
+                    "required": requires_semantic_qc("auto", [{"path": out_b}], [{"kind": "file_exists"}]),
+                    "lens": "code_correctness",
+                },
             }
 
             path_a = os.path.join(out_dir, f"{tid_a}.json")
@@ -290,20 +298,24 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
             # only needs Part A's outputs is not blocked until Part B finishes.
             split_rename_map[task_id] = [tid_a, tid_b]
 
-            new_contracts_meta.append({
-                "task_id": tid_a,
-                "depends_on": list(original_depends_on),
-                "status": "DRAFTED",
-                "contract": c_a,
-                "contract_path": os.path.relpath(path_a, workspace_root),
-            })
-            new_contracts_meta.append({
-                "task_id": tid_b,
-                "depends_on": [tid_a],
-                "status": "DRAFTED",
-                "contract": c_b,
-                "contract_path": os.path.relpath(path_b, workspace_root),
-            })
+            new_contracts_meta.append(
+                {
+                    "task_id": tid_a,
+                    "depends_on": list(original_depends_on),
+                    "status": "DRAFTED",
+                    "contract": c_a,
+                    "contract_path": os.path.relpath(path_a, workspace_root),
+                }
+            )
+            new_contracts_meta.append(
+                {
+                    "task_id": tid_b,
+                    "depends_on": [tid_a],
+                    "status": "DRAFTED",
+                    "contract": c_b,
+                    "contract_path": os.path.relpath(path_b, workspace_root),
+                }
+            )
 
         elif fix["action"] == "narrow_scope":
             viol_paths = [v.get("path", "") for v in info.get("scope_violations", [])]
@@ -321,39 +333,57 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
                 "worker": {"model": ModelRegistry.WORKER_PREFIXED, "max_attempts": 2},
                 "inputs": [],
                 "outputs": [{"path": f"scratch/{task_id}_narrowed_out.txt"}],
-                "acceptance_checks": [{"id": f"{task_id}-narrow-exists", "kind": "file_exists", "path": f"scratch/{task_id}_narrowed_out.txt", "expected": True}],
-                "qc": {"required": requires_semantic_qc("auto", [{"path": f"scratch/{task_id}_narrowed_out.txt"}], [{"kind": "file_exists"}]), "lens": "code_correctness"},
+                "acceptance_checks": [
+                    {
+                        "id": f"{task_id}-narrow-exists",
+                        "kind": "file_exists",
+                        "path": f"scratch/{task_id}_narrowed_out.txt",
+                        "expected": True,
+                    }
+                ],
+                "qc": {
+                    "required": requires_semantic_qc(
+                        "auto", [{"path": f"scratch/{task_id}_narrowed_out.txt"}], [{"kind": "file_exists"}]
+                    ),
+                    "lens": "code_correctness",
+                },
             }
             errs = validate_contract(narrowed_contract, workspace_root=workspace_root)
             if errs:
                 raise ValueError(f"Narrowed contract {task_id} failed validation: {errs}")
-            new_contracts_meta.append({
-                "task_id": task_id,
-                "depends_on": [],
-                "status": "DRAFTED",
-                "contract": narrowed_contract,
-            })
+            new_contracts_meta.append(
+                {
+                    "task_id": task_id,
+                    "depends_on": [],
+                    "status": "DRAFTED",
+                    "contract": narrowed_contract,
+                }
+            )
 
         elif fix["action"] in ("retry", "none"):
-            new_contracts_meta.append({
-                "task_id": task_id,
-                "depends_on": [],
-                "status": "DRAFTED",
-            })
+            new_contracts_meta.append(
+                {
+                    "task_id": task_id,
+                    "depends_on": [],
+                    "status": "DRAFTED",
+                }
+            )
 
         else:
-            new_contracts_meta.append({
-                "task_id": task_id,
-                "depends_on": [],
-                "status": "DRAFTED",
-            })
+            new_contracts_meta.append(
+                {
+                    "task_id": task_id,
+                    "depends_on": [],
+                    "status": "DRAFTED",
+                }
+            )
 
     rewritten_ids = {meta["task_id"] for meta in new_contracts_meta}
 
     # Carry forward downstream contracts that were not in results, rewriting
     # any depends_on that referenced a split task to BOTH split parts, so the
     # DAG is not corrupted by dropping them.
-    for c in getattr(goal, 'contracts', []):
+    for c in getattr(goal, "contracts", []):
         tid = c.get("task_id", "") if isinstance(c, dict) else getattr(c, "task_id", "")
         deps = c.get("depends_on", []) if isinstance(c, dict) else getattr(c, "depends_on", [])
         if not tid or tid in rewritten_ids:
@@ -367,11 +397,13 @@ def replan(goal: Goal, results: Dict[str, Any], run_dir: str) -> Plan:
                         rewritten.append(part)
             else:
                 rewritten.append(replacement if replacement is not None else dep)
-        new_contracts_meta.append({
-            "task_id": tid,
-            "depends_on": rewritten,
-            "status": "DRAFTED",
-        })
+        new_contracts_meta.append(
+            {
+                "task_id": tid,
+                "depends_on": rewritten,
+                "status": "DRAFTED",
+            }
+        )
 
     for meta in new_contracts_meta:
         rewritten = []

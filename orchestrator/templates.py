@@ -1,8 +1,8 @@
 """Contract template library — pre-built contract skeletons for common task types."""
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
-from .contract import validate_contract, requires_semantic_qc
+from .contract import requires_semantic_qc, validate_contract
 from .models import ModelRegistry
 
 _WORKER = ModelRegistry.WORKER_PREFIXED
@@ -151,13 +151,24 @@ TEMPLATES: Dict[str, Dict[str, Any]] = {
             "acceptance_checks": [
                 {"id": "{task_id}-content", "kind": "content_regex", "path": "{output_path}", "expected": ".+"},
                 {"id": "{task_id}-min_size", "kind": "min_size", "path": "{output_path}", "expected": 1000},
-                {"id": "{task_id}-sections", "kind": "required_sections", "path": "{output_path}", "expected": list(_ADVERSARIAL_SECTIONS)},
+                {
+                    "id": "{task_id}-sections",
+                    "kind": "required_sections",
+                    "path": "{output_path}",
+                    "expected": list(_ADVERSARIAL_SECTIONS),
+                },
                 {"id": "{task_id}-render", "kind": "render", "path": "{output_path}", "expected": "markdown"},
             ],
             "quality_spec": {
                 "required_sections": list(_ADVERSARIAL_SECTIONS),
                 "quality_dimensions": _ADVERSARIAL_DIMENSIONS,
-                "hard_failures": ["no_contradictions", "no_edge_cases", "no_schemas", "no_alternative_architecture", "no_uncomfortable_truths"],
+                "hard_failures": [
+                    "no_contradictions",
+                    "no_edge_cases",
+                    "no_schemas",
+                    "no_alternative_architecture",
+                    "no_uncomfortable_truths",
+                ],
                 "minimum_score": 0.85,
                 "minimum_counts": {
                     "contradictions": 5,
@@ -201,7 +212,7 @@ def apply_template(name: str, overrides: Dict[str, Any]) -> Dict[str, Any]:
     if not outputs:
         raise ValueError("overrides must include 'outputs' (list of path dicts)")
 
-    out_path = outputs[0]['path'] if isinstance(outputs[0], dict) else str(outputs[0])
+    out_path = outputs[0]["path"] if isinstance(outputs[0], dict) else str(outputs[0])
 
     max_depth = 50
 
@@ -216,7 +227,7 @@ def apply_template(name: str, overrides: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(v, (dict, list)):
             _visited.add(obj_id)
         if isinstance(v, str):
-            return v.replace('{task_id}', task_id).replace('{objective}', objective).replace('{output_path}', out_path)
+            return v.replace("{task_id}", task_id).replace("{objective}", objective).replace("{output_path}", out_path)
         if isinstance(v, list):
             result = [_subst(item, _depth + 1, _visited) for item in v]
             return result
@@ -224,6 +235,7 @@ def apply_template(name: str, overrides: Dict[str, Any]) -> Dict[str, Any]:
             result = {kk: _subst(vv, _depth + 1, _visited) for kk, vv in v.items()}
             return result
         return v
+
     def _deep_merge(base: dict, override: dict) -> dict:
         merged = dict(base)
         for k, v in override.items():

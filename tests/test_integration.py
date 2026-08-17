@@ -4,21 +4,21 @@ These tests simulate the full control loop without invoking opencode.
 """
 
 import os
-import json
-import tempfile
 import shutil
-import pytest
-from unittest.mock import patch, MagicMock
+import tempfile
 
-from orchestrator.contract import load_contract, Contract
-from orchestrator.state import (
-    State, create_initial_state, load_state, save_state,
-    IllegalTransitionError,
-)
-from orchestrator.preflight import run_preflight
-from orchestrator.verifier import run_verification, run_checks
-from orchestrator.worker import run_worker
+import pytest
+
+from orchestrator.contract import Contract
 from orchestrator.handoff import build_handoff
+from orchestrator.preflight import run_preflight
+from orchestrator.state import (
+    IllegalTransitionError,
+    create_initial_state,
+    load_state,
+    save_state,
+)
+from orchestrator.verifier import run_verification
 
 pytestmark = pytest.mark.fast
 
@@ -27,43 +27,27 @@ FIXTURE_CONTRACT = {
     "title": "Integration test: create hello_fixture.py",
     "status": "drafted",
     "risk_tier": "auto",
-    "workspace_scope": {
-        "allow": ["scratch/test/"],
-        "deny": ["AGENTS.md", "memory/", ".opencode/"]
-    },
+    "workspace_scope": {"allow": ["scratch/test/"], "deny": ["AGENTS.md", "memory/", ".opencode/"]},
     "objective": "Create scratch/test/hello_fixture.py with a greet function",
-    "worker": {
-        "model": "openai:gpt-4o-mini",
-        "max_attempts": 3
-    },
+    "worker": {"model": "openai:gpt-4o-mini", "max_attempts": 3},
     "inputs": [],
-    "outputs": [
-        {"path": "scratch/test/hello_fixture.py"}
-    ],
+    "outputs": [{"path": "scratch/test/hello_fixture.py"}],
     "acceptance_checks": [
-        {
-            "id": "file_exists",
-            "kind": "file_exists",
-            "path": "scratch/test/hello_fixture.py",
-            "expected": "nonempty"
-        },
+        {"id": "file_exists", "kind": "file_exists", "path": "scratch/test/hello_fixture.py", "expected": "nonempty"},
         {
             "id": "greet_function",
             "kind": "content_regex",
             "path": "scratch/test/hello_fixture.py",
-            "expected": r"def greet"
+            "expected": r"def greet",
         },
         {
             "id": "pytest_pass",
             "kind": "command",
             "command": "python -m pytest scratch/test/hello_fixture.py -v",
-            "expected": 0
-        }
+            "expected": 0,
+        },
     ],
-    "qc": {
-        "required": False,
-        "lens": "code_correctness"
-    },
+    "qc": {"required": False, "lens": "code_correctness"},
 }
 
 
@@ -98,7 +82,9 @@ def test_simulated_happy_path(isolated_workspace):
     os.makedirs(output_dir, exist_ok=True)
     fixture_path = os.path.join(output_dir, "hello_fixture.py")
     with open(fixture_path, "w") as f:
-        f.write("def greet(name):\n    return f'Hello, {name}!'\n\n\ndef test_greet():\n    assert greet('World') == 'Hello, World!'\n")
+        f.write(
+            "def greet(name):\n    return f'Hello, {name}!'\n\n\ndef test_greet():\n    assert greet('World') == 'Hello, World!'\n"
+        )
 
     state.status = "WORKING"
     state.add_worker_result({"exit_code": 0, "stdout": "ok", "stderr": "", "elapsed_sec": 0.5})
@@ -137,14 +123,15 @@ def test_verifier_rejects_bad_output(isolated_workspace):
 
 def test_three_strike_impossibility(isolated_workspace):
     """Simulate three failed attempts, then ESCALATED, no fourth retry."""
-    ws = isolated_workspace
-    contract = Contract(FIXTURE_CONTRACT)
+    Contract(FIXTURE_CONTRACT)
     state = create_initial_state("integration-test-3strike")
 
     for attempt in range(1, 4):
         state.attempt = attempt
         state.status = "WORKING"
-        state.add_worker_result({"exit_code": 1, "stdout": "", "stderr": f"attempt {attempt} failed", "elapsed_sec": 0.1})
+        state.add_worker_result(
+            {"exit_code": 1, "stdout": "", "stderr": f"attempt {attempt} failed", "elapsed_sec": 0.1}
+        )
         state.record_approach(f"approach {attempt}")
         state.status = "VERIFICATION_FAILED"
         state.status = "RETRY_PENDING"
@@ -209,8 +196,7 @@ def test_illegal_state_transition_across_loop(isolated_workspace):
 
 def test_worker_with_retry_and_changed_approach(isolated_workspace):
     """Worker result records approach changes across attempts."""
-    ws = isolated_workspace
-    contract = Contract(FIXTURE_CONTRACT)
+    Contract(FIXTURE_CONTRACT)
     state = create_initial_state("approach-test")
     state.status = "RETRY_PENDING"
 

@@ -10,12 +10,13 @@ Zero LLM calls. Deterministic ordering.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class CallSpec:
     """A single model invocation request."""
+
     call_id: str
     prompt: str
     model: str
@@ -37,12 +38,14 @@ class CallSpec:
 @dataclass
 class ScheduleWave:
     """A set of calls grouped for concurrency-safe execution (see H2 note)."""
+
     calls: List[CallSpec] = field(default_factory=list)
 
 
 @dataclass
 class UsageRecord:
     """Per-provider usage snapshot."""
+
     provider: str
     model: str
     calls: int = 0

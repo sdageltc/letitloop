@@ -1,12 +1,13 @@
 """Tests using the fault injection framework on orchestrator subsystems."""
 
 import os
-import json
-import pytest
 from unittest.mock import patch
-from tests.fault_injection import inject_fault, FaultInjector, corrupt_state_file, empty_ledger, corrupt_ledger
+
+import pytest
+
 from orchestrator.goal import Goal, Plan
 from orchestrator.supervisor import Supervisor
+from tests.fault_injection import FaultInjector, corrupt_ledger, corrupt_state_file, empty_ledger, inject_fault
 
 
 def _make_contract(task_id, output_path=None):
@@ -25,8 +26,12 @@ def _make_contract(task_id, output_path=None):
             "inputs": [],
             "outputs": [{"path": output_path or f"scratch/{task_id}_out.txt"}],
             "acceptance_checks": [
-                {"id": f"{task_id}-chk", "kind": "file_exists",
-                 "path": output_path or f"scratch/{task_id}_out.txt", "expected": True},
+                {
+                    "id": f"{task_id}-chk",
+                    "kind": "file_exists",
+                    "path": output_path or f"scratch/{task_id}_out.txt",
+                    "expected": True,
+                },
             ],
             "qc": {"required": False, "lens": "code_correctness"},
         },
@@ -34,15 +39,17 @@ def _make_contract(task_id, output_path=None):
 
 
 class TestFaultInjector:
-
     @pytest.mark.fast
     def test_inject_raises_on_load_state(self, tmp_path):
         """Fault injection: load_state raises RuntimeError."""
         p = os.path.join(str(tmp_path), "dummy.json")
         with open(p, "w") as f:
-            f.write('{"task_id": "t1", "status": "DRAFTED", "data": {}, "attempt": 0, "worker_results": [], "evidence": {}}')
+            f.write(
+                '{"task_id": "t1", "status": "DRAFTED", "data": {}, "attempt": 0, "worker_results": [], "evidence": {}}'
+            )
         with inject_fault("orchestrator.state.load_state", raises=RuntimeError("disk failure")):
             from orchestrator.state import load_state
+
             with pytest.raises(RuntimeError, match="disk failure"):
                 load_state(p)
 
@@ -52,6 +59,7 @@ class TestFaultInjector:
         fake = type("FakeState", (), {"status": "COMPLETE", "attempt": 0, "evidence": {}, "worker_results": []})()
         with inject_fault("orchestrator.state.load_state", returns=fake):
             from orchestrator.state import load_state
+
             result = load_state("anything.json")
             assert result.status == "COMPLETE"
 
@@ -72,9 +80,10 @@ class TestFaultInjector:
         run_dir = os.path.join(str(tmp_path), "runs")
         os.makedirs(os.path.join(run_dir, "fi1"), exist_ok=True)
         corrupt_state_file(os.path.join(run_dir, "fi1"))
-        sup = Supervisor(goal, plan, workspace_root=str(tmp_path), run_dir=run_dir)
-        from orchestrator.state import load_state
+        Supervisor(goal, plan, workspace_root=str(tmp_path), run_dir=run_dir)
         from orchestrator.exceptions import StateError
+        from orchestrator.state import load_state
+
         with pytest.raises(StateError):
             load_state(os.path.join(run_dir, "fi1", "state.json"))
 
@@ -82,6 +91,7 @@ class TestFaultInjector:
     def test_empty_ledger_doesnt_crash_reconciliation(self, tmp_path):
         """An empty evidence ledger causes no crash in reconcile."""
         from orchestrator.reconcile import run_reconciliation
+
         goal = Goal(goal_id="g_fi2", title="FI2", description="desc")
         contracts = [_make_contract("fi2")]
         plan = Plan(goal_id=goal.goal_id, contracts=contracts)
@@ -94,8 +104,9 @@ class TestFaultInjector:
     @pytest.mark.fast
     def test_corrupt_ledger_doesnt_crash_reconciliation(self, tmp_path):
         """An unparseable evidence ledger causes no crash in reconcile."""
-        from orchestrator.reconcile import run_reconciliation
         from orchestrator import evidence as ev
+        from orchestrator.reconcile import run_reconciliation
+
         goal = Goal(goal_id="g_fi3", title="FI3", description="desc")
         contracts = [_make_contract("fi3")]
         plan = Plan(goal_id=goal.goal_id, contracts=contracts)
@@ -141,6 +152,7 @@ class TestFaultInjector:
             calls.append(1)
             if len(calls) < 3:
                 raise OSError("disk full")
+
         with inject_fault("orchestrator.supervisor.save_state", side_effect=flaky_save):
             with patch.dict(os.environ, {"FAKE_WORKER": "1"}):
                 goal = Goal(goal_id="g_fi6", title="FI6", description="desc")
@@ -148,7 +160,7 @@ class TestFaultInjector:
                 plan = Plan(goal_id=goal.goal_id, contracts=contracts)
                 run_dir = os.path.join(str(tmp_path), "runs")
                 sup = Supervisor(goal, plan, workspace_root=str(tmp_path), run_dir=run_dir)
-                res = sup.execute_plan()
+                sup.execute_plan()
                 # Retry should succeed eventually
                 assert len(calls) >= 3
 
@@ -159,8 +171,10 @@ class TestFaultInjector:
         with fi1:
             with pytest.raises(KeyError, match="first"):
                 from orchestrator.state import load_state
+
                 load_state("x.json")
         with fi2:
             with pytest.raises(KeyError, match="second"):
                 from orchestrator.state import load_state
+
                 load_state("x.json")

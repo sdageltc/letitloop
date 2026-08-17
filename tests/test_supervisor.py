@@ -1,11 +1,12 @@
 """Tests for Supervisor Executor using FAKE_WORKER."""
 
 import os
-import pytest
-from orchestrator.goal import Goal, Plan
-from orchestrator.generator import generate_contracts
-from orchestrator.supervisor import Supervisor
 
+import pytest
+
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
+from orchestrator.supervisor import Supervisor
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -75,7 +76,10 @@ def test_supervisor_blocked_on_failure(tmp_path, monkeypatch):
     # AUT-003: an exhausted failure now escalates with an impossibility
     # artifact instead of ending as a bare VERIFICATION_FAILED.
     assert res["sup-fail-step-1"] in ("ESCALATED", "escaped", "failed")
-    assert "sup-fail-step-2" not in res or supervisor.graph.nodes["sup-fail-step-2"]["status"] not in ("COMPLETE", "complete")
+    assert "sup-fail-step-2" not in res or supervisor.graph.nodes["sup-fail-step-2"]["status"] not in (
+        "COMPLETE",
+        "complete",
+    )
 
 
 def test_supervisor_execute_plan_with_retry(tmp_path, monkeypatch):
@@ -106,6 +110,7 @@ def test_orphan_working_swept_on_recovery(tmp_path):
     at graph-recovery time so it can be requeued (WORKING tasks are never
     'ready')."""
     from orchestrator.state import create_initial_state, save_state
+
     ws_dir = str(tmp_path)
     run_dir = os.path.join(ws_dir, "scratch", "runs")
     goal = Goal(goal_id="sup-orphan", title="Orphan", description="test")
@@ -130,6 +135,7 @@ def test_stall_escalates_non_terminal_nodes(tmp_path):
     """Autonomy fix: after a no-progress iteration, non-terminal nodes are
     ESCALATED with impossibility artifacts — no silent incomplete end state."""
     from orchestrator.state import create_initial_state, save_state
+
     ws_dir = str(tmp_path)
     run_dir = os.path.join(ws_dir, "scratch", "runs")
     goal = Goal(goal_id="sup-stall", title="Stall", description="test")

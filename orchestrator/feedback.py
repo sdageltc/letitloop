@@ -1,14 +1,13 @@
 """Feedback loop — captures execution failures for self-healing replanning."""
 
-import os
 import json
+import os
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
-from .state import State, load_state
+from .errors import from_failure_class
 from .failure import classify_failure
-from .errors import from_failure_class, StructuredError
-
+from .state import State
 
 FEEDBACK_DIR_NAME = "feedback"
 
@@ -85,6 +84,7 @@ def collect_feedback(
         fclass = state.data.get("last_failure_class", "") or classify_failure(state)
         err = from_failure_class(fclass, task_id=task_id)
         from .qc_review import _redact_secrets
+
         snippet = _redact_secrets((stderr or "")[:200])
         return FeedbackRecord(
             task_id=task_id,
@@ -103,6 +103,7 @@ def collect_feedback(
         if state.worker_results:
             last = state.worker_results[-1]
             from .qc_review import _redact_secrets
+
             raw_snip = (last.get("stderr", "") or last.get("stdout", "") or "")[:200]
             snippet = _redact_secrets(raw_snip)
         else:
@@ -142,11 +143,16 @@ def store_feedback(goal_id: str, run_dir: str, records: List[FeedbackRecord]) ->
     all_records = existing + new_records
 
     with open(path, "w", encoding="utf-8") as f:
-        json.dump({
-            "goal_id": goal_id,
-            "count": len(all_records),
-            "records": [r.to_dict() for r in all_records],
-        }, f, indent=2, ensure_ascii=False)
+        json.dump(
+            {
+                "goal_id": goal_id,
+                "count": len(all_records),
+                "records": [r.to_dict() for r in all_records],
+            },
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
 
     store_global_feedback(new_records)
 
@@ -156,6 +162,7 @@ def store_global_feedback(records: List[FeedbackRecord], scratch_dir: Optional[s
     if not records:
         return
     import re
+
     base_dir = scratch_dir or os.path.join(os.getcwd(), "scratch")
     global_dir = os.path.join(base_dir, "orchestrator_feedback")
     os.makedirs(global_dir, exist_ok=True)
@@ -172,8 +179,8 @@ def store_global_feedback(records: List[FeedbackRecord], scratch_dir: Optional[s
 
     try:
         with open(global_file, "a", encoding="utf-8") as f:
-            for l in lines_to_write:
-                f.write(l)
+            for line in lines_to_write:
+                f.write(line)
 
         if os.path.isfile(global_file):
             with open(global_file, "r", encoding="utf-8") as f:
@@ -209,34 +216,40 @@ def detect_patterns(records: List[FeedbackRecord]) -> List[Dict[str, Any]]:
         if len(recs) >= 2:
             classes = [r.failure_class for r in recs]
             if len(set(classes)) == 1:
-                patterns.append({
-                    "task_id": task_id,
-                    "pattern": "repeated_same_class",
-                    "failure_class": classes[0],
-                    "count": len(recs),
-                    "suggestion": "split task or change approach",
-                })
+                patterns.append(
+                    {
+                        "task_id": task_id,
+                        "pattern": "repeated_same_class",
+                        "failure_class": classes[0],
+                        "count": len(recs),
+                        "suggestion": "split task or change approach",
+                    }
+                )
             else:
-                patterns.append({
-                    "task_id": task_id,
-                    "pattern": "varied_failures",
-                    "failure_classes": list(set(classes)),
-                    "count": len(recs),
-                    "suggestion": "review task definition",
-                })
+                patterns.append(
+                    {
+                        "task_id": task_id,
+                        "pattern": "varied_failures",
+                        "failure_classes": list(set(classes)),
+                        "count": len(recs),
+                        "suggestion": "review task definition",
+                    }
+                )
 
     by_class: Dict[str, int] = {}
     for r in records:
         by_class[r.failure_class] = by_class.get(r.failure_class, 0) + 1
     for fc, count in by_class.items():
         if count >= 3:
-            patterns.append({
-                "task_id": "(global)",
-                "pattern": "pervasive_failure_class",
-                "failure_class": fc,
-                "count": count,
-                "suggestion": "re-evaluate approach for this failure type",
-            })
+            patterns.append(
+                {
+                    "task_id": "(global)",
+                    "pattern": "pervasive_failure_class",
+                    "failure_class": fc,
+                    "count": count,
+                    "suggestion": "re-evaluate approach for this failure type",
+                }
+            )
 
     return patterns
 
@@ -249,13 +262,11 @@ def feedback_for_replan(goal_id: str, run_dir: str) -> str:
 
     lines = [f"Previous failures for goal {goal_id} ({len(records)} record(s)):"]
     from .qc_review import _redact_secrets
+
     for r in records:
         raw_snippet = r.stderr_snippet.replace("\n", " | ")[:120]
         snippet = _redact_secrets(raw_snippet)
-        lines.append(
-            f"  - [{r.error_code}] {r.task_id}: {r.failure_class}"
-            f" (attempt {r.attempt}, status {r.status})"
-        )
+        lines.append(f"  - [{r.error_code}] {r.task_id}: {r.failure_class} (attempt {r.attempt}, status {r.status})")
         if snippet:
             lines.append(f"    stderr: {snippet}")
 
@@ -274,6 +285,7 @@ def format_feedback(records: List[FeedbackRecord]) -> str:
         return "No feedback records found."
     lines = [f"Feedback records ({len(records)}):"]
     from .qc_review import _redact_secrets
+
     for r in records:
         item = f"  [{r.error_code}] {r.task_id}: {r.failure_class} (attempt {r.attempt})"
         if r.stderr_snippet:

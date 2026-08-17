@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/workspace
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LIL_WORKSPACE_ROOT=/workspace
+    command: ["dashboard"]
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/workspace
+    entrypoint: ["letitloop-mcp"]
+    stdin_open: true
+    tty: true

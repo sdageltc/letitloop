@@ -13,20 +13,21 @@ Default: skipped unless a provider is configured.
 import json
 import os
 import sys
+
 import pytest
 
 from orchestrator.goal import Goal, Plan
-from orchestrator.supervisor import Supervisor
-from orchestrator.state import load_state
-from orchestrator.models import ModelRegistry
 from orchestrator.llm import configured_providers
+from orchestrator.models import ModelRegistry
+from orchestrator.state import load_state
+from orchestrator.supervisor import Supervisor
 
 pytestmark = [
     pytest.mark.live,
     pytest.mark.skipif(
         not configured_providers(),
         reason="no LLM provider configured — set OPENAI_API_KEY / GEMINI_API_KEY / "
-               "ANTHROPIC_API_KEY / DEEPSEEK_API_KEY or LLM_API_KEY+LLM_BASE_URL",
+        "ANTHROPIC_API_KEY / DEEPSEEK_API_KEY or LLM_API_KEY+LLM_BASE_URL",
     ),
 ]
 
@@ -52,7 +53,7 @@ def _collect_evidence(task_dir, run_dir, goal_id):
                     with open(fpath, "r", encoding="utf-8", errors="replace") as f:
                         evidence_files[fname] = f.read()[:2000]
                 except Exception:
-                    evidence_files[fname] = f"[read error]"
+                    evidence_files[fname] = "[read error]"
     summary = {
         "goal_id": goal_id,
         "task_id": TASK_ID,

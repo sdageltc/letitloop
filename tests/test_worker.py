@@ -2,12 +2,14 @@
 
 import os
 import tempfile
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from orchestrator.contract import Contract
-from orchestrator.worker import run_worker, _build_brief, DEFAULT_MODEL
 from orchestrator.llm import LLMError
 from orchestrator.models import ModelRegistry
+from orchestrator.worker import DEFAULT_MODEL, _build_brief, run_worker
 
 pytestmark = pytest.mark.fast
 
@@ -23,9 +25,7 @@ def _make_contract(overrides=None):
         "worker": {"model": "openai:gpt-4o-mini", "max_attempts": 3},
         "inputs": [],
         "outputs": [{"path": "scratch/test/output.txt"}],
-        "acceptance_checks": [
-            {"id": "c1", "kind": "file_exists", "path": "scratch/test/output.txt", "expected": True}
-        ],
+        "acceptance_checks": [{"id": "c1", "kind": "file_exists", "path": "scratch/test/output.txt", "expected": True}],
         "qc": {"required": False, "lens": "code_correctness"},
     }
     if overrides:
@@ -172,8 +172,7 @@ class TestProviderFallback:
     def test_no_fallback_on_success(self):
         contract = _make_contract()
         with tempfile.TemporaryDirectory() as td:
-            with patch("orchestrator.worker.call_llm",
-                       return_value=_ok_response("ok")) as llm_mock:
+            with patch("orchestrator.worker.call_llm", return_value=_ok_response("ok")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is True
         assert result.get("fallback_used") is None
@@ -182,8 +181,7 @@ class TestProviderFallback:
     def test_no_fallback_when_backup_also_fails(self):
         contract = _make_contract()
         with tempfile.TemporaryDirectory() as td:
-            with patch("orchestrator.worker.call_llm",
-                       side_effect=LLMError("both down")) as llm_mock:
+            with patch("orchestrator.worker.call_llm", side_effect=LLMError("both down")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is False
         assert result["fallback_used"] is True
@@ -191,11 +189,15 @@ class TestProviderFallback:
         assert llm_mock.call_count == 2
 
     def test_contract_fallback_model_override(self):
-        contract = _make_contract({
-            "worker": {"model": "openai:gpt-4o-mini",
-                       "fallback_model": "anthropic:claude-opus-4-1",
-                       "max_attempts": 3},
-        })
+        contract = _make_contract(
+            {
+                "worker": {
+                    "model": "openai:gpt-4o-mini",
+                    "fallback_model": "anthropic:claude-opus-4-1",
+                    "max_attempts": 3,
+                },
+            }
+        )
 
         def side_effect(prompt, model, **kwargs):
             if model == "anthropic:claude-opus-4-1":
@@ -212,8 +214,7 @@ class TestProviderFallback:
         monkeypatch.setenv("WORKER_NO_FALLBACK", "1")
         contract = _make_contract()
         with tempfile.TemporaryDirectory() as td:
-            with patch("orchestrator.worker.call_llm",
-                       side_effect=LLMError("down")) as llm_mock:
+            with patch("orchestrator.worker.call_llm", side_effect=LLMError("down")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is False
         assert result.get("fallback_used") is None
@@ -224,8 +225,12 @@ class TestProviderFallback:
         with tempfile.TemporaryDirectory() as td:
             with patch("orchestrator.hybrid_worker.run_hybrid_worker") as hybrid_mock:
                 hybrid_mock.return_value = {
-                    "success": False, "stdout": "", "stderr": "hybrid failed",
-                    "exit_code": 2, "elapsed_sec": 1.0, "artifact_paths": [],
+                    "success": False,
+                    "stdout": "",
+                    "stderr": "hybrid failed",
+                    "exit_code": 2,
+                    "elapsed_sec": 1.0,
+                    "artifact_paths": [],
                 }
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is False

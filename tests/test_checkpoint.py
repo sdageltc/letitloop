@@ -1,13 +1,15 @@
 """Tests for checkpoint persistence and recovery mechanism."""
 
 import os
+
 import pytest
+
 from orchestrator.checkpoint import (
-    save_checkpoint,
-    load_checkpoint,
-    list_checkpoints,
-    recover_from_checkpoint,
     clear_checkpoints,
+    list_checkpoints,
+    load_checkpoint,
+    recover_from_checkpoint,
+    save_checkpoint,
 )
 
 pytestmark = pytest.mark.fast

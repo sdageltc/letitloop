@@ -1,11 +1,12 @@
 """Tests for Contract Generator."""
+
 import os
-import pytest
-from unittest.mock import patch, MagicMock
-from orchestrator.goal import Goal
-from orchestrator.generator import generate_contracts
+from unittest.mock import patch
+
 from orchestrator.contract import validate_contract
 from orchestrator.exceptions import PlannerError
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 

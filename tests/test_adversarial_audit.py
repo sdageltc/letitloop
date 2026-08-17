@@ -1,12 +1,14 @@
 """Tests for adversarial architecture audit profile."""
+
 import copy
-import json
 import os
+
 import pytest
-from orchestrator.contract import validate_contract, requires_semantic_qc
+
+from orchestrator.contract import requires_semantic_qc, validate_contract
+from orchestrator.qc_review import QCVerdict
 from orchestrator.templates import apply_template, list_templates, template_details
 from orchestrator.verifier import run_checks
-from orchestrator.qc_review import QCVerdict
 
 pytestmark = pytest.mark.fast
 
@@ -33,8 +35,11 @@ ADVERSARIAL_CONTRACT = {
     ],
     "quality_spec": {
         "required_sections": [
-            "Executive Verdict", "Critical Contradictions", "Uncomfortable Truths",
-            "Failure Modes & Edge Cases", "Concrete Schemas & Artifacts",
+            "Executive Verdict",
+            "Critical Contradictions",
+            "Uncomfortable Truths",
+            "Failure Modes & Edge Cases",
+            "Concrete Schemas & Artifacts",
         ],
         "quality_dimensions": {"analytical_depth": 0.25, "contradiction_resolution": 0.15, "actionability": 0.20},
         "hard_failures": ["no_contradictions", "no_edge_cases"],
@@ -78,7 +83,10 @@ class TestContractValidation:
 
 class TestRequiresSemanticQc:
     def test_minimum_counts_triggers_qc(self):
-        assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [], {"minimum_counts": {"contradictions": 5}}) is True
+        assert (
+            requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [], {"minimum_counts": {"contradictions": 5}})
+            is True
+        )
 
     def test_architecture_audit_check_kinds_trigger_qc(self):
         for kind in ("contradiction_count", "edge_case_count", "schema_count"):
@@ -99,11 +107,14 @@ class TestTemplate:
         assert len(details["defaults"]["acceptance_checks"]) == 4  # content, min_size, sections, render
 
     def test_apply_template(self):
-        contract = apply_template("adversarial_audit", {
-            "task_id": "test-audit",
-            "objective": "Review core system",
-            "outputs": [{"path": "scratch/test-audit/report.md"}],
-        })
+        contract = apply_template(
+            "adversarial_audit",
+            {
+                "task_id": "test-audit",
+                "objective": "Review core system",
+                "outputs": [{"path": "scratch/test-audit/report.md"}],
+            },
+        )
         assert contract["task_id"] == "test-audit"
         assert contract["qc"]["lens"] == "architecture_audit"
         assert contract["quality_spec"]["minimum_counts"]["contradictions"] >= 5
@@ -129,18 +140,24 @@ class TestVerifierCountChecks:
 
 An uncomfortable truth about the design.
 """)
-        results = run_checks([
-            {"id": "c1", "kind": "contradiction_count", "path": file_path, "expected": 3},
-        ], str(tmp_path))
+        results = run_checks(
+            [
+                {"id": "c1", "kind": "contradiction_count", "path": file_path, "expected": 3},
+            ],
+            str(tmp_path),
+        )
         assert results[0].passed, f"Expected pass, got: {results[0].message}"
 
     def test_contradiction_count_fails(self, tmp_path):
         file_path = os.path.join(str(tmp_path), "report.md")
         with open(file_path, "w", encoding="utf-8") as f:
             f.write("# Summary\nNo contradictions here.\n")
-        results = run_checks([
-            {"id": "c1", "kind": "contradiction_count", "path": file_path, "expected": 3},
-        ], str(tmp_path))
+        results = run_checks(
+            [
+                {"id": "c1", "kind": "contradiction_count", "path": file_path, "expected": 3},
+            ],
+            str(tmp_path),
+        )
         assert not results[0].passed
 
     def test_edge_case_count_passes(self, tmp_path):
@@ -194,18 +211,24 @@ An uncomfortable truth about the design.
 
 21. Another edge case for good measure.
 """)
-        results = run_checks([
-            {"id": "e1", "kind": "edge_case_count", "path": file_path, "expected": 5},
-        ], str(tmp_path))
+        results = run_checks(
+            [
+                {"id": "e1", "kind": "edge_case_count", "path": file_path, "expected": 5},
+            ],
+            str(tmp_path),
+        )
         assert results[0].passed, f"Expected pass, got: {results[0].message}"
 
     def test_edge_case_count_fails(self, tmp_path):
         file_path = os.path.join(str(tmp_path), "report.md")
         with open(file_path, "w", encoding="utf-8") as f:
             f.write("# Summary\nOnly one edge case here.\n")
-        results = run_checks([
-            {"id": "e1", "kind": "edge_case_count", "path": file_path, "expected": 5},
-        ], str(tmp_path))
+        results = run_checks(
+            [
+                {"id": "e1", "kind": "edge_case_count", "path": file_path, "expected": 5},
+            ],
+            str(tmp_path),
+        )
         assert not results[0].passed
 
     def test_schema_count_passes(self, tmp_path):
@@ -245,29 +268,42 @@ steps:
   - check evidence ledger integrity
 ```
 """)
-        results = run_checks([
-            {"id": "s1", "kind": "schema_count", "path": file_path, "expected": 3},
-        ], str(tmp_path))
+        results = run_checks(
+            [
+                {"id": "s1", "kind": "schema_count", "path": file_path, "expected": 3},
+            ],
+            str(tmp_path),
+        )
         assert results[0].passed, f"Expected pass, got: {results[0].message}"
 
     def test_schema_count_fails(self, tmp_path):
         file_path = os.path.join(str(tmp_path), "report.md")
         with open(file_path, "w", encoding="utf-8") as f:
             f.write("# No schemas here\n")
-        results = run_checks([
-            {"id": "s1", "kind": "schema_count", "path": file_path, "expected": 3},
-        ], str(tmp_path))
+        results = run_checks(
+            [
+                {"id": "s1", "kind": "schema_count", "path": file_path, "expected": 3},
+            ],
+            str(tmp_path),
+        )
         assert not results[0].passed
 
 
 class TestQcVerdictDimensions:
     def test_dimension_scores_stored(self):
         v = QCVerdict(
-            passed=True, reason="good audit", status="PASS", score=0.9,
+            passed=True,
+            reason="good audit",
+            status="PASS",
+            score=0.9,
             dimension_scores={
-                "originality": 0.8, "contradiction_resolution": 0.9,
-                "concrete_artifacts": 0.7, "edge_case_coverage": 0.85,
-                "intellectual_courage": 0.9, "actionability": 0.8, "source_fidelity": 0.95,
+                "originality": 0.8,
+                "contradiction_resolution": 0.9,
+                "concrete_artifacts": 0.7,
+                "edge_case_coverage": 0.85,
+                "intellectual_courage": 0.9,
+                "actionability": 0.8,
+                "source_fidelity": 0.95,
             },
             dimension_reasoning={
                 "originality": "Some original analysis beyond source",
@@ -287,8 +323,8 @@ class TestQcVerdictDimensions:
 
 class TestWorkerBriefAdversarial:
     def test_adversarial_brief_contains_mode_instructions(self):
+        from orchestrator.contract import Contract
         from orchestrator.worker import _build_brief
-        from orchestrator.contract import Contract, validate_contract
 
         raw = copy.deepcopy(ADVERSARIAL_CONTRACT)
         contract = Contract(raw)
@@ -299,8 +335,9 @@ class TestWorkerBriefAdversarial:
         assert "radically simpler alternative" in brief
 
     def test_non_adversarial_contract_no_extra_instructions(self):
-        from orchestrator.worker import _build_brief
         from orchestrator.contract import Contract
+        from orchestrator.worker import _build_brief
+
         raw = {
             "task_id": "simple",
             "title": "Write a file",
@@ -311,7 +348,9 @@ class TestWorkerBriefAdversarial:
             "worker": {"model": "openai:gpt-4o-mini", "max_attempts": 1},
             "inputs": [],
             "outputs": [{"path": "scratch/simple.txt"}],
-            "acceptance_checks": [{"id": "c1", "kind": "content_regex", "path": "scratch/simple.txt", "expected": ".+"}],
+            "acceptance_checks": [
+                {"id": "c1", "kind": "content_regex", "path": "scratch/simple.txt", "expected": ".+"}
+            ],
             "qc": {"required": False, "lens": "code_correctness"},
         }
         contract = Contract(raw)

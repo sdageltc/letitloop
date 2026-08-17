@@ -1,12 +1,14 @@
 """Tests for structured error schema."""
 
 import os
+
 import pytest
-from orchestrator.goal import Goal
-from orchestrator.generator import generate_contracts
-from orchestrator.supervisor import Supervisor
+
 from orchestrator import errors as err_mod
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 from orchestrator.state import State
+from orchestrator.supervisor import Supervisor
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +29,9 @@ def test_structured_error_creation():
 def test_structured_error_to_dict():
     """StructuredError serializes correctly."""
     e = err_mod.StructuredError(
-        err_mod.E_WORKER_TIMEOUT, "Worker timed out", task_id="t1",
+        err_mod.E_WORKER_TIMEOUT,
+        "Worker timed out",
+        task_id="t1",
         context={"elapsed": 120},
     )
     d = e.to_dict()
@@ -116,16 +120,17 @@ def test_all_error_meta_defined():
 def test_all_failure_classes_mapped():
     """Every known failure class maps to an error code."""
     from orchestrator.failure import (
-        FAILURE_CLASS_TIMEOUT,
-        FAILURE_CLASS_PREFLIGHT_MISSING_INPUT,
-        FAILURE_CLASS_VERIFIER_OUTPUT_MISSING,
-        FAILURE_CLASS_VERIFIER_CONTENT_MISMATCH,
-        FAILURE_CLASS_WORKER_NONZERO_EXIT,
-        FAILURE_CLASS_WORKER_EMPTY_OUTPUT,
         FAILURE_CLASS_CONTRACT_INVALID,
+        FAILURE_CLASS_PREFLIGHT_MISSING_INPUT,
         FAILURE_CLASS_SCOPE_VIOLATION,
+        FAILURE_CLASS_TIMEOUT,
         FAILURE_CLASS_UNKNOWN,
+        FAILURE_CLASS_VERIFIER_CONTENT_MISMATCH,
+        FAILURE_CLASS_VERIFIER_OUTPUT_MISSING,
+        FAILURE_CLASS_WORKER_EMPTY_OUTPUT,
+        FAILURE_CLASS_WORKER_NONZERO_EXIT,
     )
+
     classes = [
         FAILURE_CLASS_TIMEOUT,
         FAILURE_CLASS_PREFLIGHT_MISSING_INPUT,

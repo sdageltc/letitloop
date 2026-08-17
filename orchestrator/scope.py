@@ -1,12 +1,13 @@
 """Filesystem scope enforcement — snapshot/diff for contract execution boundaries."""
 
-import os
 import json
+import os
 import shutil
 import sys
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
+
 from . import evidence as ev
 
 _snapshot_cache: Dict[str, Dict[str, str]] = {}
@@ -22,15 +23,21 @@ def _is_under_path(child: str, parent_dir: str) -> bool:
     """
     parent_parts = os.path.normcase(os.path.normpath(parent_dir)).rstrip(os.sep).split(os.sep)
     child_parts = os.path.normcase(os.path.normpath(child)).split(os.sep)
-    return child_parts[:len(parent_parts)] == parent_parts
+    return child_parts[: len(parent_parts)] == parent_parts
 
 
 class ScopeViolation:
     """A single scope violation — file in denied path or outside allowed scope."""
 
-    def __init__(self, path: str, violation_type: str, detail: str = "",
-                 created_new: bool = False, old_hash: str = "",
-                 current_hash: str = ""):
+    def __init__(
+        self,
+        path: str,
+        violation_type: str,
+        detail: str = "",
+        created_new: bool = False,
+        old_hash: str = "",
+        current_hash: str = "",
+    ):
         self.path = path
         self.violation_type = violation_type
         self.detail = detail
@@ -109,8 +116,7 @@ def _walk_all(root: str, exclude_dir: str = None) -> Dict[str, str]:
     return files
 
 
-def snapshot_scope(workspace_root: str, allowed_paths: List[str], run_dir: str,
-                   denied_paths: List[str] = None) -> str:
+def snapshot_scope(workspace_root: str, allowed_paths: List[str], run_dir: str, denied_paths: List[str] = None) -> str:
     """Take pre-execution snapshot of the entire workspace (excl. run_dir).
 
     Captures all files under workspace_root so post-execution check can
@@ -147,6 +153,7 @@ def is_path_exempt(
     DIRECTORY exempts nested outputs (prefix semantics, not exact match).
     Different Windows drives are never considered related.
     """
+
     def _absolute(path: str) -> str:
         path = path.replace("\\", os.sep).replace("/", os.sep)
         if workspace_root and not os.path.isabs(path):
@@ -221,7 +228,8 @@ class FileBackedScopeRegistry:
             leases = []
         now = time.time()
         return [
-            lease for lease in leases
+            lease
+            for lease in leases
             if isinstance(lease, dict)
             and isinstance(lease.get("created_at"), (int, float))
             and now - lease["created_at"] <= self.ttl_sec
@@ -246,14 +254,15 @@ class FileBackedScopeRegistry:
     def register(self, task_id: str, declared_outputs: List[str]) -> None:
         self._acquire()
         try:
-            leases = [lease for lease in self._load_unlocked()
-                      if lease.get("task_id") != task_id]
-            leases.append({
-                "task_id": task_id,
-                "pid": os.getpid(),
-                "created_at": time.time(),
-                "declared_outputs": list(declared_outputs),
-            })
+            leases = [lease for lease in self._load_unlocked() if lease.get("task_id") != task_id]
+            leases.append(
+                {
+                    "task_id": task_id,
+                    "pid": os.getpid(),
+                    "created_at": time.time(),
+                    "declared_outputs": list(declared_outputs),
+                }
+            )
             self._write_unlocked(leases)
         finally:
             self._release()
@@ -264,8 +273,7 @@ class FileBackedScopeRegistry:
         except TimeoutError:
             return
         try:
-            leases = [lease for lease in self._load_unlocked()
-                      if lease.get("task_id") != task_id]
+            leases = [lease for lease in self._load_unlocked() if lease.get("task_id") != task_id]
             self._write_unlocked(leases)
         finally:
             self._release()
@@ -290,9 +298,9 @@ class FileBackedScopeRegistry:
             self._release()
 
 
-def check_scope(contract, workspace_root: str, run_dir: str,
-                exclude_dir: Optional[str] = None,
-                task_id: Optional[str] = None) -> ScopeCheckResult:
+def check_scope(
+    contract, workspace_root: str, run_dir: str, exclude_dir: Optional[str] = None, task_id: Optional[str] = None
+) -> ScopeCheckResult:
     """Check if contract execution caused scope violations.
 
     Compares current filesystem state against pre-execution snapshot.
@@ -316,10 +324,13 @@ def check_scope(contract, workspace_root: str, run_dir: str,
         if missing_snapshot:
             return ScopeCheckResult(
                 passed=False,
-                violations=[ScopeViolation(
-                    path=snapshot_path, violation_type="missing_snapshot",
-                    detail="scope snapshot file missing — cannot verify scope integrity",
-                )],
+                violations=[
+                    ScopeViolation(
+                        path=snapshot_path,
+                        violation_type="missing_snapshot",
+                        detail="scope snapshot file missing — cannot verify scope integrity",
+                    )
+                ],
                 snapshot_path=snapshot_path,
             )
         return ScopeCheckResult(passed=True, violations=[], snapshot_path=snapshot_path)
@@ -363,31 +374,49 @@ def check_scope(contract, workspace_root: str, run_dir: str,
         if in_denied:
             old_hash = before.get(path)
             if old_hash is None:
-                violations.append(ScopeViolation(
-                    path=path, violation_type="denied_new",
-                    detail="new file created in denied path",
-                    created_new=True, current_hash=current_hash,
-                ))
+                violations.append(
+                    ScopeViolation(
+                        path=path,
+                        violation_type="denied_new",
+                        detail="new file created in denied path",
+                        created_new=True,
+                        current_hash=current_hash,
+                    )
+                )
             elif old_hash != current_hash:
-                violations.append(ScopeViolation(
-                    path=path, violation_type="denied_modified",
-                    detail="file in denied path was modified",
-                    created_new=False, old_hash=old_hash, current_hash=current_hash,
-                ))
+                violations.append(
+                    ScopeViolation(
+                        path=path,
+                        violation_type="denied_modified",
+                        detail="file in denied path was modified",
+                        created_new=False,
+                        old_hash=old_hash,
+                        current_hash=current_hash,
+                    )
+                )
         elif not in_allowed:
             old_hash = before.get(path)
             if old_hash is None:
-                violations.append(ScopeViolation(
-                    path=path, violation_type="outside_scope",
-                    detail="new file created outside allowed scope",
-                    created_new=True, current_hash=current_hash,
-                ))
+                violations.append(
+                    ScopeViolation(
+                        path=path,
+                        violation_type="outside_scope",
+                        detail="new file created outside allowed scope",
+                        created_new=True,
+                        current_hash=current_hash,
+                    )
+                )
             elif old_hash != current_hash:
-                violations.append(ScopeViolation(
-                    path=path, violation_type="outside_scope_modified",
-                    detail="file outside allowed scope was modified",
-                    created_new=False, old_hash=old_hash, current_hash=current_hash,
-                ))
+                violations.append(
+                    ScopeViolation(
+                        path=path,
+                        violation_type="outside_scope_modified",
+                        detail="file outside allowed scope was modified",
+                        created_new=False,
+                        old_hash=old_hash,
+                        current_hash=current_hash,
+                    )
+                )
 
     return ScopeCheckResult(
         passed=len(violations) == 0,

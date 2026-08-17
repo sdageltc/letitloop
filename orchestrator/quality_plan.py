@@ -11,7 +11,6 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional
 
-
 # ── Mode constants ──────────────────────────────────────────────────────────
 
 MODE_SINGLE = "single"
@@ -364,6 +363,7 @@ class QualityPlan:
 
 # ── Convenience factory ────────────────────────────────────────────────────
 
+
 def quality_plan_for_contract(
     risk_tier: str,
     qc_lens: str,
@@ -389,7 +389,8 @@ def quality_plan_for_contract(
 
     # Arbitration only for human_required or strategic lenses
     arbitration_enabled = risk_tier == RISK_TIER_HUMAN_REQUIRED or qc_lens in (
-        LENS_STRATEGIC_REVIEW, LENS_ARCHITECTURE_AUDIT,
+        LENS_STRATEGIC_REVIEW,
+        LENS_ARCHITECTURE_AUDIT,
     )
 
     return QualityPlan(
@@ -416,13 +417,29 @@ def validate_quality_plan(qp: QualityPlan) -> List[str]:
         errors.append(f"lens must be one of {sorted(VALID_LENSES)}, got {qp.lens!r}")
     if qp.components not in ("auto", "explicit"):
         errors.append(f"components must be 'auto' or 'explicit', got {qp.components!r}")
-    if not isinstance(qp.budget.max_components, int) or isinstance(qp.budget.max_components, bool) or qp.budget.max_components < 1:
+    if (
+        not isinstance(qp.budget.max_components, int)
+        or isinstance(qp.budget.max_components, bool)
+        or qp.budget.max_components < 1
+    ):
         errors.append("budget.max_components must be an integer >= 1")
-    if not isinstance(qp.budget.max_llm_calls, int) or isinstance(qp.budget.max_llm_calls, bool) or qp.budget.max_llm_calls < 1:
+    if (
+        not isinstance(qp.budget.max_llm_calls, int)
+        or isinstance(qp.budget.max_llm_calls, bool)
+        or qp.budget.max_llm_calls < 1
+    ):
         errors.append("budget.max_llm_calls must be an integer >= 1")
-    if not isinstance(qp.budget.max_reviewers_per_component, int) or isinstance(qp.budget.max_reviewers_per_component, bool) or qp.budget.max_reviewers_per_component < 1:
+    if (
+        not isinstance(qp.budget.max_reviewers_per_component, int)
+        or isinstance(qp.budget.max_reviewers_per_component, bool)
+        or qp.budget.max_reviewers_per_component < 1
+    ):
         errors.append("budget.max_reviewers_per_component must be an integer >= 1")
-    if not isinstance(qp.budget.max_wall_clock_sec, int) or isinstance(qp.budget.max_wall_clock_sec, bool) or qp.budget.max_wall_clock_sec < 0:
+    if (
+        not isinstance(qp.budget.max_wall_clock_sec, int)
+        or isinstance(qp.budget.max_wall_clock_sec, bool)
+        or qp.budget.max_wall_clock_sec < 0
+    ):
         errors.append("budget.max_wall_clock_sec must be an integer >= 0")
     if qp.mode in (MODE_PANEL, MODE_COMPONENT_PANEL) and not qp.reviewers:
         errors.append(f"reviewers list must not be empty when mode is {qp.mode}")

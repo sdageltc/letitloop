@@ -1,11 +1,12 @@
 """Tests for resource limit module."""
 
 import os
-import json
-import pytest
 from unittest.mock import patch
-from orchestrator.limits import ResourceLimits, DEFAULT_LIMITS, check_limits, format_violation
+
+import pytest
+
 from orchestrator.goal import Goal, Plan
+from orchestrator.limits import DEFAULT_LIMITS, ResourceLimits, check_limits, format_violation
 from orchestrator.supervisor import Supervisor
 
 
@@ -33,7 +34,6 @@ def _make_test_contract(task_id):
 
 
 class TestLimits:
-
     def test_wall_clock_exceeded(self):
         limits = ResourceLimits(max_wall_clock_sec=10)
         result = check_limits(limits, elapsed_sec=15)
@@ -90,8 +90,11 @@ class TestLimits:
             plan = Plan(goal_id=goal.goal_id, contracts=contracts)
             run_dir = os.path.join(str(tmp_path), "runs")
             sup = Supervisor(goal, plan, workspace_root=str(tmp_path), run_dir=run_dir)
-            with patch("orchestrator.limits.check_limits", return_value={"exceeded": True, "reason": "test limit", "limit_type": "test"}):
-                res = sup.execute_plan()
+            with patch(
+                "orchestrator.limits.check_limits",
+                return_value={"exceeded": True, "reason": "test limit", "limit_type": "test"},
+            ):
+                sup.execute_plan()
                 assert sup.goal.status == "FAILED"
 
     @pytest.mark.fast
@@ -102,5 +105,5 @@ class TestLimits:
             plan = Plan(goal_id=goal.goal_id, contracts=contracts)
             run_dir = os.path.join(str(tmp_path), "runs")
             sup = Supervisor(goal, plan, workspace_root=str(tmp_path), run_dir=run_dir)
-            res = sup.execute_plan()
+            sup.execute_plan()
             assert sup.goal.status == "COMPLETE"

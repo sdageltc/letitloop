@@ -2,12 +2,10 @@
 
 import json
 import os
-import pytest
 
-from orchestrator.contract import Contract, validate_contract, load_contract
-from orchestrator.prompts import build_implementer_prompt, build_critic_prompt, summarize_acceptance
+from orchestrator.contract import Contract, load_contract, validate_contract
+from orchestrator.prompts import build_critic_prompt, build_implementer_prompt, summarize_acceptance
 from orchestrator.qc_review import _build_qc_prompt
-
 
 DISTINCTIVE_SPEC = {
     "required_sections": ["Security Notes", "Usage"],
@@ -83,9 +81,11 @@ class TestImplementerPrompt:
             title="Test",
             objective="Test propagation",
             output_paths=["scratch/test-prop/output.txt"],
-            acceptance_summary=summarize_acceptance([
-                {"kind": "content_regex", "path": "out.txt", "expected": ".+"},
-            ]),
+            acceptance_summary=summarize_acceptance(
+                [
+                    {"kind": "content_regex", "path": "out.txt", "expected": ".+"},
+                ]
+            ),
             quality_spec=DISTINCTIVE_SPEC,
         )
         assert "Security Notes" in prompt
@@ -110,9 +110,11 @@ class TestCriticPrompt:
             title="Test",
             objective="Test propagation",
             output_paths=["scratch/test-prop/output.txt"],
-            acceptance_summary=summarize_acceptance([
-                {"kind": "content_regex", "path": "out.txt", "expected": ".+"},
-            ]),
+            acceptance_summary=summarize_acceptance(
+                [
+                    {"kind": "content_regex", "path": "out.txt", "expected": ".+"},
+                ]
+            ),
             artifact_summaries=[{"path": "scratch/test-prop/output.txt", "content": "hello world"}],
             quality_spec=DISTINCTIVE_SPEC,
         )

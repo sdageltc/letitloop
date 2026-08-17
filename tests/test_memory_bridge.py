@@ -2,7 +2,9 @@
 
 import json
 import time
+
 import pytest
+
 from orchestrator.memory_bridge import MemoryBridge
 
 pytestmark = pytest.mark.fast
@@ -73,10 +75,12 @@ def test_torn_and_malformed_lines(tmp_path):
 
     # Pre-populate file with malformed middle line and torn trailing line
     content = (
-        json.dumps({"valid": 1}) + "\n" +
-        "{ malformed json in middle\n" +
-        json.dumps({"valid": 2}) + "\n" +
-        '{"torn_final": '
+        json.dumps({"valid": 1})
+        + "\n"
+        + "{ malformed json in middle\n"
+        + json.dumps({"valid": 2})
+        + "\n"
+        + '{"torn_final": '
     )
     with open(json_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -132,6 +136,7 @@ def test_stale_lock_recovery(tmp_path, monkeypatch):
     bridge = MemoryBridge(json_path)
     # Fake a stale lock held by a dead pid.
     import os
+
     dead_pid = 99999999
     with open(f"{json_path}.lock", "w", encoding="utf-8") as f:
         json.dump({"pid": dead_pid, "created_at": 1.0}, f)
@@ -150,6 +155,7 @@ def test_lock_not_stolen_from_live_owner(tmp_path, monkeypatch):
     json_path = str(tmp_path / "memory.jsonl")
     bridge = MemoryBridge(json_path)
     import os
+
     with open(f"{json_path}.lock", "w", encoding="utf-8") as f:
         json.dump({"pid": os.getpid(), "created_at": 1.0}, f)
     monkeypatch.setattr(mb, "_pid_alive", lambda pid: True)
@@ -164,7 +170,6 @@ def test_release_does_not_delete_others_lock(tmp_path, monkeypatch):
     """QC 2026-08-02 (P1-4): a writer that thinks it holds the lock but whose
     lock was replaced must not delete the new owner's lock."""
     import os
-    import orchestrator.memory_bridge as mb
 
     json_path = str(tmp_path / "memory.jsonl")
     bridge = MemoryBridge(json_path)
@@ -183,6 +188,7 @@ def test_lock_waits_for_release_sequential(tmp_path):
     """QC 2026-08-02 (P1-4): a second append on the same instance proceeds once
     the first releases the lock (existing serial behavior preserved)."""
     import os
+
     json_path = str(tmp_path / "memory.jsonl")
     b = MemoryBridge(json_path)
     assert b.append({"i": 1}) == 1

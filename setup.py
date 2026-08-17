@@ -5,8 +5,10 @@ This file is maintained for backward compatibility with older pip versions.
 The canonical configuration is in pyproject.toml.
 """
 
-from setuptools import setup, find_packages
 import os
+
+from setuptools import find_packages, setup
+
 
 # Read the README file
 def read_readme():
@@ -16,6 +18,7 @@ def read_readme():
             return f.read()
     return ""
 
+
 # Read requirements
 def read_requirements():
     req_path = os.path.join(os.path.dirname(__file__), "requirements-ci.txt")
@@ -23,6 +26,7 @@ def read_requirements():
         with open(req_path, "r") as f:
             return [line.strip() for line in f if line.strip() and not line.startswith("#")]
     return ["pyyaml>=6.0"]
+
 
 setup(
     name="letitloop",
@@ -49,6 +53,8 @@ setup(
     entry_points={
         "console_scripts": [
             "lil=orchestrator.cli:main",
+            "letitloop=orchestrator.cli:main",
+            "letitloop-mcp=orchestrator.mcp_server:main",
         ],
     },
     keywords="orchestration automation ai agent llm",

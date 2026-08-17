@@ -2,12 +2,8 @@
 
 import json
 import os
-import re
-import pathlib
-from datetime import datetime
-from .exceptions import ValidationError
-from .quality_plan import VALID_LENSES
 
+from .quality_plan import VALID_LENSES
 
 REQUIRED_TOP_LEVEL = {
     "task_id": str,
@@ -24,13 +20,29 @@ REQUIRED_TOP_LEVEL = {
 
 VALID_RISK_TIERS = {"auto", "qc_required", "human_required"}
 VALID_STATUSES = {"drafted", "DRAFTED"}
-VALID_CHECK_KINDS = {"command", "file_exists", "json_schema", "content_exact", "content_regex", "syntax", "hygiene", "min_size", "required_sections", "render", "contradiction_count", "edge_case_count", "test_spec_count", "schema_count", "novel_artifact"}
+VALID_CHECK_KINDS = {
+    "command",
+    "file_exists",
+    "json_schema",
+    "content_exact",
+    "content_regex",
+    "syntax",
+    "hygiene",
+    "min_size",
+    "required_sections",
+    "render",
+    "contradiction_count",
+    "edge_case_count",
+    "test_spec_count",
+    "schema_count",
+    "novel_artifact",
+}
 VALID_QC_LENSES = set(VALID_LENSES)  # single canonical registry (see quality_plan.VALID_LENSES)
 
 
 def requires_semantic_qc(risk_tier: str, outputs: list, acceptance_checks: list, quality_spec: dict = None) -> bool:
     """Central policy: determine if a task requires semantic QC review.
-    
+
     Returns True when:
     - risk_tier is qc_required or human_required
     - multiple outputs exist
@@ -83,13 +95,17 @@ def validate_contract_against_plan(plan_contract: dict, generated_contract: dict
     gen_allow = set(generated_contract.get("workspace_scope", {}).get("allow", []))
     if not gen_allow.issuperset(plan_allow):
         missing = plan_allow - gen_allow
-        messages.append(f"workspace_scope.allow: generated contract missing {len(missing)} path(s) from plan: {sorted(missing)}")
+        messages.append(
+            f"workspace_scope.allow: generated contract missing {len(missing)} path(s) from plan: {sorted(missing)}"
+        )
 
     plan_deny = set(plan_contract.get("workspace_scope", {}).get("deny", []))
     gen_deny = set(generated_contract.get("workspace_scope", {}).get("deny", []))
     if not gen_deny.issuperset(plan_deny):
         missing = plan_deny - gen_deny
-        messages.append(f"workspace_scope.deny: generated contract missing {len(missing)} path(s) from plan: {sorted(missing)}")
+        messages.append(
+            f"workspace_scope.deny: generated contract missing {len(missing)} path(s) from plan: {sorted(missing)}"
+        )
 
     plan_checks = len(plan_contract.get("acceptance_checks", []))
     gen_checks = len(generated_contract.get("acceptance_checks", []))
@@ -100,7 +116,9 @@ def validate_contract_against_plan(plan_contract: dict, generated_contract: dict
     gen_hf = set(generated_contract.get("quality_spec", {}).get("hard_failures", []))
     if not gen_hf.issuperset(plan_hf):
         missing = plan_hf - gen_hf
-        messages.append(f"quality_spec.hard_failures: generated contract missing {len(missing)} failure(s) from plan: {sorted(missing)}")
+        messages.append(
+            f"quality_spec.hard_failures: generated contract missing {len(missing)} failure(s) from plan: {sorted(missing)}"
+        )
 
     plan_ms = plan_contract.get("quality_spec", {}).get("minimum_score", 0)
     gen_ms = generated_contract.get("quality_spec", {}).get("minimum_score", 0)
@@ -191,6 +209,7 @@ def check_path_allowed(path, allowed_paths, denied_paths, workspace_root):
 
     return False, f"path {path} is not in allow-list"
 
+
 def validate_contract(raw, workspace_root=None, strict_unknown=True):
     """Validate a parsed contract dict, returning list of error messages.
 
@@ -241,7 +260,9 @@ def validate_contract(raw, workspace_root=None, strict_unknown=True):
         if "id" not in check:
             errors.append(f"acceptance_checks[{idx}]: missing 'id'")
         if check.get("kind") not in VALID_CHECK_KINDS:
-            errors.append(f"acceptance_checks[{idx}]: kind must be one of {sorted(VALID_CHECK_KINDS)}, got {check.get('kind')!r}")
+            errors.append(
+                f"acceptance_checks[{idx}]: kind must be one of {sorted(VALID_CHECK_KINDS)}, got {check.get('kind')!r}"
+            )
         if check["kind"] in ("command", "content_exact", "content_regex") and "expected" not in check:
             errors.append(f"acceptance_checks[{idx}]: kind={check['kind']!r} requires 'expected' field")
         if check["kind"] == "min_size" and "expected" not in check:
@@ -271,15 +292,18 @@ def validate_contract(raw, workspace_root=None, strict_unknown=True):
                 if not isinstance(ms, (int, float)) or ms < 0 or ms > 1:
                     errors.append("quality_spec.minimum_score must be a float between 0 and 1")
     elif raw.get("qc", {}).get("required", False):
-        is_scratch = all(
-            o.get("path", "").replace("\\", "/").startswith("scratch/")
-            for o in raw.get("outputs", [])
-        )
+        is_scratch = all(o.get("path", "").replace("\\", "/").startswith("scratch/") for o in raw.get("outputs", []))
         if not is_scratch:
             errors.append("qc.required is True but quality_spec is missing or empty (required for non-scratch tasks)")
 
     if strict_unknown:
-        known_keys = set(REQUIRED_TOP_LEVEL.keys()) | {"next_action", "inputs", "quality_spec", "quality_plan", "components"}
+        known_keys = set(REQUIRED_TOP_LEVEL.keys()) | {
+            "next_action",
+            "inputs",
+            "quality_spec",
+            "quality_plan",
+            "components",
+        }
         extra = set(raw.keys()) - known_keys
         if extra:
             errors.append(f"unknown top-level keys: {sorted(extra)}")

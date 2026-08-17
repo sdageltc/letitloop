@@ -1,22 +1,27 @@
 """Data models and graph processing for goal-to-contract decomposition."""
 
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-
+from typing import Any, Dict, List, Optional
 
 VALID_GOAL_STATUSES = {"DRAFTED", "PLANNED", "EXECUTING", "COMPLETE", "FAILED", "PAUSED", "CANCELLED"}
 
 # Task statuses that are considered final — no further processing needed
-FINAL_TASK_STATUSES = frozenset({
-    "COMPLETE", "complete",
-    "VERIFIED",
-    "DEGRADED_PASS", "degraded_pass",
-    "FORCE_COMPLETE", "force_complete",
-    "FAILED", "failed",
-    "BLOCKED",
-    "ESCALATED",
-    "CRASHED",
-})
+FINAL_TASK_STATUSES = frozenset(
+    {
+        "COMPLETE",
+        "complete",
+        "VERIFIED",
+        "DEGRADED_PASS",
+        "degraded_pass",
+        "FORCE_COMPLETE",
+        "force_complete",
+        "FAILED",
+        "failed",
+        "BLOCKED",
+        "ESCALATED",
+        "CRASHED",
+    }
+)
 
 
 class Goal:
@@ -74,9 +79,7 @@ class Plan:
     ):
         self.goal_id = goal_id
         self.contracts = contracts
-        self.created_at = (
-            created_at if created_at is not None else datetime.now(timezone.utc).isoformat()
-        )
+        self.created_at = created_at if created_at is not None else datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -148,9 +151,7 @@ class ContractGraph:
         for node_id, node_data in self.nodes.items():
             for dep in node_data.get("depends_on", []):
                 if dep not in self.nodes:
-                    raise ValueError(
-                        f"Contract {node_id} depends on unknown task: {dep}"
-                    )
+                    raise ValueError(f"Contract {node_id} depends on unknown task: {dep}")
 
         visited = set()
         order = []

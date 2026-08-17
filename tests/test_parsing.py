@@ -1,11 +1,9 @@
 """Tests for orchestrator/parsing.py — robust LLM output parser."""
 
 from orchestrator.parsing import (
-    sanitize_text,
-    repair_unclosed_fences,
     parse_llm_artifacts,
-    ParsedArtifact,
-    ParseResult,
+    repair_unclosed_fences,
+    sanitize_text,
 )
 
 
@@ -82,9 +80,7 @@ class TestParseXML:
         assert result.artifacts[0].parser_tier == "T2_XML"
 
     def test_xml_multi_file(self):
-        raw = (
-            '<file path="a.py">x=1</file>\n<file path="b.py">y=2</file>'
-        )
+        raw = '<file path="a.py">x=1</file>\n<file path="b.py">y=2</file>'
         result = parse_llm_artifacts(raw, _paths("a.py", "b.py"))
         assert result.ok
         assert len(result.artifacts) == 2

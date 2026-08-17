@@ -1,8 +1,8 @@
 """Tests for hybrid worker module and its integration with worker routing."""
 
 import json
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import pytest
 
 from orchestrator.contract import Contract
@@ -45,9 +45,7 @@ def _make_contract(
         "worker": worker_dict,
         "inputs": [],
         "outputs": [{"path": output_path}],
-        "acceptance_checks": [
-            {"id": "c1", "kind": "file_exists", "path": output_path}
-        ],
+        "acceptance_checks": [{"id": "c1", "kind": "file_exists", "path": output_path}],
         "qc": {"required": False, "lens": "code_correctness"},
     }
     return Contract(raw)
@@ -82,8 +80,10 @@ def test_non_hybrid_worker_unchanged(tmp_path):
         "elapsed_sec": 0.01,
     }
 
-    with patch("orchestrator.worker.call_llm", return_value=response) as mock_llm, \
-         patch("orchestrator.hybrid_worker.run_hybrid_worker") as mock_hybrid:
+    with (
+        patch("orchestrator.worker.call_llm", return_value=response) as mock_llm,
+        patch("orchestrator.hybrid_worker.run_hybrid_worker") as mock_hybrid,
+    ):
         res = run_worker(contract, str(tmp_path), str(tmp_path))
         assert not mock_hybrid.called
         assert mock_llm.called
@@ -191,6 +191,7 @@ def test_hybrid_fake_worker_isolated(tmp_path, monkeypatch):
 # LLM loop tests (mocked _call_llm)
 # ---------------------------------------------------------------
 
+
 def _make_llm_contract(
     model="hybrid:test-model",
     output_path="scratch/test_llm/output.txt",
@@ -236,11 +237,29 @@ def _mock_llm_result(ok=True, raw='[{"path": "scratch/test_llm/output.txt", "con
 
 
 def _mock_critic_pass():
-    return _mock_llm_result(raw=json.dumps({"status": "PASS", "summary": "ok", "issues": [], "implementer_guidance": ""}))
+    return _mock_llm_result(
+        raw=json.dumps({"status": "PASS", "summary": "ok", "issues": [], "implementer_guidance": ""})
+    )
 
 
 def _mock_critic_fail(guidance="needs work"):
-    return _mock_llm_result(raw=json.dumps({"status": "FAIL", "summary": "bad", "issues": [{"severity": "MAJOR", "location": "output.txt", "description": "issue", "suggested_remediation": guidance}], "implementer_guidance": guidance}))
+    return _mock_llm_result(
+        raw=json.dumps(
+            {
+                "status": "FAIL",
+                "summary": "bad",
+                "issues": [
+                    {
+                        "severity": "MAJOR",
+                        "location": "output.txt",
+                        "description": "issue",
+                        "suggested_remediation": guidance,
+                    }
+                ],
+                "implementer_guidance": guidance,
+            }
+        )
+    )
 
 
 def test_llm_success_path(tmp_path, monkeypatch):
@@ -295,12 +314,14 @@ def test_llm_parse_failure_retry(tmp_path, monkeypatch):
 
 def test_llm_critic_reject_then_repair(tmp_path, monkeypatch):
     """Critic rejects first attempt, Implementer fixes, Critic passes."""
-    calls = iter([
-        _mock_llm_result(),
-        _mock_critic_fail(guidance="add error handling"),
-        _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "fixed version"}]'),
-        _mock_critic_pass(),
-    ])
+    calls = iter(
+        [
+            _mock_llm_result(),
+            _mock_critic_fail(guidance="add error handling"),
+            _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "fixed version"}]'),
+            _mock_critic_pass(),
+        ]
+    )
     monkeypatch.setattr("orchestrator.hybrid_worker._call_llm", lambda *a, **kw: next(calls))
     contract = _make_llm_contract()
     res = run_worker(contract, str(tmp_path), str(tmp_path), timeout_sec=30)
@@ -312,16 +333,20 @@ def test_llm_critic_reject_then_repair(tmp_path, monkeypatch):
 
 def test_llm_turn_budget_exhaustion(tmp_path, monkeypatch):
     """Turn budget exhausted after max_turns with persistent critic failure."""
-    calls = iter([
-        _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v1"}]'),
-        _mock_critic_fail(guidance="fix1"),
-        _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v2"}]'),
-        _mock_critic_fail(guidance="fix2"),
-        _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v3"}]'),
-        _mock_critic_fail(guidance="fix3"),
-    ])
+    calls = iter(
+        [
+            _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v1"}]'),
+            _mock_critic_fail(guidance="fix1"),
+            _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v2"}]'),
+            _mock_critic_fail(guidance="fix2"),
+            _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v3"}]'),
+            _mock_critic_fail(guidance="fix3"),
+        ]
+    )
     monkeypatch.setattr("orchestrator.hybrid_worker._call_llm", lambda *a, **kw: next(calls))
-    contract = _make_llm_contract(extra_worker={"hybrid_max_turns": 3, "hybrid_repair_budget": 3, "hybrid_max_identical_verdicts": 10})
+    contract = _make_llm_contract(
+        extra_worker={"hybrid_max_turns": 3, "hybrid_repair_budget": 3, "hybrid_max_identical_verdicts": 10}
+    )
     res = run_worker(contract, str(tmp_path), str(tmp_path), timeout_sec=30)
     assert res["success"] is False
     assert "turn budget" in res["stderr"].lower()
@@ -341,12 +366,14 @@ def test_llm_scope_violation(tmp_path, monkeypatch):
 
 def test_llm_repair_budget_exhausted(tmp_path, monkeypatch):
     """Repair budget exhausted when critic keeps rejecting."""
-    calls = iter([
-        _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v1"}]'),
-        _mock_critic_fail(guidance="fix"),
-        _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v2"}]'),
-        _mock_critic_fail(guidance="fix again"),
-    ])
+    calls = iter(
+        [
+            _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v1"}]'),
+            _mock_critic_fail(guidance="fix"),
+            _mock_llm_result(raw='[{"path": "scratch/test_llm/output.txt", "content": "v2"}]'),
+            _mock_critic_fail(guidance="fix again"),
+        ]
+    )
     monkeypatch.setattr("orchestrator.hybrid_worker._call_llm", lambda *a, **kw: next(calls))
     contract = _make_llm_contract(extra_worker={"hybrid_repair_budget": 1, "hybrid_max_identical_verdicts": 10})
     res = run_worker(contract, str(tmp_path), str(tmp_path), timeout_sec=30)

@@ -1,9 +1,11 @@
 """Tests for plan quality validation."""
 
-import pytest
-from orchestrator.goal import Goal, Plan
+from orchestrator.goal import Plan
 from orchestrator.plan_quality import (
-    check_plan_quality, plan_is_safe, format_warnings, PlanQualityWarning,
+    PlanQualityWarning,
+    check_plan_quality,
+    format_warnings,
+    plan_is_safe,
 )
 
 
@@ -14,46 +16,52 @@ def test_empty_plan_no_warnings():
 
 
 def test_good_contract_passes():
-    contracts = [{
-        "task_id": "good-task",
-        "depends_on": [],
-        "contract": {
+    contracts = [
+        {
             "task_id": "good-task",
-            "title": "Test",
-            "status": "DRAFTED",
-            "risk_tier": "auto",
-            "workspace_scope": {"allow": ["scratch/"], "deny": []},
-            "objective": "Create test output file",
-            "worker": {"model": "fake", "max_attempts": 1},
-            "inputs": [],
-            "outputs": [{"path": "scratch/test.txt"}],
-            "acceptance_checks": [{"id": "c1", "kind": "file_exists", "path": "scratch/test.txt", "expected": True}],
-            "qc": {"required": False, "lens": "code_correctness"},
+            "depends_on": [],
+            "contract": {
+                "task_id": "good-task",
+                "title": "Test",
+                "status": "DRAFTED",
+                "risk_tier": "auto",
+                "workspace_scope": {"allow": ["scratch/"], "deny": []},
+                "objective": "Create test output file",
+                "worker": {"model": "fake", "max_attempts": 1},
+                "inputs": [],
+                "outputs": [{"path": "scratch/test.txt"}],
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "file_exists", "path": "scratch/test.txt", "expected": True}
+                ],
+                "qc": {"required": False, "lens": "code_correctness"},
+            },
         }
-    }]
+    ]
     plan = Plan(goal_id="test", contracts=contracts)
     warnings = check_plan_quality(plan)
     assert plan_is_safe(warnings)
 
 
 def test_missing_outputs_is_error():
-    contracts = [{
-        "task_id": "no-out",
-        "depends_on": [],
-        "contract": {
+    contracts = [
+        {
             "task_id": "no-out",
-            "title": "Test",
-            "status": "DRAFTED",
-            "risk_tier": "auto",
-            "workspace_scope": {"allow": ["scratch/"], "deny": []},
-            "objective": "test",
-            "worker": {"model": "fake", "max_attempts": 1},
-            "inputs": [],
-            "outputs": [],
-            "acceptance_checks": [],
-            "qc": {"required": False, "lens": "code_correctness"},
+            "depends_on": [],
+            "contract": {
+                "task_id": "no-out",
+                "title": "Test",
+                "status": "DRAFTED",
+                "risk_tier": "auto",
+                "workspace_scope": {"allow": ["scratch/"], "deny": []},
+                "objective": "test",
+                "worker": {"model": "fake", "max_attempts": 1},
+                "inputs": [],
+                "outputs": [],
+                "acceptance_checks": [],
+                "qc": {"required": False, "lens": "code_correctness"},
+            },
         }
-    }]
+    ]
     plan = Plan(goal_id="test", contracts=contracts)
     warnings = check_plan_quality(plan)
     assert not plan_is_safe(warnings)
@@ -73,7 +81,11 @@ def test_duplicate_task_ids():
 
 def test_missing_dependency():
     contracts = [
-        {"task_id": "task-a", "depends_on": ["task-b"], "contract": {"task_id": "task-a", "outputs": [{"path": "a.txt"}]}},
+        {
+            "task_id": "task-a",
+            "depends_on": ["task-b"],
+            "contract": {"task_id": "task-a", "outputs": [{"path": "a.txt"}]},
+        },
     ]
     plan = Plan(goal_id="test", contracts=contracts)
     warnings = check_plan_quality(plan)
@@ -82,31 +94,35 @@ def test_missing_dependency():
 
 
 def test_permissive_check_warned():
-    contracts = [{
-        "task_id": "perm",
-        "depends_on": [],
-        "contract": {
+    contracts = [
+        {
             "task_id": "perm",
-            "outputs": [{"path": "scratch/x.txt"}],
-            "acceptance_checks": [{"id": "c1", "kind": "content_regex", "path": "scratch/x.txt", "expected": ".*"}],
-            "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            "depends_on": [],
+            "contract": {
+                "task_id": "perm",
+                "outputs": [{"path": "scratch/x.txt"}],
+                "acceptance_checks": [{"id": "c1", "kind": "content_regex", "path": "scratch/x.txt", "expected": ".*"}],
+                "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            },
         }
-    }]
+    ]
     plan = Plan(goal_id="test", contracts=contracts)
     warnings = check_plan_quality(plan)
     assert any("permissive" in w.message.lower() for w in warnings)
 
 
 def test_output_outside_scope():
-    contracts = [{
-        "task_id": "bad-scope",
-        "depends_on": [],
-        "contract": {
+    contracts = [
+        {
             "task_id": "bad-scope",
-            "outputs": [{"path": "forbidden/out.txt"}],
-            "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            "depends_on": [],
+            "contract": {
+                "task_id": "bad-scope",
+                "outputs": [{"path": "forbidden/out.txt"}],
+                "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            },
         }
-    }]
+    ]
     plan = Plan(goal_id="test", contracts=contracts)
     warnings = check_plan_quality(plan)
     assert not plan_is_safe(warnings)
@@ -143,7 +159,7 @@ class TestPlanQualityExtended:
                 "outputs": [{"path": "scratch/out.txt"}],
                 "acceptance_checks": [{"id": "c1", "kind": "file_exists", "path": "scratch/out.txt"}],
                 "qc": {"required": False, "lens": "code_correctness"},
-            }
+            },
         }
         if overrides:
             base["contract"].update(overrides)
@@ -157,75 +173,111 @@ class TestPlanQualityExtended:
         assert any("no acceptance checks" in w.message for w in warnings)
 
     def test_check_path_mismatch_is_warning(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "content_regex", "path": "scratch/wrong.txt", "expected": ".+"},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "content_regex", "path": "scratch/wrong.txt", "expected": ".+"},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert any("does not match any output" in w.message for w in warnings)
 
     def test_min_size_zero_is_error(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "min_size", "path": "scratch/out.txt", "expected": 0},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "min_size", "path": "scratch/out.txt", "expected": 0},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert not plan_is_safe(warnings)
         assert any("min_size expected=0" in w.message for w in warnings)
 
     def test_min_size_negative_is_error(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "min_size", "path": "scratch/out.txt", "expected": -5},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "min_size", "path": "scratch/out.txt", "expected": -5},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert not plan_is_safe(warnings)
 
     def test_empty_command_is_error(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "command"},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "command"},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert any("empty command" in w.message for w in warnings)
 
     def test_syntax_unknown_extension_warns(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "syntax", "path": "scratch/out.txt"},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "syntax", "path": "scratch/out.txt"},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert any("unrecognized extension" in w.message for w in warnings)
 
     def test_syntax_known_extension_ok(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "syntax", "path": "scratch/out.py"},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "syntax", "path": "scratch/out.py"},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         syntax_warning = [w for w in warnings if "syntax" in w.message]
         assert len(syntax_warning) == 0
 
     def test_required_sections_empty_is_warning(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "required_sections", "path": "scratch/out.txt", "expected": []},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "required_sections", "path": "scratch/out.txt", "expected": []},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert any("empty section list" in w.message for w in warnings)
 
     def test_render_unsupported_format_warns(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "render", "path": "scratch/out.txt", "expected": "pdf"},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "render", "path": "scratch/out.txt", "expected": "pdf"},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert any("unsupported format" in w.message for w in warnings)
 
     def test_render_markdown_ok(self):
-        c = self._make_contract({"acceptance_checks": [
-            {"id": "c1", "kind": "render", "path": "scratch/out.md", "expected": "markdown"},
-        ]})
+        c = self._make_contract(
+            {
+                "acceptance_checks": [
+                    {"id": "c1", "kind": "render", "path": "scratch/out.md", "expected": "markdown"},
+                ]
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         render_warning = [w for w in warnings if "render" in w.message]
@@ -239,9 +291,13 @@ class TestPlanQualityExtended:
         assert any("outside valid range" in w.message for w in warnings)
 
     def test_quality_dimensions_zero_weight_warns(self):
-        c = self._make_contract({"quality_spec": {
-            "quality_dimensions": {"correctness": 0},
-        }})
+        c = self._make_contract(
+            {
+                "quality_spec": {
+                    "quality_dimensions": {"correctness": 0},
+                }
+            }
+        )
         plan = Plan(goal_id="test", contracts=[c])
         warnings = check_plan_quality(plan)
         assert any("weights sum to zero" in w.message for w in warnings)

@@ -1,12 +1,13 @@
 """Tests for preferences, approval, and plan_preview modules."""
+
 import json
 import os
 import types
-import pytest
+
+from orchestrator.approval import _get_plan_stats, format_approval_reasons, requires_approval
 from orchestrator.goal import Goal, Plan
-from orchestrator.preferences import collect_preferences, apply_preferences_to_goal, DEFAULT_PREFERENCES
-from orchestrator.approval import requires_approval, format_approval_reasons, _get_plan_stats
-from orchestrator.plan_preview import render_plan_preview, _describe_risk
+from orchestrator.plan_preview import _describe_risk, render_plan_preview
+from orchestrator.preferences import apply_preferences_to_goal, collect_preferences
 
 
 def _make_contract(task_id, outputs=None, checks=None, objective="", scope=None, task_type="implementation"):
@@ -33,6 +34,7 @@ def _make_contract(task_id, outputs=None, checks=None, objective="", scope=None,
 
 # --- preferences ---
 
+
 def test_collect_default_preferences(tmp_path):
     prefs = collect_preferences(str(tmp_path))
     assert prefs["style"]["minimal_changes"] is True
@@ -42,10 +44,13 @@ def test_collect_default_preferences(tmp_path):
 
 
 def test_collect_preferences_with_hints(tmp_path):
-    prefs = collect_preferences(str(tmp_path), user_hints={
-        "planning": {"approval_required_for_macro": False},
-        "deny_paths": ["secrets/"],
-    })
+    prefs = collect_preferences(
+        str(tmp_path),
+        user_hints={
+            "planning": {"approval_required_for_macro": False},
+            "deny_paths": ["secrets/"],
+        },
+    )
     assert prefs["planning"]["approval_required_for_macro"] is False
     assert "secrets/" in prefs["deny_paths"]
 
@@ -60,6 +65,7 @@ def test_apply_preferences_to_goal(tmp_path):
 
 
 # --- approval ---
+
 
 def test_approval_scratch_only_no_approval():
     plan = Plan("test", [_make_contract("step1")])
@@ -82,11 +88,14 @@ def test_approval_tests_write_requires_approval():
 
 
 def test_approval_multi_step_requires_approval():
-    plan = Plan("test", [
-        _make_contract("step1"),
-        _make_contract("step2"),
-        _make_contract("step3"),
-    ])
+    plan = Plan(
+        "test",
+        [
+            _make_contract("step1"),
+            _make_contract("step2"),
+            _make_contract("step3"),
+        ],
+    )
     result = requires_approval(plan)
     assert result["requires_approval"] is True
 
@@ -125,11 +134,14 @@ def test_format_approval_not_required():
 
 
 def test_get_plan_stats():
-    plan = Plan("test", [
-        _make_contract("a", outputs=[{"path": "src/main.py"}]),
-        _make_contract("b", outputs=[{"path": "tests/test_foo.py"}]),
-        _make_contract("c", outputs=[{"path": "scratch/out.txt"}]),
-    ])
+    plan = Plan(
+        "test",
+        [
+            _make_contract("a", outputs=[{"path": "src/main.py"}]),
+            _make_contract("b", outputs=[{"path": "tests/test_foo.py"}]),
+            _make_contract("c", outputs=[{"path": "scratch/out.txt"}]),
+        ],
+    )
     stats = _get_plan_stats(plan)
     assert stats["total"] == 3
     assert stats["touches_src"] == 1
@@ -138,6 +150,7 @@ def test_get_plan_stats():
 
 
 # --- plan_preview ---
+
 
 def test_render_plan_preview_scratch_only():
     plan = Plan("test", [_make_contract("step1")])
@@ -157,11 +170,14 @@ def test_render_plan_preview_with_goal():
 
 def test_render_plan_preview_risk_levels():
     low_plan = Plan("test", [_make_contract("s1")])
-    medium_plan = Plan("test", [
-        _make_contract("s1", outputs=[{"path": "src/main.py"}]),
-        _make_contract("s2", outputs=[{"path": "tests/test_main.py"}]),
-    ])
-    high_plan = Plan("test", [_make_contract("s1", objective="delete everything")])
+    medium_plan = Plan(
+        "test",
+        [
+            _make_contract("s1", outputs=[{"path": "src/main.py"}]),
+            _make_contract("s2", outputs=[{"path": "tests/test_main.py"}]),
+        ],
+    )
+    Plan("test", [_make_contract("s1", objective="delete everything")])
 
     assert "Low" in render_plan_preview(low_plan)
     assert "Medium" in render_plan_preview(medium_plan)
@@ -169,12 +185,15 @@ def test_render_plan_preview_risk_levels():
 
 def test_describe_risk():
     safe = Plan("test", [_make_contract("s1")])
-    med = Plan("test", [
-        _make_contract("s1", outputs=[{"path": "src/main.py"}]),
-        _make_contract("s2"),
-        _make_contract("s3"),
-        _make_contract("s4"),
-    ])
+    med = Plan(
+        "test",
+        [
+            _make_contract("s1", outputs=[{"path": "src/main.py"}]),
+            _make_contract("s2"),
+            _make_contract("s3"),
+            _make_contract("s4"),
+        ],
+    )
     assert _describe_risk(safe) == "Low"
     assert _describe_risk(med) == "Medium"
 
@@ -267,7 +286,8 @@ def test_propose_approve_digest_roundtrip_without_mutation(tmp_path, monkeypatch
     run_dir = str(tmp_path / "runs2")
     monkeypatch.setattr(cli, "_run_dir", lambda gid: os.path.join(run_dir, gid))
     monkeypatch.setattr(
-        cli, "generate_contracts",
+        cli,
+        "generate_contracts",
         lambda goal, workspace_root=None, prefs=None: Plan(
             "test", [_make_contract("step1", outputs=[{"path": "src/main.py"}])]
         ),

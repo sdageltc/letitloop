@@ -1,12 +1,13 @@
 """Tests for reconciliation module."""
 
 import os
-import json
+
 import pytest
-from orchestrator.goal import Goal
-from orchestrator.generator import generate_contracts
-from orchestrator.supervisor import Supervisor
+
 from orchestrator import reconcile as rec
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
+from orchestrator.supervisor import Supervisor
 
 
 @pytest.fixture(autouse=True)

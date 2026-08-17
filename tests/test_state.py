@@ -1,13 +1,20 @@
 """Tests for state machine and transitions."""
 
-import json
 import os
 import tempfile
+
 import pytest
+
 from orchestrator.state import (
-    State, create_initial_state, load_state, save_state,
-    IllegalTransitionError, StateError, LEGAL_TRANSITIONS,
-    STATES, TERMINAL_STATES,
+    LEGAL_TRANSITIONS,
+    STATES,
+    TERMINAL_STATES,
+    IllegalTransitionError,
+    State,
+    StateError,
+    create_initial_state,
+    load_state,
+    save_state,
 )
 
 pytestmark = pytest.mark.fast

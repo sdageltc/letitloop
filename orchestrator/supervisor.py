@@ -1,13 +1,43 @@
 """Supervisor executor: executes multi-contract plans in topological dependency order."""
 
-import os
-import json
-import re
-import sys
-import time
-import threading
 import hashlib
 import hmac
+import json
+import os
+import re
+import sys
+import threading
+import time
+from typing import Any, Dict, List, Optional
+
+from . import audit as audit_mod
+from . import checkpoint as cp
+from . import evidence as ev
+from . import feedback as fb
+from . import impossibility as imp
+from . import limits as lm
+from . import lock as lk
+from . import metrics as metrics_mod
+from . import reconcile as rec
+from . import scope as sc
+from . import worker_pool as wp
+from .contract import load_contract, validate_contract_against_plan
+from .failure import (
+    FAILURE_CLASS_TASK_CRASHED,
+    MAX_SAME_CLASS_STRIKES,
+    annotate_worker_result,
+    classify_failure,
+    count_consecutive_same_class,
+    require_divergent_retry,
+)
+from .goal import ContractGraph, Goal, Plan
+from .preflight import run_preflight
+from .state import create_initial_state, load_state, save_state
+from .verifier import run_verification
+from .worker import run_worker
+
+WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+DEFAULT_RUN_DIR = os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs")
 
 
 def _pid_alive(pid: int) -> bool:
@@ -56,9 +86,7 @@ def _retry_fingerprints(state, failure_class: str, attempt: int):
     stderr_digest = hashlib.sha256(
         f"{exit_code}:{exc_class}:{normalized}".encode("utf-8", errors="replace")
     ).hexdigest()[:8]
-    strategy_fingerprint = hashlib.sha256(
-        f"{failure_class}:{stderr_digest}".encode("utf-8")
-    ).hexdigest()[:8]
+    strategy_fingerprint = hashlib.sha256(f"{failure_class}:{stderr_digest}".encode("utf-8")).hexdigest()[:8]
     prior_fingerprint = ""
     retry_metadata = state.data.get("retry_metadata", [])
     if isinstance(retry_metadata, list):
@@ -67,38 +95,6 @@ def _retry_fingerprints(state, failure_class: str, attempt: int):
                 prior_fingerprint = str(metadata["strategy_fingerprint"])
                 break
     return strategy_fingerprint, prior_fingerprint
-from typing import Dict, Any, Optional, List
-
-from .goal import Goal, Plan, ContractGraph
-from .contract import load_contract, validate_contract_against_plan
-from .state import create_initial_state, load_state, save_state
-from .preflight import run_preflight
-from .worker import run_worker
-from .verifier import run_verification
-from . import evidence as ev
-from . import impossibility as imp
-from . import reconcile as rec
-from . import scope as sc
-from . import lock as lk
-from .failure import (
-    classify_failure,
-    suggest_remediation,
-    count_consecutive_same_class,
-    MAX_SAME_CLASS_STRIKES,
-    annotate_worker_result,
-    require_divergent_retry,
-    FAILURE_CLASS_TASK_CRASHED,
-)
-from . import feedback as fb
-from . import worker_pool as wp
-from . import limits as lm
-from . import audit as audit_mod
-from . import metrics as metrics_mod
-from . import checkpoint as cp
-
-
-WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DEFAULT_RUN_DIR = os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs")
 
 
 class Supervisor:
@@ -181,13 +177,11 @@ class Supervisor:
 
         return contract_path, contract_dict
 
-    def _inject_upstream_evidence(
-        self, c_info: Dict[str, Any], contract_dict: Optional[Dict[str, Any]] = None
-    ) -> bool:
+    def _inject_upstream_evidence(self, c_info: Dict[str, Any], contract_dict: Optional[Dict[str, Any]] = None) -> bool:
         with self._shared_lock:
             evidence_snapshot = {k: list(v) for k, v in self.evidence_store.items()}
 
-        task_id = c_info.get("task_id")
+        c_info.get("task_id")
         depends_on = c_info.get("depends_on", [])
         if not depends_on:
             return False
@@ -225,11 +219,13 @@ class Supervisor:
                         continue
                     rel_path = os.path.relpath(canonical_path, workspace_real)
                     if rel_path not in existing_paths:
-                        contract_dict["inputs"].append({
-                            "path": rel_path,
-                            "source": dep_id,
-                            "evidence": True,
-                        })
+                        contract_dict["inputs"].append(
+                            {
+                                "path": rel_path,
+                                "source": dep_id,
+                                "evidence": True,
+                            }
+                        )
                         existing_paths.add(rel_path)
                         injected = True
 
@@ -242,6 +238,7 @@ class Supervisor:
         """Persist an unexpected exception as structured failure evidence and update graph."""
         task_dir = self._task_run_dir(task_id)
         import traceback
+
         tb_path = os.path.join(task_dir, "crash_traceback.log")
         os.makedirs(task_dir, exist_ok=True)
         with open(tb_path, "w", encoding="utf-8") as f:
@@ -252,15 +249,19 @@ class Supervisor:
         try:
             state = self._load_or_create_state(task_id, contract_path="")
             if hasattr(state, "patch_data") and callable(state.patch_data):
-                state.patch_data({
-                    "last_failure_class": FAILURE_CLASS_TASK_CRASHED,
-                    "crash_reason": f"{type(exception).__name__}: {exception}",
-                })
+                state.patch_data(
+                    {
+                        "last_failure_class": FAILURE_CLASS_TASK_CRASHED,
+                        "crash_reason": f"{type(exception).__name__}: {exception}",
+                    }
+                )
             elif hasattr(state, "data") and isinstance(state.data, dict):
-                state.data.update({
-                    "last_failure_class": FAILURE_CLASS_TASK_CRASHED,
-                    "crash_reason": f"{type(exception).__name__}: {exception}",
-                })
+                state.data.update(
+                    {
+                        "last_failure_class": FAILURE_CLASS_TASK_CRASHED,
+                        "crash_reason": f"{type(exception).__name__}: {exception}",
+                    }
+                )
             if hasattr(state, "add_evidence") and callable(state.add_evidence):
                 state.add_evidence("crash", tb_path)
 
@@ -279,12 +280,14 @@ class Supervisor:
                     state.force_block(reason=f"crashed: {type(exception).__name__}")
                 else:
                     if hasattr(state, "events") and isinstance(state.events, list):
-                        state.events.append({
-                            "from": state.status,
-                            "to": state.status,
-                            "reason": f"crashed: {type(exception).__name__}",
-                            "synthetic": True,
-                        })
+                        state.events.append(
+                            {
+                                "from": state.status,
+                                "to": state.status,
+                                "reason": f"crashed: {type(exception).__name__}",
+                                "synthetic": True,
+                            }
+                        )
             except Exception:
                 pass
 
@@ -294,12 +297,16 @@ class Supervisor:
             pass
 
         self.graph.update_status(task_id, final_status)
-        print(f"[supervisor] TASK CRASHED: {task_id} — {type(exception).__name__}: {exception}",
-              file=sys.stderr)
+        print(f"[supervisor] TASK CRASHED: {task_id} — {type(exception).__name__}: {exception}", file=sys.stderr)
 
-    def _force_complete_task(self, task_id: str, reason: str = "",
-                              failed_checks: list = None, output_hash: str = "",
-                              waived_files: list = None) -> str:
+    def _force_complete_task(
+        self,
+        task_id: str,
+        reason: str = "",
+        failed_checks: list = None,
+        output_hash: str = "",
+        waived_files: list = None,
+    ) -> str:
         """Force a task to FORCE_COMPLETE with auditable waiver metadata.
 
         Only legal from VERIFICATION_FAILED, QC_REJECTED,
@@ -416,6 +423,7 @@ class Supervisor:
                 return "FAILED"
 
             from .qc_overrule import verify_overrule
+
             valid, errors = verify_overrule(evidence, secret, verification_evidence)
             if not valid:
                 return "FAILED"
@@ -450,11 +458,13 @@ class Supervisor:
                 f.flush()
                 os.fsync(f.fileno())
 
-            state.patch_data({
-                "overrule_consumed": marker,
-                "overrule_evidence": public_evidence,
-                "overrule_verified": True,
-            })
+            state.patch_data(
+                {
+                    "overrule_consumed": marker,
+                    "overrule_evidence": public_evidence,
+                    "overrule_verified": True,
+                }
+            )
             state.transition(
                 "FORCE_COMPLETE",
                 reason=f"QC overruled: {public_evidence['assertions'][0]}",
@@ -469,6 +479,7 @@ class Supervisor:
         phases = self.metrics_coll.get_phases(task_id)
         if phases:
             import json
+
             timing_path = os.path.join(task_dir, "qc_timing.json")
             with open(timing_path, "w", encoding="utf-8") as f:
                 json.dump(phases, f, indent=2, ensure_ascii=False)
@@ -613,7 +624,13 @@ class Supervisor:
 
             # Auto-retry from VERIFICATION_FAILED, QC_REJECTED, CRASHED,
             # QC_INSUFFICIENT_EVIDENCE, or QC_CONDITIONAL_PASS
-            if state.status in ("VERIFICATION_FAILED", "QC_REJECTED", "CRASHED", "QC_INSUFFICIENT_EVIDENCE", "QC_CONDITIONAL_PASS"):
+            if state.status in (
+                "VERIFICATION_FAILED",
+                "QC_REJECTED",
+                "CRASHED",
+                "QC_INSUFFICIENT_EVIDENCE",
+                "QC_CONDITIONAL_PASS",
+            ):
                 if state.attempt >= max_attempts:
                     # AUT-003: EVERY exhausted failure state escalates with an
                     # impossibility artifact — no silent terminal
@@ -626,9 +643,7 @@ class Supervisor:
                 retry_trigger = state.status
                 fclass = classify_failure(state, contract)
                 state.patch_data({"last_failure_class": fclass})
-                strategy_fingerprint, prior_fingerprint = _retry_fingerprints(
-                    state, fclass, state.attempt
-                )
+                strategy_fingerprint, prior_fingerprint = _retry_fingerprints(state, fclass, state.attempt)
                 approach_desc = f"auto-retry from {retry_trigger}"
                 # AUT-002: repair nondeterministic worker slips (leaving an
                 # undeclared helper file) by deleting newly-created
@@ -637,15 +652,17 @@ class Supervisor:
                 if state.status == "VERIFICATION_FAILED":
                     self._auto_clean_undeclared_outputs(contract, state)
                 state.record_approach(approach_desc)
-                state.add_retry_metadata({
-                    "attempt": state.attempt,
-                    "trigger": retry_trigger,
-                    "approach": approach_desc,
-                    "changed_dimensions": ["implementation_approach"],
-                    "strategy_fingerprint": strategy_fingerprint,
-                    "prior_fingerprint": prior_fingerprint,
-                    "failure_ids": [fclass],
-                })
+                state.add_retry_metadata(
+                    {
+                        "attempt": state.attempt,
+                        "trigger": retry_trigger,
+                        "approach": approach_desc,
+                        "changed_dimensions": ["implementation_approach"],
+                        "strategy_fingerprint": strategy_fingerprint,
+                        "prior_fingerprint": prior_fingerprint,
+                        "failure_ids": [fclass],
+                    }
+                )
                 state.transition("RETRY_PENDING", reason=f"auto-retry as attempt {state.attempt}")
                 self._safe_save(state, state_file)
 
@@ -670,8 +687,11 @@ class Supervisor:
                         with open(full, "w", encoding="utf-8") as f:
                             f.write("SIMULATED: dry-run output")
                     worker_result = {
-                        "success": True, "stdout": "dry-run simulated", "stderr": "",
-                        "exit_code": 0, "elapsed_sec": 0.01,
+                        "success": True,
+                        "stdout": "dry-run simulated",
+                        "stderr": "",
+                        "exit_code": 0,
+                        "elapsed_sec": 0.01,
                         "artifact_paths": [out["path"] for out in contract.outputs],
                     }
                 else:
@@ -714,11 +734,14 @@ class Supervisor:
             # orchestrator artifacts, not worker output. Parallel-mode fix.
             scope_violations = []
             if state.worker_results:
-                scope_result = sc.check_scope(contract, self.workspace_root, task_dir,
-                                              exclude_dir=self.run_dir, task_id=task_id)
+                scope_result = sc.check_scope(
+                    contract, self.workspace_root, task_dir, exclude_dir=self.run_dir, task_id=task_id
+                )
                 if not scope_result.passed:
-                    print(f"[supervisor] SCOPE VIOLATION in {task_id} — {len(scope_result.violations)} issue(s)",
-                          file=sys.stderr)
+                    print(
+                        f"[supervisor] SCOPE VIOLATION in {task_id} — {len(scope_result.violations)} issue(s)",
+                        file=sys.stderr,
+                    )
                     for v in scope_result.violations:
                         print(f"  [{v.violation_type}] {v.path}", file=sys.stderr)
                     state.patch_data({"scope_violations": [v.to_dict() for v in scope_result.violations]})
@@ -729,21 +752,24 @@ class Supervisor:
                     for _plan_c in self.plan.contracts:
                         c = _plan_c.get("contract", {})
                         if isinstance(c, dict):
-                            plan_outputs.update(
-                                o.get("path", "") for o in c.get("outputs", [])
-                            )
-                    undeclared = [v for v in scope_result.violations
-                                   if v.violation_type in ("outside_scope", "denied_new", "denied_modified")
-                                   and not sc.is_path_exempt(
-                                       v.path,
-                                       list(plan_outputs),
-                                       workspace_root=self.workspace_root,
-                                   )]
+                            plan_outputs.update(o.get("path", "") for o in c.get("outputs", []))
+                    undeclared = [
+                        v
+                        for v in scope_result.violations
+                        if v.violation_type in ("outside_scope", "denied_new", "denied_modified")
+                        and not sc.is_path_exempt(
+                            v.path,
+                            list(plan_outputs),
+                            workspace_root=self.workspace_root,
+                        )
+                    ]
                     if undeclared:
                         scope_violations = undeclared
                         state.patch_data({"undeclared_outputs": [v.to_dict() for v in undeclared]})
-                        print(f"[supervisor] SCOPE ENFORCEMENT: {len(undeclared)} undeclared file(s) detected",
-                              file=sys.stderr)
+                        print(
+                            f"[supervisor] SCOPE ENFORCEMENT: {len(undeclared)} undeclared file(s) detected",
+                            file=sys.stderr,
+                        )
 
             # Verify phase
             if state.status in ("VERIFYING", "verifying"):
@@ -751,17 +777,19 @@ class Supervisor:
 
                 # Inject auto-generated checks from quality_spec
                 injected_checks = []
-                quality_spec = getattr(contract, 'quality_spec', {})
+                quality_spec = getattr(contract, "quality_spec", {})
                 if quality_spec:
                     req_secs = quality_spec.get("required_sections", [])
                     if req_secs and contract.outputs:
                         for out in contract.outputs[:1]:
-                            injected_checks.append({
-                                "id": "required_sections",
-                                "kind": "required_sections",
-                                "path": out["path"],
-                                "expected": req_secs,
-                            })
+                            injected_checks.append(
+                                {
+                                    "id": "required_sections",
+                                    "kind": "required_sections",
+                                    "path": out["path"],
+                                    "expected": req_secs,
+                                }
+                            )
                 # Inject undeclared outputs check using scope snapshot
                 snapshot_path = os.path.join(task_dir, sc.SCOPE_SNAPSHOT_FILE)
                 if contract.outputs and os.path.isfile(snapshot_path):
@@ -775,18 +803,18 @@ class Supervisor:
                         c = _plan_c.get("contract", {})
                         if isinstance(c, dict):
                             plan_outputs.extend(o.get("path", "") for o in c.get("outputs", []))
-                    injected_checks.append({
-                        "id": "undeclared_outputs",
-                        "kind": "undeclared_outputs",
-                        "declared_outputs": [o["path"] for o in contract.outputs] + plan_outputs,
-                        "scope_snapshot_path": snapshot_path,
-                        "allowed_paths": allowed,
-                    })
+                    injected_checks.append(
+                        {
+                            "id": "undeclared_outputs",
+                            "kind": "undeclared_outputs",
+                            "declared_outputs": [o["path"] for o in contract.outputs] + plan_outputs,
+                            "scope_snapshot_path": snapshot_path,
+                            "allowed_paths": allowed,
+                        }
+                    )
                 contract.acceptance_checks = list(contract.acceptance_checks) + injected_checks
 
-                all_passed, v_results, evidence_path = run_verification(
-                    contract, self.workspace_root, task_dir
-                )
+                all_passed, v_results, evidence_path = run_verification(contract, self.workspace_root, task_dir)
 
                 # If scope violations found, force verification failure and update evidence
                 if scope_violations:
@@ -794,18 +822,23 @@ class Supervisor:
                     # AUT-019: append a REAL VerifierResult, never a lambda —
                     # downstream code calls .to_dict() on these results.
                     from .verifier import VerifierResult
-                    v_results.append(VerifierResult(
-                        check_id="scope_enforcement",
-                        kind="scope_enforcement",
-                        passed=False,
-                        message=f"{len(scope_violations)} undeclared file(s)",
-                    ))
+
+                    v_results.append(
+                        VerifierResult(
+                            check_id="scope_enforcement",
+                            kind="scope_enforcement",
+                            passed=False,
+                            message=f"{len(scope_violations)} undeclared file(s)",
+                        )
+                    )
                     scope_entry = {
                         "check_id": "scope_enforcement",
                         "kind": "scope_enforcement",
                         "passed": False,
                         "message": f"{len(scope_violations)} undeclared file(s)",
-                        "stdout": "", "stderr": "", "exit_code": None,
+                        "stdout": "",
+                        "stderr": "",
+                        "exit_code": None,
                     }
                     # Re-save evidence to include scope check
                     if evidence_path and os.path.isfile(evidence_path):
@@ -842,18 +875,25 @@ class Supervisor:
                         for out in contract.outputs
                     ]
                     v_results_dicts = [r.to_dict() for r in v_results]
-                    from .quality_plane import run_quality_plane
                     from .quality_plan import QualityPlan, quality_plan_for_contract, validate_quality_plan
+                    from .quality_plane import run_quality_plane
+
                     qp = None
                     if getattr(contract, "quality_plan", None):
                         try:
                             qp = QualityPlan.from_dict(contract.quality_plan)
                             plan_errors = validate_quality_plan(qp)
                             if plan_errors:
-                                print(f"[supervisor] invalid explicit quality_plan for {task_id}: {plan_errors}; falling back to default", file=sys.stderr)
+                                print(
+                                    f"[supervisor] invalid explicit quality_plan for {task_id}: {plan_errors}; falling back to default",
+                                    file=sys.stderr,
+                                )
                                 qp = None
                         except (TypeError, ValueError, KeyError, AttributeError) as e:
-                            print(f"[supervisor] unparseable quality_plan for {task_id}: {e}; falling back to default", file=sys.stderr)
+                            print(
+                                f"[supervisor] unparseable quality_plan for {task_id}: {e}; falling back to default",
+                                file=sys.stderr,
+                            )
                             qp = None
                     if qp is None:
                         qp = quality_plan_for_contract(
@@ -865,12 +905,18 @@ class Supervisor:
                         qp = qp.degraded_copy()
                     self.metrics_coll.start_phase("qc", task_id)
                     verdict = run_quality_plane(
-                        contract, output_paths, v_results_dicts, self.workspace_root,
+                        contract,
+                        output_paths,
+                        v_results_dicts,
+                        self.workspace_root,
                         quality_plan=qp,
                     )
                     self.metrics_coll.end_phase("qc", task_id)
-                    print(f"[supervisor] QC for {task_id}: {verdict.status} score={verdict.score:.2f}"
-                          f" issues={len(verdict.issues)} — {verdict.reason}", file=sys.stderr)
+                    print(
+                        f"[supervisor] QC for {task_id}: {verdict.status} score={verdict.score:.2f}"
+                        f" issues={len(verdict.issues)} — {verdict.reason}",
+                        file=sys.stderr,
+                    )
 
                     evidence_path_qc = os.path.join(task_dir, "qc_verdict.json")
                     vd = verdict.to_dict()
@@ -894,13 +940,17 @@ class Supervisor:
                         self._safe_save(state, state_file)
                         break
                     else:
-                        state.patch_data({
-                            "last_qc_rejection": verdict.reason,
-                            "qc_score": verdict.score,
-                            "qc_issues": verdict.issues,
-                        })
+                        state.patch_data(
+                            {
+                                "last_qc_rejection": verdict.reason,
+                                "qc_score": verdict.score,
+                                "qc_issues": verdict.issues,
+                            }
+                        )
                         if verdict.status == "INSUFFICIENT_EVIDENCE":
-                            state.transition("QC_INSUFFICIENT_EVIDENCE", reason=f"QC {verdict.status}: {verdict.reason}")
+                            state.transition(
+                                "QC_INSUFFICIENT_EVIDENCE", reason=f"QC {verdict.status}: {verdict.reason}"
+                            )
                             self.graph.update_status(task_id, "QC_INSUFFICIENT_EVIDENCE")
                         elif verdict.status == "CONDITIONAL_PASS":
                             state.transition("QC_CONDITIONAL_PASS", reason=f"QC {verdict.status}: {verdict.reason}")
@@ -912,15 +962,17 @@ class Supervisor:
                         else:
                             state.transition("QC_REJECTED", reason=f"QC {verdict.status}: {verdict.reason}")
                             self.graph.update_status(task_id, "QC_REJECTED")
-                        state.add_retry_metadata({
-                            "attempt": state.attempt,
-                            "trigger": f"QC_{verdict.status}",
-                            "approach": f"QC rejection: {verdict.reason}",
-                            "changed_dimensions": ["implementation_approach"],
-                            "strategy_fingerprint": "",
-                            "prior_fingerprint": "",
-                            "failure_ids": [verdict.status],
-                        })
+                        state.add_retry_metadata(
+                            {
+                                "attempt": state.attempt,
+                                "trigger": f"QC_{verdict.status}",
+                                "approach": f"QC rejection: {verdict.reason}",
+                                "changed_dimensions": ["implementation_approach"],
+                                "strategy_fingerprint": "",
+                                "prior_fingerprint": "",
+                                "failure_ids": [verdict.status],
+                            }
+                        )
                         self._safe_save(state, state_file)
                         continue
                 else:
@@ -941,6 +993,7 @@ class Supervisor:
         # Post-loop: handle COMPLETE evidence store
         if state.status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE"):
             import shutil
+
             art_dir = os.path.join(self.workspace_root, imp.artifact_dir(self.goal.goal_id, task_id))
             if os.path.isdir(art_dir):
                 shutil.rmtree(art_dir, ignore_errors=True)
@@ -982,7 +1035,7 @@ class Supervisor:
         """Execute ready tasks serially. Returns True if any task made progress."""
         progress_made = False
         for idx, task_id in enumerate(ready_tasks):
-            print(f"[supervisor] executing {task_id} ({idx+1}/{len(ready_tasks)})", file=sys.stderr)
+            print(f"[supervisor] executing {task_id} ({idx + 1}/{len(ready_tasks)})", file=sys.stderr)
             prev_status = self.graph.nodes.get(task_id, {}).get("status")
             status = self._execute_single_contract(task_id)
             self.results[task_id] = {"status": status}
@@ -1080,8 +1133,18 @@ class Supervisor:
         impossibility artifacts — an unattended run must always end in a
         terminal, auditable state (autonomy fix 2026-07-31)."""
         from .state import load_state
-        terminal = ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE",
-                    "ESCALATED", "BLOCKED", "CANCELLED", "FAILED", "failed")
+
+        terminal = (
+            "COMPLETE",
+            "complete",
+            "DEGRADED_PASS",
+            "FORCE_COMPLETE",
+            "ESCALATED",
+            "BLOCKED",
+            "CANCELLED",
+            "FAILED",
+            "failed",
+        )
         for task_id, node in list(self.graph.nodes.items()):
             if node.get("status", "") in terminal:
                 continue
@@ -1103,8 +1166,7 @@ class Supervisor:
                     # escalation so the run still ends in a terminal, auditable state.
                     state.force_escalate(reason=reason)
             try:
-                imp.write_impossibility(state=state, goal_id=self.goal.goal_id,
-                                        workspace_root=self.workspace_root)
+                imp.write_impossibility(state=state, goal_id=self.goal.goal_id, workspace_root=self.workspace_root)
             except Exception:
                 pass
             self._safe_save(state, state_file)
@@ -1126,7 +1188,6 @@ class Supervisor:
             lk.release_lock(self.run_dir)
             print(f"[supervisor] lock released for {self.goal.goal_id}", file=sys.stderr)
 
-
     def _execute_plan(self) -> Dict[str, str]:
         """Execute all contracts in plan according to dependency order.
 
@@ -1143,8 +1204,7 @@ class Supervisor:
         self._save_plan()
 
         max_attempts_sum = sum(
-            c.get("contract", {}).get("worker", {}).get("max_attempts", 1)
-            if isinstance(c.get("contract"), dict) else 1
+            c.get("contract", {}).get("worker", {}).get("max_attempts", 1) if isinstance(c.get("contract"), dict) else 1
             for c in self.plan.contracts
         )
         max_iterations = max_attempts_sum + 10
@@ -1226,10 +1286,25 @@ class Supervisor:
         elif _limit_breached:
             self.goal.status = "FAILED"
         else:
-            self.goal.status = "FAILED" if blocked_tasks or any(
-                r["status"] in ("VERIFICATION_FAILED", "FAILED", "failed", "BLOCKED", "blocked", "CRASHED", "DRAFTED", "drafted")
-                for r in self.results.values()
-            ) else "EXECUTING"
+            self.goal.status = (
+                "FAILED"
+                if blocked_tasks
+                or any(
+                    r["status"]
+                    in (
+                        "VERIFICATION_FAILED",
+                        "FAILED",
+                        "failed",
+                        "BLOCKED",
+                        "blocked",
+                        "CRASHED",
+                        "DRAFTED",
+                        "drafted",
+                    )
+                    for r in self.results.values()
+                )
+                else "EXECUTING"
+            )
 
         metrics_path = os.path.join(self.run_dir, "metrics.json")
         self.metrics_coll.save(metrics_path)
@@ -1237,7 +1312,6 @@ class Supervisor:
         self._print_run_summary()
 
         return {tid: res["status"] for tid, res in self.results.items()}
-
 
     def execute_plan_with_retry(self, changed_approach: Optional[str] = None) -> Dict[str, str]:
         """Execute plan, and retry failed contracts if attempts remain."""
@@ -1280,14 +1354,21 @@ class Supervisor:
                         self._safe_save(state, state_file)
                         self.graph.update_status(task_id, "ESCALATED")
                         res[task_id] = "ESCALATED"
-                        audit_mod.record_action(self.run_dir, "failsafe_escalation", goal_id=self.goal.goal_id, task_id=task_id, details={
-                            "reason": "max attempts reached",
-                            "attempt": state.attempt,
-                            "max_attempts": max_attempts,
-                            "failure_class": fclass,
-                        })
+                        audit_mod.record_action(
+                            self.run_dir,
+                            "failsafe_escalation",
+                            goal_id=self.goal.goal_id,
+                            task_id=task_id,
+                            details={
+                                "reason": "max attempts reached",
+                                "attempt": state.attempt,
+                                "max_attempts": max_attempts,
+                                "failure_class": fclass,
+                            },
+                        )
                         imp.write_impossibility(
-                            contract, state,
+                            contract,
+                            state,
                             goal_id=self.goal.goal_id,
                             workspace_root=self.workspace_root,
                             failure_class=fclass,
@@ -1297,7 +1378,9 @@ class Supervisor:
                             fb.store_feedback(self.goal.goal_id, self.run_dir, [fb_rec])
                         continue
                     if state.worker_results:
-                        state.patch_worker_result(len(state.worker_results) - 1, annotate_worker_result(state.worker_results[-1], fclass))
+                        state.patch_worker_result(
+                            len(state.worker_results) - 1, annotate_worker_result(state.worker_results[-1], fclass)
+                        )
                     strikes = count_consecutive_same_class(state, fclass)
                     if strikes >= MAX_SAME_CLASS_STRIKES:
                         state.force_escalate(reason="consecutive identical failure class")
@@ -1305,7 +1388,8 @@ class Supervisor:
                         self.graph.update_status(task_id, "ESCALATED")
                         res[task_id] = "ESCALATED"
                         imp.write_impossibility(
-                            contract, state,
+                            contract,
+                            state,
                             goal_id=self.goal.goal_id,
                             workspace_root=self.workspace_root,
                             failure_class=fclass,
@@ -1321,7 +1405,8 @@ class Supervisor:
                             res[task_id] = "ESCALATED"
                             print(f"[supervisor] {task_id} ESCALATED — non-divergent retry approach", file=sys.stderr)
                             imp.write_impossibility(
-                                contract, state,
+                                contract,
+                                state,
                                 goal_id=self.goal.goal_id,
                                 workspace_root=self.workspace_root,
                                 failure_class=fclass,
@@ -1336,7 +1421,9 @@ class Supervisor:
                     status = self._execute_single_contract(task_id)
                     res[task_id] = status
 
-            all_completed = all(status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE") for status in res.values())
+            all_completed = all(
+                status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE") for status in res.values()
+            )
             self.goal.status = "COMPLETE" if all_completed else "FAILED"
             ev.write_run_manifest(self.run_dir, self.goal.goal_id, self.plan, self.results, self.workspace_root)
             return res
@@ -1393,11 +1480,15 @@ class Supervisor:
 
             # Reconciliation gate — detect tampering / missing outputs before resume
             report = rec.run_reconciliation(
-                self.goal.goal_id, self.plan, self.workspace_root, self.run_dir,
+                self.goal.goal_id,
+                self.plan,
+                self.workspace_root,
+                self.run_dir,
             )
             if not report.passed:
-                print(f"[supervisor] RECONCILIATION ISSUES detected — {report.failed_tasks} problem(s)",
-                      file=sys.stderr)
+                print(
+                    f"[supervisor] RECONCILIATION ISSUES detected — {report.failed_tasks} problem(s)", file=sys.stderr
+                )
                 # Reset failed/tampered tasks to RETRY_PENDING or DRAFTED
                 for issue in report.issues:
                     if issue.task_id in self.graph.nodes:
@@ -1408,11 +1499,12 @@ class Supervisor:
                             st.transition("RETRY_PENDING", reason=f"reconciliation failure: {issue.issue_type}")
                             self._safe_save(st, state_file)
                 for iss in report.issues:
-                    print(f"  [{iss.issue_type}] {iss.task_id}: {iss.path or '(no path)'}",
-                          file=sys.stderr)
+                    print(f"  [{iss.issue_type}] {iss.task_id}: {iss.path or '(no path)'}", file=sys.stderr)
             else:
-                print(f"[supervisor] reconciliation OK — {report.checked_tasks}/{report.total_tasks} tasks clean",
-                      file=sys.stderr)
+                print(
+                    f"[supervisor] reconciliation OK — {report.checked_tasks}/{report.total_tasks} tasks clean",
+                    file=sys.stderr,
+                )
 
             self.goal.status = "EXECUTING"
             return self._execute_plan()
@@ -1493,14 +1585,22 @@ class Supervisor:
 
     def _print_run_summary(self) -> None:
         """Print a clear run summary with QC status per task."""
-        completed = sum(1 for r in self.results.values() if r.get("status") in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE"))
-        failed = sum(1 for r in self.results.values() if r.get("status") in ("FAILED", "failed", "BLOCKED", "CRASHED", "ESCALATED"))
+        completed = sum(
+            1
+            for r in self.results.values()
+            if r.get("status") in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
+        )
+        failed = sum(
+            1
+            for r in self.results.values()
+            if r.get("status") in ("FAILED", "failed", "BLOCKED", "CRASHED", "ESCALATED")
+        )
         total = len(self.results)
-        print(f"\n{'='*60}", file=sys.stderr)
+        print(f"\n{'=' * 60}", file=sys.stderr)
         print(f"  GOAL: {self.goal.goal_id}", file=sys.stderr)
         print(f"  STATUS: {self.goal.status}", file=sys.stderr)
         print(f"  CONTRACTS: {completed}/{total} completed, {failed}/{total} failed", file=sys.stderr)
-        print(f"{'='*60}", file=sys.stderr)
+        print(f"{'=' * 60}", file=sys.stderr)
         for tid, res in sorted(self.results.items()):
             icon = "OK" if res.get("status") in ("COMPLETE", "complete", "DEGRADED_PASS") else "FAIL"
             qc_requested = "no"
@@ -1522,8 +1622,11 @@ class Supervisor:
                             qc_verdict = vd.get("status", "MISSING")
                 except Exception:
                     pass
-            print(f"  [{icon}] {tid}: {res.get('status', '?'):20s}  QC(req={qc_requested} exec={qc_executed} v={qc_verdict})", file=sys.stderr)
-        print(f"{'='*60}\n", file=sys.stderr)
+            print(
+                f"  [{icon}] {tid}: {res.get('status', '?'):20s}  QC(req={qc_requested} exec={qc_executed} v={qc_verdict})",
+                file=sys.stderr,
+            )
+        print(f"{'=' * 60}\n", file=sys.stderr)
 
     def aggregate_results(self) -> Dict[str, Any]:
         """Collect all contract outputs, statuses, and evidence paths into a single dict."""
@@ -1543,7 +1646,11 @@ class Supervisor:
                     "worker_results": state.worker_results,
                     "outputs": outputs,
                 }
-                if state.status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE") and task_id not in self.evidence_store and contract:
+                if (
+                    state.status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
+                    and task_id not in self.evidence_store
+                    and contract
+                ):
                     self.evidence_store[task_id] = [
                         os.path.join(self.workspace_root, out["path"])
                         if not os.path.isabs(out["path"])
@@ -1560,7 +1667,9 @@ class Supervisor:
                 }
 
         completed_count = sum(
-            1 for s in contract_summaries.values() if s["status"] in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
+            1
+            for s in contract_summaries.values()
+            if s["status"] in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
         )
         return {
             "goal_id": self.goal.goal_id,

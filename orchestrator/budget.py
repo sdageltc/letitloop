@@ -9,10 +9,8 @@ Provides:
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
-
+from typing import Dict, List, Optional
 
 DEFAULT_ESTIMATED_INPUT_USD_PER_M = 0.15
 DEFAULT_ESTIMATED_OUTPUT_USD_PER_M = 0.60
@@ -61,26 +59,27 @@ class UsageLedger:
         return len(self.records)
 
     def record(self, role: str, model: str, prompt_tokens: int, completion_tokens: int) -> None:
-        estimated_cost = (
-            (prompt_tokens / 1_000_000) * DEFAULT_ESTIMATED_INPUT_USD_PER_M
-            + (completion_tokens / 1_000_000) * DEFAULT_ESTIMATED_OUTPUT_USD_PER_M
+        estimated_cost = (prompt_tokens / 1_000_000) * DEFAULT_ESTIMATED_INPUT_USD_PER_M + (
+            completion_tokens / 1_000_000
+        ) * DEFAULT_ESTIMATED_OUTPUT_USD_PER_M
+        self.records.append(
+            UsageRecord(
+                role=role,
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                estimated_cost_usd=estimated_cost,
+            )
         )
-        self.records.append(UsageRecord(
-            role=role, model=model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            estimated_cost_usd=estimated_cost,
-        ))
 
     def estimate_cost(
         self,
         prompt_tokens: int,
         completion_tokens: int,
     ) -> float:
-        return (
-            (prompt_tokens / 1_000_000) * DEFAULT_ESTIMATED_INPUT_USD_PER_M
-            + (completion_tokens / 1_000_000) * DEFAULT_ESTIMATED_OUTPUT_USD_PER_M
-        )
+        return (prompt_tokens / 1_000_000) * DEFAULT_ESTIMATED_INPUT_USD_PER_M + (
+            completion_tokens / 1_000_000
+        ) * DEFAULT_ESTIMATED_OUTPUT_USD_PER_M
 
     def to_dict(self) -> Dict:
         return {
@@ -109,21 +108,18 @@ class BudgetGuard:
         estimated_completion_tokens: int = 2_000,
     ) -> None:
         if self.ledger.total_cost_usd >= self.max_cost_usd:
-            raise BudgetExhaustedError(
-                f"cost ceiling ${self.ledger.total_cost_usd:.4f} >= ${self.max_cost_usd:.2f}"
-            )
+            raise BudgetExhaustedError(f"cost ceiling ${self.ledger.total_cost_usd:.4f} >= ${self.max_cost_usd:.2f}")
         if self.ledger.total_tokens + estimated_prompt_tokens + estimated_completion_tokens > self.max_tokens:
             raise BudgetExhaustedError(
                 f"token budget would exceed: {self.ledger.total_tokens} + "
                 f"{estimated_prompt_tokens + estimated_completion_tokens} > {self.max_tokens}"
             )
         new_cost = self.ledger.total_cost_usd + self.ledger.estimate_cost(
-            estimated_prompt_tokens, estimated_completion_tokens,
+            estimated_prompt_tokens,
+            estimated_completion_tokens,
         )
         if new_cost > self.max_cost_usd:
-            raise BudgetExhaustedError(
-                f"projected cost ${new_cost:.4f} would exceed ceiling ${self.max_cost_usd:.2f}"
-            )
+            raise BudgetExhaustedError(f"projected cost ${new_cost:.4f} would exceed ceiling ${self.max_cost_usd:.2f}")
 
     def remaining_pct(self) -> float:
         cost_ratio = self.ledger.total_cost_usd / self.max_cost_usd if self.max_cost_usd > 0 else 1.0
@@ -170,7 +166,7 @@ class LoopDetector:
         h = self._hash_content(combined)
         self.output_hashes.append(h)
         if len(self.output_hashes) >= self.max_identical_outputs:
-            recent = self.output_hashes[-self.max_identical_outputs:]
+            recent = self.output_hashes[-self.max_identical_outputs :]
             if len(set(recent)) == 1:
                 return "identical output repeated"
         return None
@@ -178,7 +174,7 @@ class LoopDetector:
     def record_failure(self, reason: str) -> Optional[str]:
         self.failure_reasons.append(reason)
         if len(self.failure_reasons) >= self.max_identical_failures:
-            recent = self.failure_reasons[-self.max_identical_failures:]
+            recent = self.failure_reasons[-self.max_identical_failures :]
             if len(set(recent)) == 1:
                 return "identical failure repeated"
         return None
@@ -186,7 +182,7 @@ class LoopDetector:
     def record_critic_verdict(self, verdict: str) -> Optional[str]:
         self.critic_verdicts.append(verdict)
         if len(self.critic_verdicts) >= self.max_identical_verdicts:
-            recent = self.critic_verdicts[-self.max_identical_verdicts:]
+            recent = self.critic_verdicts[-self.max_identical_verdicts :]
             if len(set(recent)) == 1:
                 return "identical critic verdict repeated"
         return None

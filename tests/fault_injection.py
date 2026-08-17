@@ -7,15 +7,15 @@ Usage:
         ...
 """
 
-import os
 import json
-import sys
+import os
+from typing import Any, Callable, Dict, Optional
 from unittest.mock import patch
-from typing import Optional, Dict, Any, Callable
 
 
-def inject_fault(target: str, raises: Optional[Exception] = None,
-                 returns: Any = None, side_effect: Optional[Callable] = None):
+def inject_fault(
+    target: str, raises: Optional[Exception] = None, returns: Any = None, side_effect: Optional[Callable] = None
+):
     """Context manager that injects a fault into a target dotted path.
 
     Args:
@@ -37,8 +37,13 @@ class FaultInjector:
     def __init__(self):
         self._patchers: Dict[str, Any] = {}
 
-    def add(self, target: str, raises: Optional[Exception] = None,
-            returns: Any = None, side_effect: Optional[Callable] = None):
+    def add(
+        self,
+        target: str,
+        raises: Optional[Exception] = None,
+        returns: Any = None,
+        side_effect: Optional[Callable] = None,
+    ):
         if raises:
             self._patchers[target] = patch(target, side_effect=raises)
         elif side_effect:
@@ -64,6 +69,7 @@ class FaultInjector:
 
 
 # Common fault scenarios
+
 
 def corrupt_state_file(task_dir: str):
     """Write an unparseable state.json to simulate corruption."""

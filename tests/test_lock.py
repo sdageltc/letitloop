@@ -1,12 +1,13 @@
 """Tests for execution lock module."""
 
-import os
 import json
-import time
+import os
+
 import pytest
+
 from orchestrator import lock as lk
-from orchestrator.goal import Goal
 from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 from orchestrator.supervisor import Supervisor
 
 
@@ -74,7 +75,8 @@ def test_stale_lock(tmp_path, monkeypatch):
     with open(lock_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     # Set created_at and heartbeat far in the past
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     old = (datetime.now(timezone.utc) - timedelta(seconds=lk.STALE_TIMEOUT_SEC + 60)).isoformat()
     data["created_at"] = old
     data["heartbeat"] = old
@@ -191,6 +193,7 @@ class TestProcessStartToken:
         with open(lock_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         from datetime import datetime, timezone
+
         data["heartbeat"] = datetime.now(timezone.utc).isoformat()
         data["process_start_token"] = "win:dead-process-token"
         data["pid"] = 999999999

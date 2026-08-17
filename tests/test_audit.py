@@ -1,12 +1,12 @@
 """Unit tests for orchestrator/audit.py module."""
 
 import os
-import pytest
+
 from orchestrator.audit import (
-    record_action,
+    format_audit_entries,
     load_audit_log,
     query_audit,
-    format_audit_entries,
+    record_action,
 )
 
 

@@ -1,8 +1,8 @@
 """Tests for orchestrator/prompts.py — prompt builders."""
 
 from orchestrator.prompts import (
-    build_implementer_prompt,
     build_critic_prompt,
+    build_implementer_prompt,
     summarize_acceptance,
     summarize_verifier_results,
 )
@@ -21,7 +21,8 @@ class TestBuildImplementerPrompt:
 
     def test_includes_output_paths(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["a.py", "b.py"],
             acceptance_summary="checks",
         )
@@ -30,7 +31,8 @@ class TestBuildImplementerPrompt:
 
     def test_includes_acceptance_summary(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="some checks here",
         )
@@ -38,7 +40,8 @@ class TestBuildImplementerPrompt:
 
     def test_includes_prior_failures(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="chk",
             prior_failures=[{"message": "syntax error on line 5"}],
@@ -49,7 +52,8 @@ class TestBuildImplementerPrompt:
 
     def test_prior_failures_omitted_on_first_attempt(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="chk",
             prior_failures=[{"message": "syntax error on line 5"}],
@@ -59,7 +63,8 @@ class TestBuildImplementerPrompt:
 
     def test_includes_critic_feedback(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="chk",
             critic_feedback="missing error handling",
@@ -69,7 +74,8 @@ class TestBuildImplementerPrompt:
 
     def test_includes_verifier_feedback(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="chk",
             verifier_feedback="file not found",
@@ -79,17 +85,20 @@ class TestBuildImplementerPrompt:
 
     def test_includes_turn_count(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="chk",
-            current_turn=2, max_turns=3,
+            current_turn=2,
+            max_turns=3,
         )
         assert "TURN 2" in prompt
         assert "of 3" in prompt
 
     def enforces_json_output_schema(self):
         prompt = build_implementer_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["out.py"],
             acceptance_summary="chk",
         )
@@ -113,7 +122,8 @@ class TestBuildCriticPrompt:
 
     def test_includes_artifact_content(self):
         prompt = build_critic_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["a.py"],
             acceptance_summary="chk",
             artifact_summaries=[{"path": "a.py", "content": "x = 1"}],
@@ -124,7 +134,8 @@ class TestBuildCriticPrompt:
     def test_truncates_long_content(self):
         long = "x" * 3000
         prompt = build_critic_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["big.py"],
             acceptance_summary="chk",
             artifact_summaries=[{"path": "big.py", "content": long}],
@@ -133,7 +144,8 @@ class TestBuildCriticPrompt:
 
     def test_includes_verifier_results(self):
         prompt = build_critic_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["a.py"],
             acceptance_summary="chk",
             artifact_summaries=[{"path": "a.py", "content": "x"}],
@@ -144,7 +156,8 @@ class TestBuildCriticPrompt:
 
     def enforces_pass_fail_json_schema(self):
         prompt = build_critic_prompt(
-            title="T", objective="O",
+            title="T",
+            objective="O",
             output_paths=["a.py"],
             acceptance_summary="chk",
             artifact_summaries=[{"path": "a.py", "content": "x"}],

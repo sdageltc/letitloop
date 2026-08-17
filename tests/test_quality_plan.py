@@ -1,13 +1,24 @@
 """Tests for quality_plan.py — pure schema logic, zero model calls."""
 
-import pytest
 from orchestrator.quality_plan import (
-    QualityPlan, QualityBudget, ReviewerRole, SynthesisPolicy, ArbitrationPolicy,
-    quality_plan_for_contract, validate_quality_plan,
-    MODE_SINGLE, MODE_PANEL, MODE_COMPONENT_PANEL, MODE_ARBITRATION_ONLY,
-    LENS_CODE_CORRECTNESS, LENS_ARCHITECTURE_AUDIT, LENS_STRATEGIC_REVIEW,
-    LENS_RESEARCH_QUALITY, LENS_MIGRATION_SAFETY,
-    RISK_TIER_AUTO, RISK_TIER_QC_REQUIRED, RISK_TIER_HUMAN_REQUIRED,
+    LENS_ARCHITECTURE_AUDIT,
+    LENS_CODE_CORRECTNESS,
+    LENS_MIGRATION_SAFETY,
+    LENS_RESEARCH_QUALITY,
+    LENS_STRATEGIC_REVIEW,
+    MODE_ARBITRATION_ONLY,
+    MODE_COMPONENT_PANEL,
+    MODE_PANEL,
+    MODE_SINGLE,
+    RISK_TIER_AUTO,
+    RISK_TIER_HUMAN_REQUIRED,
+    ArbitrationPolicy,
+    QualityBudget,
+    QualityPlan,
+    ReviewerRole,
+    SynthesisPolicy,
+    quality_plan_for_contract,
+    validate_quality_plan,
 )
 
 
@@ -198,7 +209,9 @@ class TestQualityPlanForContract:
         assert qp.mode == MODE_PANEL
 
     def test_minimum_counts_promotes_to_panel(self):
-        qp = quality_plan_for_contract(RISK_TIER_AUTO, LENS_CODE_CORRECTNESS, quality_spec={"minimum_counts": {"contradictions": 5}})
+        qp = quality_plan_for_contract(
+            RISK_TIER_AUTO, LENS_CODE_CORRECTNESS, quality_spec={"minimum_counts": {"contradictions": 5}}
+        )
         assert qp.mode == MODE_PANEL
 
     def test_architecture_audit_gets_systems_architect_personas(self):
@@ -253,7 +266,10 @@ class TestValidateQualityPlan:
 
     def test_unknown_valid_mode(self):
         for mode in (MODE_SINGLE, MODE_PANEL, MODE_COMPONENT_PANEL):
-            qp = QualityPlan(mode=mode, reviewers=[ReviewerRole("systems_architect")] if mode in (MODE_PANEL, MODE_COMPONENT_PANEL) else [])
+            qp = QualityPlan(
+                mode=mode,
+                reviewers=[ReviewerRole("systems_architect")] if mode in (MODE_PANEL, MODE_COMPONENT_PANEL) else [],
+            )
             assert validate_quality_plan(qp) == []
 
     def test_arbitration_only_mode_fails_validation(self):

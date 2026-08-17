@@ -37,21 +37,25 @@ def build_implementer_prompt(
         "",
     ]
 
-    parts.extend([
-        f"TASK: {title}",
-        f"OBJECTIVE: {objective}",
-        "",
-        "REQUIRED OUTPUT PATHS:",
-    ])
+    parts.extend(
+        [
+            f"TASK: {title}",
+            f"OBJECTIVE: {objective}",
+            "",
+            "REQUIRED OUTPUT PATHS:",
+        ]
+    )
     for p in output_paths:
         parts.append(f"  - {p}")
     parts.append("")
 
-    parts.extend([
-        "ACCEPTANCE CRITERIA:",
-        acceptance_summary,
-        "",
-    ])
+    parts.extend(
+        [
+            "ACCEPTANCE CRITERIA:",
+            acceptance_summary,
+            "",
+        ]
+    )
 
     if quality_spec:
         parts.append("QUALITY SPECIFICATION:")
@@ -90,10 +94,14 @@ def build_implementer_prompt(
     # fingerprinting.
     # cheaper and safer than AST fingerprinting.
     if supervisor_attempt == 2:
-        parts.append("RETRY GUIDANCE (attempt 2): do not repeat the prior approach. First state the changed strategy, then decompose the failing logic explicitly.")
+        parts.append(
+            "RETRY GUIDANCE (attempt 2): do not repeat the prior approach. First state the changed strategy, then decompose the failing logic explicitly."
+        )
         parts.append("")
     elif supervisor_attempt >= 3:
-        parts.append("RETRY GUIDANCE (attempt 3+): apply a minimal defensive patch. Remove speculative rewrites and preserve already-passing behavior.")
+        parts.append(
+            "RETRY GUIDANCE (attempt 3+): apply a minimal defensive patch. Remove speculative rewrites and preserve already-passing behavior."
+        )
         parts.append("")
 
     if critic_feedback:
@@ -106,16 +114,18 @@ def build_implementer_prompt(
         parts.append(f"  {verifier_feedback}")
         parts.append("")
 
-    parts.extend([
-        f"SUPERVISOR ATTEMPT {supervisor_attempt}; TURN {current_turn} of {max_turns}.",
-        "",
-        "OUTPUT SCHEMA:",
-        "[",
-        '  {"path": "relative/path.ext", "content": "complete file content"},',
-        "]",
-        "",
-        "Return ONLY valid JSON in the above format. No markdown. No commentary.",
-    ])
+    parts.extend(
+        [
+            f"SUPERVISOR ATTEMPT {supervisor_attempt}; TURN {current_turn} of {max_turns}.",
+            "",
+            "OUTPUT SCHEMA:",
+            "[",
+            '  {"path": "relative/path.ext", "content": "complete file content"},',
+            "]",
+            "",
+            "Return ONLY valid JSON in the above format. No markdown. No commentary.",
+        ]
+    )
 
     return "\n".join(parts)
 
@@ -147,21 +157,25 @@ def build_critic_prompt(
         "",
     ]
 
-    parts.extend([
-        f"TASK: {title}",
-        f"OBJECTIVE: {objective}",
-        "",
-        "REQUIRED OUTPUT PATHS:",
-    ])
+    parts.extend(
+        [
+            f"TASK: {title}",
+            f"OBJECTIVE: {objective}",
+            "",
+            "REQUIRED OUTPUT PATHS:",
+        ]
+    )
     for p in output_paths:
         parts.append(f"  - {p}")
     parts.append("")
 
-    parts.extend([
-        "ACCEPTANCE CRITERIA:",
-        acceptance_summary,
-        "",
-    ])
+    parts.extend(
+        [
+            "ACCEPTANCE CRITERIA:",
+            acceptance_summary,
+            "",
+        ]
+    )
 
     if quality_spec:
         parts.append("QUALITY SPECIFICATION:")
@@ -194,27 +208,29 @@ def build_critic_prompt(
             parts.append(f"  [{status}] {r.get('check_id', '?')}: {r.get('message', '')}")
         parts.append("")
 
-    parts.extend([
-        "OUTPUT SCHEMA:",
-        "{",
-        '  "status": "PASS" or "FAIL" or "INSUFFICIENT_EVIDENCE",',
-        '  "summary": "One-line audit summary",',
-        '  "score": 0.0-1.0,',
-        '  "issues": [',
-        "    {",
-        '      "severity": "CRITICAL" | "MAJOR" | "MINOR",',
-        '      "location": "path:line",',
-        '      "description": "...",',
-        '      "suggested_remediation": "..."',
-        "    }",
-        "  ],",
-        '  "implementer_guidance": "Short actionable instruction for repair"',
-        "}",
-        "",
-        "Return ONLY valid JSON in the above format. No markdown. No commentary.",
-        "Cap issues to top 3 severity items. If PASS, issues should be empty.",
-        "If you cannot determine quality from evidence, return INSUFFICIENT_EVIDENCE.",
-    ])
+    parts.extend(
+        [
+            "OUTPUT SCHEMA:",
+            "{",
+            '  "status": "PASS" or "FAIL" or "INSUFFICIENT_EVIDENCE",',
+            '  "summary": "One-line audit summary",',
+            '  "score": 0.0-1.0,',
+            '  "issues": [',
+            "    {",
+            '      "severity": "CRITICAL" | "MAJOR" | "MINOR",',
+            '      "location": "path:line",',
+            '      "description": "...",',
+            '      "suggested_remediation": "..."',
+            "    }",
+            "  ],",
+            '  "implementer_guidance": "Short actionable instruction for repair"',
+            "}",
+            "",
+            "Return ONLY valid JSON in the above format. No markdown. No commentary.",
+            "Cap issues to top 3 severity items. If PASS, issues should be empty.",
+            "If you cannot determine quality from evidence, return INSUFFICIENT_EVIDENCE.",
+        ]
+    )
 
     return "\n".join(parts)
 

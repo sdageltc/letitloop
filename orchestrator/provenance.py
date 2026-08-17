@@ -1,12 +1,11 @@
 """Provenance graph — tracks contract output lineage and dependency chains."""
 
 import os
-import json
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
-from .state import load_state
 from .contract import load_contract
+from .state import load_state
 
 
 class ProvenanceNode:
@@ -138,7 +137,7 @@ def build_provenance(goal_id: str, goal_title: str, plan, workspace_root: str, r
     from .failure import classify_failure
 
     def _as_dict(c):
-        return c if isinstance(c, dict) else c._raw if hasattr(c, '_raw') else {}
+        return c if isinstance(c, dict) else c._raw if hasattr(c, "_raw") else {}
 
     # Collect all edges first (from plan dependencies)
     dep_edges = {}  # target -> list of source task_ids
@@ -180,14 +179,8 @@ def build_provenance(goal_id: str, goal_title: str, plan, workspace_root: str, r
 
         # Collect outputs and inputs from contract
         contract_dict = c.get("contract") or {}
-        outputs = [
-            o["path"] if isinstance(o, dict) else o
-            for o in contract_dict.get("outputs", [])
-        ]
-        inputs = [
-            i["path"] if isinstance(i, dict) else i
-            for i in contract_dict.get("inputs", [])
-        ]
+        outputs = [o["path"] if isinstance(o, dict) else o for o in contract_dict.get("outputs", [])]
+        inputs = [i["path"] if isinstance(i, dict) else i for i in contract_dict.get("inputs", [])]
 
         node = ProvenanceNode(
             task_id=tid,
@@ -224,12 +217,14 @@ def build_provenance(goal_id: str, goal_title: str, plan, workspace_root: str, r
     # (evidence_store in supervisor can be reconstructed from state)
     for node in graph.nodes.values():
         for ev_key, ev_path in node.evidence.items():
-            graph.add_edge(ProvenanceEdge(
-                source=node.task_id,
-                target=node.task_id,
-                edge_type="evidence",
-                paths=[ev_path],
-            ))
+            graph.add_edge(
+                ProvenanceEdge(
+                    source=node.task_id,
+                    target=node.task_id,
+                    edge_type="evidence",
+                    paths=[ev_path],
+                )
+            )
 
     return graph
 

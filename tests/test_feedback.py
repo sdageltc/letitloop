@@ -1,19 +1,18 @@
 """Tests for feedback loop module."""
 
 import os
-import json
-import pytest
-from orchestrator.state import create_initial_state, save_state
-from orchestrator.failure import FAILURE_CLASS_TIMEOUT, FAILURE_CLASS_VERIFIER_CONTENT_MISMATCH
+
+from orchestrator.failure import FAILURE_CLASS_TIMEOUT
 from orchestrator.feedback import (
     FeedbackRecord,
     collect_feedback,
-    store_feedback,
-    load_feedback,
     detect_patterns,
     feedback_for_replan,
     format_feedback,
+    load_feedback,
+    store_feedback,
 )
+from orchestrator.state import create_initial_state
 
 
 def test_feedback_record_creation():
@@ -57,12 +56,14 @@ def test_collect_feedback_from_verification_failed(tmp_path):
     state = create_initial_state("t1")
     state.status = "VERIFICATION_FAILED"
     state.data["last_failure_class"] = "verifier_content_mismatch"
-    state.worker_results.append({
-        "exit_code": 0,
-        "stdout": "",
-        "stderr": "verification failed: expected '42', got 'wrong'",
-        "elapsed_sec": 5.0,
-    })
+    state.worker_results.append(
+        {
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "verification failed: expected '42', got 'wrong'",
+            "elapsed_sec": 5.0,
+        }
+    )
     rec = collect_feedback("t1", "g1", state)
     assert rec is not None
     assert rec.task_id == "t1"
@@ -170,7 +171,9 @@ def test_feedback_for_replan_empty(tmp_path):
 
 def test_format_feedback_with_records(tmp_path):
     records = [
-        FeedbackRecord("t1", "g1", "timeout", "E006", stderr_snippet="worker timed out", attempt=1, status="VERIFICATION_FAILED"),
+        FeedbackRecord(
+            "t1", "g1", "timeout", "E006", stderr_snippet="worker timed out", attempt=1, status="VERIFICATION_FAILED"
+        ),
     ]
     result = format_feedback(records)
     assert "t1" in result

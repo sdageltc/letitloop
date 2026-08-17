@@ -1,15 +1,13 @@
 """Tests for structured retry metadata persistence and divergence enforcement."""
 
-import json
 import os
-import pytest
 
-from orchestrator.state import State, create_initial_state, save_state, load_state
 from orchestrator.failure import (
     compute_strategy_fingerprint,
     is_divergent,
     require_divergent_retry,
 )
+from orchestrator.state import create_initial_state, load_state, save_state
 
 
 class TestRetryMetadata:
@@ -131,6 +129,7 @@ class TestRetryInSupervisor:
         }
         from orchestrator.goal import Goal, Plan
         from orchestrator.supervisor import Supervisor
+
         goal = Goal(goal_id="retry-meta-goal", title="Retry Meta", description="")
         plan = Plan(goal_id=goal.goal_id, contracts=[{"task_id": task_id, "contract": contract_dict}])
         supervisor = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)

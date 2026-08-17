@@ -1,10 +1,9 @@
 """Thread-pool worker pool for parallel execution of independent contracts."""
 
 import concurrent.futures
-import threading
 import os
-import sys
-from typing import Dict, Any, List, Callable, Optional
+import threading
+from typing import Any, Callable, Dict, List, Optional
 
 
 class WorkerPool:
@@ -49,13 +48,8 @@ class WorkerPool:
         results: Dict[str, str] = {}
         pending = len(tasks)
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=min(self._max_workers, len(tasks))
-        ) as pool:
-            fut_map = {
-                pool.submit(self._safe_execute, t["task_id"], execute_fn): t["task_id"]
-                for t in tasks
-            }
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(self._max_workers, len(tasks))) as pool:
+            fut_map = {pool.submit(self._safe_execute, t["task_id"], execute_fn): t["task_id"] for t in tasks}
 
             for fut in concurrent.futures.as_completed(fut_map):
                 tid = fut_map[fut]

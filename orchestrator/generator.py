@@ -1,14 +1,16 @@
 """Contract generator: decomposes high-level goals into executable contracts."""
+
 import json
 import os
 import sys
-from typing import Dict, List, Any, Optional
-from .goal import Goal, Plan
-from .contract import validate_contract, requires_semantic_qc
+from typing import Any, Dict, List, Optional
+
+from .contract import requires_semantic_qc, validate_contract
 from .exceptions import PlannerError
-from .planner import decompose_goal, _pick_worker, _pick_checks
-from .plan_quality import check_plan_quality, plan_is_safe
+from .goal import Goal, Plan
 from .models import ModelRegistry
+from .plan_quality import check_plan_quality, plan_is_safe
+from .planner import _pick_checks, _pick_worker, decompose_goal
 
 GENERATED_DIR_NAME = os.path.join("orchestrator", "fixtures", "generated")
 
@@ -29,7 +31,19 @@ def _get_scope(goal: Goal) -> Dict[str, List[str]]:
     return {"allow": list(allow), "deny": list(deny)}
 
 
-def _make_contract_dict(task_id, title, task_type, objective, outputs, depends_on, scope, acceptance_checks, risk_tier="auto", quality_spec=None, qc_explicit=None):
+def _make_contract_dict(
+    task_id,
+    title,
+    task_type,
+    objective,
+    outputs,
+    depends_on,
+    scope,
+    acceptance_checks,
+    risk_tier="auto",
+    quality_spec=None,
+    qc_explicit=None,
+):
     worker = _pick_worker(task_type)
     worker["hybrid_critic_model"] = WORKER_MODEL
     worker["hybrid_max_repair_turns"] = 3
@@ -73,25 +87,22 @@ def generate_contracts(
     """
     if failure_context:
         existing = goal.constraints.get("failure_context", "")
-        goal.constraints["failure_context"] = (
-            f"{existing}\n{failure_context}" if existing else failure_context
-        )
+        goal.constraints["failure_context"] = f"{existing}\n{failure_context}" if existing else failure_context
     scope = _get_scope(goal)
     if not scope["allow"]:
         scope["allow"] = [workspace_root]
     out_dir = os.path.join(workspace_root, GENERATED_DIR_NAME)
     os.makedirs(out_dir, exist_ok=True)
 
-    has_explicit_subtasks = (
-        ("subtasks" in goal.constraints and isinstance(goal.constraints["subtasks"], list))
-        or ("tasks" in goal.constraints and isinstance(goal.constraints["tasks"], list))
+    has_explicit_subtasks = ("subtasks" in goal.constraints and isinstance(goal.constraints["subtasks"], list)) or (
+        "tasks" in goal.constraints and isinstance(goal.constraints["tasks"], list)
     )
 
     if not has_explicit_subtasks:
         try:
             return decompose_goal(goal, workspace_root, prefs=prefs)
         except PlannerError as e:
-            print(f'[generator] Planner decomposition failed: {e}', file=sys.stderr)
+            print(f"[generator] Planner decomposition failed: {e}", file=sys.stderr)
 
     subtask_specs = []
 
@@ -103,7 +114,12 @@ def generate_contracts(
         desc_lower = goal.description.lower()
         title_lower = goal.title.lower()
 
-        if "step 1" in desc_lower or "two-step" in title_lower or "two step" in title_lower or "validates" in desc_lower:
+        if (
+            "step 1" in desc_lower
+            or "two-step" in title_lower
+            or "two step" in title_lower
+            or "validates" in desc_lower
+        ):
             out1 = f"scratch/phase2/{goal.goal_id}_step1.txt"
             out2 = f"scratch/phase2/{goal.goal_id}_step2.txt"
             allow_paths = scope["allow"]
@@ -132,27 +148,31 @@ def generate_contracts(
             ]
         elif "research" in desc_lower or "recon" in desc_lower:
             out = f"scratch/phase2/{goal.goal_id}_recon.txt"
-            subtask_specs = [{
-                "task_id": f"{goal.goal_id}-recon",
-                "title": f"{goal.title} - Research",
-                "type": "research",
-                "objective": goal.description,
-                "output_path": out,
-                "depends_on": [],
-            }]
+            subtask_specs = [
+                {
+                    "task_id": f"{goal.goal_id}-recon",
+                    "title": f"{goal.title} - Research",
+                    "type": "research",
+                    "objective": goal.description,
+                    "output_path": out,
+                    "depends_on": [],
+                }
+            ]
         else:
             out = f"scratch/phase2/{goal.goal_id}_output.txt"
-            subtask_specs = [{
-                "task_id": f"{goal.goal_id}-task-1",
-                "title": goal.title,
-                "type": "implementation",
-                "objective": goal.description,
-                "output_path": out,
-                "depends_on": [],
-            }]
+            subtask_specs = [
+                {
+                    "task_id": f"{goal.goal_id}-task-1",
+                    "title": goal.title,
+                    "type": "implementation",
+                    "objective": goal.description,
+                    "output_path": out,
+                    "depends_on": [],
+                }
+            ]
 
     if len(subtask_specs) > 3:
-        print(f'[generator] Warning: truncating {len(subtask_specs)} subtasks to 3', file=sys.stderr)
+        print(f"[generator] Warning: truncating {len(subtask_specs)} subtasks to 3", file=sys.stderr)
         subtask_specs = subtask_specs[:3]
     contracts_plan_meta = []
 
@@ -201,13 +221,15 @@ def generate_contracts(
         except ValueError:
             rel_contract_path = os.path.abspath(contract_file_path)
 
-        contracts_plan_meta.append({
-            "task_id": task_id,
-            "depends_on": depends_on,
-            "status": "DRAFTED",
-            "contract_path": rel_contract_path,
-            "contract": contract_dict,
-        })
+        contracts_plan_meta.append(
+            {
+                "task_id": task_id,
+                "depends_on": depends_on,
+                "status": "DRAFTED",
+                "contract_path": rel_contract_path,
+                "contract": contract_dict,
+            }
+        )
 
     plan = Plan(goal_id=goal.goal_id, contracts=contracts_plan_meta)
     quality_warnings = check_plan_quality(plan, workspace_root=workspace_root)

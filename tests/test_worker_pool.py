@@ -1,13 +1,14 @@
 """Tests for async worker pool."""
 
-import os
 import json
-import pytest
+import os
 from unittest.mock import patch
-from orchestrator.goal import Goal, Plan, ContractGraph
+
+import pytest
+
+from orchestrator.goal import ContractGraph, Goal, Plan
 from orchestrator.supervisor import Supervisor
 from orchestrator.worker_pool import WorkerPool, filter_independent_tasks, format_pool_status
-
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -24,7 +25,12 @@ def make_contract(task_id, depends_on=None, output_path=None):
         "inputs": [],
         "outputs": [{"path": output_path or f"scratch/{task_id}_out.txt"}],
         "acceptance_checks": [
-            {"id": f"{task_id}-chk", "kind": "file_exists", "path": output_path or f"scratch/{task_id}_out.txt", "expected": True},
+            {
+                "id": f"{task_id}-chk",
+                "kind": "file_exists",
+                "path": output_path or f"scratch/{task_id}_out.txt",
+                "expected": True,
+            },
         ],
         "qc": {"required": False, "lens": "code_correctness"},
     }
@@ -37,7 +43,6 @@ def make_contract(task_id, depends_on=None, output_path=None):
 
 
 class TestWorkerPool:
-
     def test_pool_empty_batch(self):
         pool = WorkerPool(max_workers=4)
         results = pool.execute_batch([], lambda tid: "COMPLETE")
@@ -98,7 +103,6 @@ class TestWorkerPool:
 
 
 class TestWorkerPoolIntegration:
-
     @pytest.mark.fast
     def test_parallel_plan_independent_tasks(self, tmp_path):
         with patch.dict(os.environ, {"FAKE_WORKER": "1"}):
@@ -140,10 +144,7 @@ class TestWorkerPoolIntegration:
     def test_parallel_plan_three_independent(self, tmp_path):
         with patch.dict(os.environ, {"FAKE_WORKER": "1"}):
             goal = Goal(goal_id="g_parallel_3", title="Parallel 3", description="desc")
-            contracts = [
-                make_contract(f"w{i}", output_path=f"scratch/test_pool/w{i}.txt")
-                for i in range(3)
-            ]
+            contracts = [make_contract(f"w{i}", output_path=f"scratch/test_pool/w{i}.txt") for i in range(3)]
             plan = Plan(goal_id=goal.goal_id, contracts=contracts)
 
             run_dir = os.path.join(str(tmp_path), "runs")
@@ -171,9 +172,8 @@ class TestWorkerPoolIntegration:
 
 
 class TestWorkerPoolUtils:
-
     def test_filter_independent_tasks(self):
-        goal = Goal(goal_id="g", title="t", description="d")
+        Goal(goal_id="g", title="t", description="d")
         contracts = [
             make_contract("t1"),
             make_contract("t2", depends_on=["t1"]),

@@ -1,13 +1,13 @@
 """Persistent evidence ledger — tracks contract outputs with metadata."""
-import os
-import json
-import threading
+
 import hashlib
+import json
+import os
+import threading
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List
 
 from .lock import FileLock
-
 
 LEDGER_FILENAME = "evidence_ledger.json"
 
@@ -52,7 +52,7 @@ def save_ledger(run_dir: str, ledger: Dict[str, List[Dict[str, Any]]]) -> None:
     ledger_path = os.path.join(run_dir, LEDGER_FILENAME)
     lock_path = ledger_path + ".lock"
     with FileLock(lock_path):
-        tmp = ledger_path + '.tmp'
+        tmp = ledger_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(ledger, f, indent=2, ensure_ascii=False)
         os.replace(tmp, ledger_path)
@@ -117,7 +117,9 @@ def check_evidence_freshness(run_dir: str) -> List[Dict[str, Any]]:
     return issues
 
 
-def write_run_manifest(run_dir: str, goal_id: str, plan, results: Dict[str, Dict[str, Any]], workspace_root: str) -> None:
+def write_run_manifest(
+    run_dir: str, goal_id: str, plan, results: Dict[str, Dict[str, Any]], workspace_root: str
+) -> None:
     """Write run_manifest.json with goal metadata, input/output hashes, and exit codes."""
     manifest_path = os.path.join(run_dir, "run_manifest.json")
     inputs = []
@@ -163,11 +165,15 @@ def write_run_manifest(run_dir: str, goal_id: str, plan, results: Dict[str, Dict
                     except (json.JSONDecodeError, OSError):
                         pass
                 status = results.get(task_id, {}).get("status", "UNKNOWN") if results else "UNKNOWN"
-                outputs.append({
-                    "task_id": task_id, "path": path,
-                    "sha256": _sha256(abs_path),
-                    "status": status, "qc_verdict": qc_status,
-                })
+                outputs.append(
+                    {
+                        "task_id": task_id,
+                        "path": path,
+                        "sha256": _sha256(abs_path),
+                        "status": status,
+                        "qc_verdict": qc_status,
+                    }
+                )
 
         state_file = os.path.join(task_dir, "state.json")
         exit_code = None

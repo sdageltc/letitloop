@@ -1,12 +1,11 @@
 """Tests for Evidence-Aware Replanner."""
 
-import os
 import json
-import pytest
-from orchestrator.goal import Goal, Plan
-from orchestrator.replanner import InspectResults, suggest_fix, replan
-from orchestrator.state import create_initial_state, save_state
+import os
 
+from orchestrator.goal import Goal
+from orchestrator.replanner import replan, suggest_fix
+from orchestrator.state import create_initial_state, save_state
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 

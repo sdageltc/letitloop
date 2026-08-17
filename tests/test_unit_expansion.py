@@ -1,27 +1,27 @@
 """Expanded unit tests covering edge cases for existing modules."""
 
 import os
-import json
+
 import pytest
-from unittest.mock import patch
 
-from orchestrator.state import (
-    State, create_initial_state, load_state, save_state, IllegalTransitionError, StateError
-)
-from orchestrator.failure import (
-    classify_failure, suggest_remediation, count_consecutive_same_class,
-    annotate_worker_result, MAX_SAME_CLASS_STRIKES,
-    FAILURE_CLASS_TIMEOUT, FAILURE_CLASS_WORKER_NONZERO_EXIT,
-    FAILURE_CLASS_VERIFIER_CONTENT_MISMATCH, FAILURE_CLASS_SCOPE_VIOLATION,
-)
 from orchestrator.contract import Contract, validate_contract
-from orchestrator.goal import Goal, Plan, ContractGraph
-
+from orchestrator.failure import (
+    FAILURE_CLASS_SCOPE_VIOLATION,
+    FAILURE_CLASS_TIMEOUT,
+    FAILURE_CLASS_WORKER_NONZERO_EXIT,
+    MAX_SAME_CLASS_STRIKES,
+    annotate_worker_result,
+    classify_failure,
+    count_consecutive_same_class,
+    suggest_remediation,
+)
+from orchestrator.goal import ContractGraph, Plan
+from orchestrator.state import IllegalTransitionError, State, StateError, create_initial_state, load_state, save_state
 
 # ── State Edge Cases ──
 
-class TestStateEdgeCases:
 
+class TestStateEdgeCases:
     def test_create_initial_state_defaults(self):
         s = create_initial_state("test-task")
         assert s.task_id == "test-task"
@@ -129,8 +129,8 @@ class TestStateEdgeCases:
 
 # ── Failure Classification Edge Cases ──
 
-class TestFailureEdgeCases:
 
+class TestFailureEdgeCases:
     def test_classify_timeout(self):
         s = create_initial_state("t1")
         s.status = "VERIFICATION_FAILED"
@@ -209,13 +209,17 @@ class TestFailureEdgeCases:
 
 # ── Contract Edge Cases ──
 
-class TestContractEdgeCases:
 
+class TestContractEdgeCases:
     def test_valid_contract_passes(self):
         c = {
-            "task_id": "t1", "title": "Test", "status": "drafted",
-            "risk_tier": "auto", "workspace_scope": {"allow": ["scratch/"], "deny": []},
-            "objective": "test", "worker": {"model": "x", "max_attempts": 1},
+            "task_id": "t1",
+            "title": "Test",
+            "status": "drafted",
+            "risk_tier": "auto",
+            "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            "objective": "test",
+            "worker": {"model": "x", "max_attempts": 1},
             "outputs": [{"path": "scratch/out.txt"}],
             "acceptance_checks": [],
             "qc": {"required": False, "lens": "code_correctness"},
@@ -230,15 +234,18 @@ class TestContractEdgeCases:
 
     def test_output_outside_allow_list_fails(self):
         c = {
-            "task_id": "t1", "title": "Test", "status": "drafted",
+            "task_id": "t1",
+            "title": "Test",
+            "status": "drafted",
             "risk_tier": "auto",
             "workspace_scope": {"allow": ["scratch/"], "deny": []},
-            "objective": "test", "worker": {"model": "x", "max_attempts": 1},
+            "objective": "test",
+            "worker": {"model": "x", "max_attempts": 1},
             "outputs": [{"path": "../outside.txt"}],
             "acceptance_checks": [],
             "qc": {"required": False, "lens": "code_correctness"},
         }
-        errs = validate_contract(c)
+        validate_contract(c)
         # ../ paths may or may not be caught depending on normpath behavior
         # At minimum they should not cause crashes
 
@@ -247,20 +254,25 @@ class TestContractEdgeCases:
         with open(bad_path, "w") as f:
             f.write("{invalid")
         from orchestrator.contract import load_contract
+
         _, errs = load_contract(bad_path)
         assert errs
 
     def test_nonexistent_file(self):
         from orchestrator.contract import load_contract
+
         _, errs = load_contract("/nonexistent/contract.json")
         assert errs
 
     def test_contract_allowed_paths(self):
         raw = {
-            "task_id": "t1", "title": "Test", "status": "DRAFTED",
+            "task_id": "t1",
+            "title": "Test",
+            "status": "DRAFTED",
             "risk_tier": "auto",
             "workspace_scope": {"allow": ["scratch/", "outputs/"], "deny": ["secrets/"]},
-            "objective": "test", "worker": {"model": "x", "max_attempts": 1},
+            "objective": "test",
+            "worker": {"model": "x", "max_attempts": 1},
             "outputs": [{"path": "scratch/out.txt"}],
             "acceptance_checks": [],
             "qc": {"required": False, "lens": "code_correctness"},
@@ -272,8 +284,8 @@ class TestContractEdgeCases:
 
 # ── Goal / Graph Edge Cases ──
 
-class TestGraphEdgeCases:
 
+class TestGraphEdgeCases:
     def test_graph_cycle_detection(self):
         contracts = [
             {"task_id": "a", "depends_on": ["b"]},

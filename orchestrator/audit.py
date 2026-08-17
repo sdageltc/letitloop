@@ -1,9 +1,9 @@
 """Immutable append-only audit log for operator actions."""
 
-import os
 import json
+import os
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 def _log_path(run_dir: str) -> str:

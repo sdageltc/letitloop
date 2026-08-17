@@ -1,50 +1,53 @@
 """Live proof end-to-end integration tests for orchestrator lifecycle."""
 
 import os
-import json
-import pytest
 
-from orchestrator.goal import Goal, Plan
-from orchestrator.supervisor import Supervisor
-from orchestrator.state import load_state, State, save_state
-from orchestrator.safety import run_safety_checks, format_safety_report
-from orchestrator.audit import record_action, query_audit
-from orchestrator.metrics import MetricsCollector
+from orchestrator.audit import query_audit
 from orchestrator.checkpoint import (
-    save_checkpoint,
-    load_checkpoint,
-    recover_from_checkpoint,
     list_checkpoints,
+    recover_from_checkpoint,
+    save_checkpoint,
 )
-from orchestrator.templates import list_templates, apply_template
+from orchestrator.goal import Goal, Plan
 from orchestrator.limits import ResourceLimits
-from orchestrator.telemetry import record_event, load_events
+from orchestrator.metrics import MetricsCollector
+from orchestrator.safety import format_safety_report, run_safety_checks
+from orchestrator.state import State, load_state, save_state
+from orchestrator.supervisor import Supervisor
+from orchestrator.telemetry import load_events, record_event
+from orchestrator.templates import list_templates
 
 
 def _make_contract(task_id, depends_on=None, output_path=None, max_attempts=1):
     return {
-        'task_id': task_id,
-        'depends_on': depends_on or [],
-        'status': 'DRAFTED',
-        'contract': {
-            'task_id': task_id,
-            'title': f'Task {task_id}',
-            'status': 'DRAFTED',
-            'risk_tier': 'auto',
-            'workspace_scope': {'allow': ['scratch/'], 'deny': []},
-            'objective': 'live proof end-to-end test',
-            'worker': {'model': 'test', 'max_attempts': max_attempts},
-            'inputs': [],
-            'outputs': [{'path': output_path or f'scratch/{task_id}_out.txt'}],
-            'acceptance_checks': [{'id': f'{task_id}-chk', 'kind': 'file_exists',
-                                   'path': output_path or f'scratch/{task_id}_out.txt',
-                                   'expected': True}],
-            'qc': {'required': False, 'lens': 'code_correctness'},
+        "task_id": task_id,
+        "depends_on": depends_on or [],
+        "status": "DRAFTED",
+        "contract": {
+            "task_id": task_id,
+            "title": f"Task {task_id}",
+            "status": "DRAFTED",
+            "risk_tier": "auto",
+            "workspace_scope": {"allow": ["scratch/"], "deny": []},
+            "objective": "live proof end-to-end test",
+            "worker": {"model": "test", "max_attempts": max_attempts},
+            "inputs": [],
+            "outputs": [{"path": output_path or f"scratch/{task_id}_out.txt"}],
+            "acceptance_checks": [
+                {
+                    "id": f"{task_id}-chk",
+                    "kind": "file_exists",
+                    "path": output_path or f"scratch/{task_id}_out.txt",
+                    "expected": True,
+                }
+            ],
+            "qc": {"required": False, "lens": "code_correctness"},
         },
     }
 
 
 # LIFECYCLE GROUP
+
 
 def test_live_full_lifecycle(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "1")
@@ -94,7 +97,7 @@ def test_live_evidence_chain(tmp_path, monkeypatch):
     plan = Plan(goal_id=goal.goal_id, contracts=[cA, cB])
     supervisor = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
 
-    res = supervisor.execute_plan()
+    supervisor.execute_plan()
     assert "task_A" in supervisor.evidence_store
     a_outputs = supervisor.evidence_store["task_A"]
     assert len(a_outputs) > 0
@@ -102,6 +105,7 @@ def test_live_evidence_chain(tmp_path, monkeypatch):
 
 
 # OPERATOR GROUP
+
 
 def test_live_pause_lifecycle(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "1")
@@ -161,6 +165,7 @@ def test_live_inspect_after_execution(tmp_path, monkeypatch):
 
 
 # OBSERVABILITY GROUP
+
 
 def test_live_audit_records_pause_and_cancel(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "1")
@@ -223,6 +228,7 @@ def test_live_telemetry_records_events(tmp_path, monkeypatch):
 
 # SAFETY GROUP
 
+
 def test_live_safety_check_runs_clean(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "1")
     ws_dir = str(tmp_path)
@@ -264,6 +270,7 @@ def test_live_safety_uses_limits(tmp_path, monkeypatch):
 
 
 # DURABILITY GROUP
+
 
 def test_live_checkpoint_then_recover(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "1")

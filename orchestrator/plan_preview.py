@@ -1,13 +1,15 @@
 """Plan preview renderer — machine plan → human-readable markdown."""
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
+
+from .approval import format_approval_reasons, requires_approval
 from .goal import Plan
-from .approval import requires_approval, format_approval_reasons
 
 
 def _describe_risk(plan: Plan) -> str:
     """Classify plan risk."""
     from .approval import _get_plan_stats
+
     stats = _get_plan_stats(plan)
     if stats["has_destructive"] or stats["touches_config"] > 0:
         return "High"
@@ -22,6 +24,7 @@ def _contract_type_label(contract_dict: Dict[str, Any]) -> str:
     if model.startswith("hybrid:"):
         return "code_generation (hybrid loop)"
     from .llm import provider_of
+
     return f"worker ({provider_of(model)})"
 
 
@@ -50,7 +53,7 @@ def render_plan_preview(
     # Approval
     approval = requires_approval(plan, prefs=prefs)
     if approval["requires_approval"]:
-        blocks.append(f"**Approval required:** Yes")
+        blocks.append("**Approval required:** Yes")
         blocks.append("")
         blocks.append(format_approval_reasons(approval))
     else:
@@ -62,7 +65,7 @@ def render_plan_preview(
     blocks.append("")
     for i, c in enumerate(plan.contracts, 1):
         contract_dict = c.get("contract", {}) or {}
-        tid = c.get("task_id", contract_dict.get("task_id", f"step-{i}"))
+        c.get("task_id", contract_dict.get("task_id", f"step-{i}"))
         title = contract_dict.get("title", c.get("title", f"Step {i}"))
         objective = contract_dict.get("objective", c.get("objective", ""))
         worker = contract_dict.get("worker", c.get("worker", {}))
@@ -118,14 +121,18 @@ def render_plan_preview(
 
 def _get_plan_stats_safe(plan: Plan) -> Dict[str, int]:
     from .approval import _get_plan_stats as gps
+
     return gps(plan)
 
 
-def write_plan_preview(plan: Plan, output_path: str, goal_dict: Optional[Dict[str, Any]] = None, prefs: Optional[Dict[str, Any]] = None):
+def write_plan_preview(
+    plan: Plan, output_path: str, goal_dict: Optional[Dict[str, Any]] = None, prefs: Optional[Dict[str, Any]] = None
+):
     """Render and write plan preview to a file."""
     content = render_plan_preview(plan, goal_dict=goal_dict, prefs=prefs)
     import os
-    parent = os.path.dirname(output_path) or '.'
+
+    parent = os.path.dirname(output_path) or "."
     os.makedirs(parent, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)

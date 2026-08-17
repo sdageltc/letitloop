@@ -1,15 +1,10 @@
 """Tests for configuration module."""
 
-import os
 import json
-import pytest
+import os
+
 from orchestrator.config import (
     OrchestratorConfig,
-    WorkerConfig,
-    PoolConfig,
-    ScopeConfig,
-    QCConfig,
-    LockConfig,
 )
 
 
@@ -47,10 +42,12 @@ class TestConfigRoundtrip:
         assert d["worker"]["model"] == "gemini:gemini-3.6-flash"
 
     def test_from_dict(self):
-        cfg = OrchestratorConfig.from_dict({
-            "worker": {"model": "custom-model", "max_attempts": 5},
-            "pool": {"enabled": True, "max_workers": 4},
-        })
+        cfg = OrchestratorConfig.from_dict(
+            {
+                "worker": {"model": "custom-model", "max_attempts": 5},
+                "pool": {"enabled": True, "max_workers": 4},
+            }
+        )
         assert cfg.worker.model == "custom-model"
         assert cfg.worker.max_attempts == 5
         assert cfg.pool.enabled is True

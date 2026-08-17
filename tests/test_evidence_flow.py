@@ -1,11 +1,12 @@
 """Tests for evidence propagation between dependent contracts in Supervisor."""
 
 import os
-import pytest
-from orchestrator.goal import Goal, Plan
-from orchestrator.generator import generate_contracts
-from orchestrator.supervisor import Supervisor
 
+import pytest
+
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal, Plan
+from orchestrator.supervisor import Supervisor
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -95,7 +96,7 @@ def test_no_evidence_without_dependency(tmp_path):
     )
     plan = generate_contracts(goal, workspace_root=ws_dir)
     supervisor = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
-    res = supervisor.execute_plan()
+    supervisor.execute_plan()
 
     task_a_id = plan.contracts[0]["task_id"]
     b_inputs = plan.contracts[1].get("contract", {}).get("inputs", [])

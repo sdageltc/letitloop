@@ -33,12 +33,8 @@ HARD_CAP_TOTAL = 1_000_000  # tokens per single call (prompt + completion)
 CHARS_PER_TOKEN = 3  # conservative estimate: fewer chars per token -> earlier refusal
 EXIT_GATE = 3
 
-DEFAULT_LEDGER = Path(
-    os.environ.get("TOKEN_GATE_LEDGER", str(Path.cwd() / "scratch" / "token_gate_violations.jsonl"))
-)
-MODELS_CACHE = Path(
-    os.environ.get("TOKEN_GATE_MODELS_CACHE", str(Path.cwd() / "scratch" / "llm_models.json"))
-)
+DEFAULT_LEDGER = Path(os.environ.get("TOKEN_GATE_LEDGER", str(Path.cwd() / "scratch" / "token_gate_violations.jsonl")))
+MODELS_CACHE = Path(os.environ.get("TOKEN_GATE_MODELS_CACHE", str(Path.cwd() / "scratch" / "llm_models.json")))
 MODELS_CACHE_TTL_SEC = 24 * 3600
 
 
@@ -157,13 +153,11 @@ class StreamGuard:
             actual_usage=actual_usage,
             model=self.model,
             reason=f"est_prompt({self.est_prompt}) + est_completion({self.est_completion}) "
-                   f"= {self.est_total} > cap {HARD_CAP_TOTAL}",
+            f"= {self.est_total} > cap {HARD_CAP_TOTAL}",
         )
 
 
-def check_usage_authoritative(
-    usage: dict, est_prompt: int, caller: str = "unknown", model: str | None = None
-) -> bool:
+def check_usage_authoritative(usage: dict, est_prompt: int, caller: str = "unknown", model: str | None = None) -> bool:
     """Post-check: the API's own reported total over the cap -> violation record.
 
     Returns True when the call is over the cap (caller should treat it as a hard stop).
@@ -215,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         print(__doc__)
         return 1
     if args[0] == "check":
+
         def _val(flag: str) -> int | None:
             for i, a in enumerate(args):
                 if a == flag and i + 1 < len(args):

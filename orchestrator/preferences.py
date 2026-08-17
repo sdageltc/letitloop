@@ -2,8 +2,7 @@
 
 import copy
 import os
-import json
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 PROJECT_RULES_FILE = "AGENTS.md"
 MEMORY_DIR = "memory"

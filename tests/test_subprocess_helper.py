@@ -2,13 +2,12 @@
 
 import os
 import sys
-import pytest
 
 from orchestrator.subprocess_helper import (
-    run_bounded_subprocess,
-    write_temp_prompt,
-    safe_temp_remove,
     BoundedSubprocessResult,
+    run_bounded_subprocess,
+    safe_temp_remove,
+    write_temp_prompt,
 )
 
 
@@ -42,7 +41,7 @@ class TestBoundedSubprocess:
         assert result.error
 
     def test_stdout_capped(self):
-        big_output = [sys.executable, "-c", f"print('x' * 600000)"]
+        big_output = [sys.executable, "-c", "print('x' * 600000)"]
         result = run_bounded_subprocess(big_output, workspace_root=".", max_capture=100)
         assert result.success is True
         assert "truncated" in result.stdout
@@ -59,8 +58,7 @@ class TestBoundedSubprocess:
         assert result.elapsed_sec > 0
 
     def test_bounded_result_attributes(self):
-        result = BoundedSubprocessResult(success=True, stdout="ok", stderr="",
-                                          exit_code=0, elapsed_sec=0.01)
+        result = BoundedSubprocessResult(success=True, stdout="ok", stderr="", exit_code=0, elapsed_sec=0.01)
         assert result.success is True
         assert result.stdout == "ok"
         assert result.exit_code == 0

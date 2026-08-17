@@ -1,5 +1,6 @@
 """Exception hierarchy for the orchestrator subsystem."""
 
+
 class OrchestratorError(Exception):
     """Base for all orchestrator errors."""
 
@@ -34,4 +35,3 @@ class HandoffError(OrchestratorError):
 
 class PlannerError(OrchestratorError):
     """LLM planner decomposition failure."""
-

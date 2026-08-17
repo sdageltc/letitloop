@@ -1,9 +1,10 @@
 """CLI integration tests for Phase 3 commands: reconcile, scope-check, provenance, error-inspect, feedback."""
 
-import os
 import json
-import sys
+import os
 import subprocess
+import sys
+
 import pytest
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -14,7 +15,9 @@ def _run_cli(run_dir, *args, timeout=30, expect_fail=False):
     cmd = [sys.executable, "-m", CLI_MODULE, "--run-dir", str(run_dir)] + list(args)
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=timeout)
     if expect_fail:
-        assert result.returncode != 0, f"expected failure but got exit {result.returncode}:\n{result.stdout}\n{result.stderr}"
+        assert result.returncode != 0, (
+            f"expected failure but got exit {result.returncode}:\n{result.stdout}\n{result.stderr}"
+        )
     else:
         assert result.returncode == 0, f"CLI failed:\n{result.stdout}\n{result.stderr}"
     return result
@@ -47,14 +50,18 @@ def _make_fake_goal_env(goal_id, run_dir, contracts):
 
 
 class TestReconcileCLI:
-
     @pytest.mark.integration
     def test_reconcile_on_empty_goal(self, tmp_path):
         run_dir = str(tmp_path)
         goal_id = "g_recon_empty"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "reconcile", goal_id)
@@ -65,8 +72,13 @@ class TestReconcileCLI:
         run_dir = str(tmp_path)
         goal_id = "g_recon_json"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "reconcile", goal_id, "--json")
@@ -75,14 +87,18 @@ class TestReconcileCLI:
 
 
 class TestScopeCheckCLI:
-
     @pytest.mark.integration
     def test_scope_check_empty(self, tmp_path):
         run_dir = str(tmp_path)
         goal_id = "g_scope_empty"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "scope-check", goal_id)
@@ -90,14 +106,18 @@ class TestScopeCheckCLI:
 
 
 class TestProvenanceCLI:
-
     @pytest.mark.integration
     def test_provenance_on_empty(self, tmp_path):
         run_dir = str(tmp_path)
         goal_id = "g_prov_empty"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "provenance", goal_id)
@@ -108,8 +128,13 @@ class TestProvenanceCLI:
         run_dir = str(tmp_path)
         goal_id = "g_prov_json"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "provenance", goal_id, "--json")
@@ -118,7 +143,6 @@ class TestProvenanceCLI:
 
 
 class TestErrorInspectCLI:
-
     @pytest.mark.integration
     def test_error_inspect_no_errors(self, tmp_path):
         run_dir = str(tmp_path)
@@ -138,8 +162,13 @@ class TestErrorInspectCLI:
             json.dump(state_data, f)
 
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "COMPLETE",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "COMPLETE",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "error-inspect", goal_id)
@@ -158,19 +187,28 @@ class TestErrorInspectCLI:
             "attempt": 1,
             "events": [{"from": "WORKING", "to": "VERIFYING", "reason": "test"}],
             "evidence": {},
-            "worker_results": [{
-                "exit_code": 0, "stdout": "wrong", "stderr": "",
-                "elapsed_sec": 0.1,
-                "failure_class": "verifier_content_mismatch",
-            }],
+            "worker_results": [
+                {
+                    "exit_code": 0,
+                    "stdout": "wrong",
+                    "stderr": "",
+                    "elapsed_sec": 0.1,
+                    "failure_class": "verifier_content_mismatch",
+                }
+            ],
             "data": {"last_failure_class": "verifier_content_mismatch"},
         }
         with open(os.path.join(contract_path, "state.json"), "w", encoding="utf-8") as f:
             json.dump(state_data, f)
 
         contracts = [
-            {"task_id": task_id, "depends_on": [], "status": "VERIFICATION_FAILED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": task_id,
+                "depends_on": [],
+                "status": "VERIFICATION_FAILED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "error-inspect", goal_id, expect_fail=True)
@@ -189,19 +227,28 @@ class TestErrorInspectCLI:
             "attempt": 1,
             "events": [],
             "evidence": {},
-            "worker_results": [{
-                "exit_code": 0, "stdout": "", "stderr": "",
-                "elapsed_sec": 0.1,
-                "failure_class": "verifier_content_mismatch",
-            }],
+            "worker_results": [
+                {
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "elapsed_sec": 0.1,
+                    "failure_class": "verifier_content_mismatch",
+                }
+            ],
             "data": {"last_failure_class": "verifier_content_mismatch"},
         }
         with open(os.path.join(contract_path, "state.json"), "w", encoding="utf-8") as f:
             json.dump(state_data, f)
 
         contracts = [
-            {"task_id": task_id, "depends_on": [], "status": "VERIFICATION_FAILED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": task_id,
+                "depends_on": [],
+                "status": "VERIFICATION_FAILED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "error-inspect", goal_id, "--json")
@@ -210,14 +257,18 @@ class TestErrorInspectCLI:
 
 
 class TestFeedbackCLI:
-
     @pytest.mark.integration
     def test_feedback_empty(self, tmp_path):
         run_dir = str(tmp_path)
         goal_id = "g_fb_empty"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "feedback", goal_id)
@@ -228,8 +279,13 @@ class TestFeedbackCLI:
         run_dir = str(tmp_path)
         goal_id = "g_fb_json"
         contracts = [
-            {"task_id": "t1", "depends_on": [], "status": "DRAFTED",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": "t1",
+                "depends_on": [],
+                "status": "DRAFTED",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "feedback", goal_id, "--json")
@@ -238,7 +294,6 @@ class TestFeedbackCLI:
 
 
 class TestFailureReportCLI:
-
     @pytest.mark.integration
     def test_failure_report_on_completed(self, tmp_path):
         run_dir = str(tmp_path)
@@ -259,8 +314,13 @@ class TestFailureReportCLI:
             json.dump(state_data, f)
 
         contracts = [
-            {"task_id": task_id, "depends_on": [], "status": "COMPLETE",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": task_id,
+                "depends_on": [],
+                "status": "COMPLETE",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "failure-report", goal_id)
@@ -286,8 +346,13 @@ class TestFailureReportCLI:
             json.dump(state_data, f)
 
         contracts = [
-            {"task_id": task_id, "depends_on": [], "status": "COMPLETE",
-             "contract_path": "nonexistent.json", "contract": None},
+            {
+                "task_id": task_id,
+                "depends_on": [],
+                "status": "COMPLETE",
+                "contract_path": "nonexistent.json",
+                "contract": None,
+            },
         ]
         _make_fake_goal_env(goal_id, run_dir, contracts)
         result = _run_cli(run_dir, "failure-report", goal_id, "--json")

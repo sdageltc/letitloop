@@ -1,13 +1,14 @@
 """Tests for failure-report CLI command."""
 
-import os
 import json
-import pytest
+import os
 from argparse import Namespace
-from orchestrator.goal import Goal
-from orchestrator.generator import generate_contracts
-from orchestrator.supervisor import Supervisor
 
+import pytest
+
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
+from orchestrator.supervisor import Supervisor
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DEFAULT_RUN_DIR = os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs")
@@ -20,6 +21,7 @@ def set_fake_worker(monkeypatch):
 
 def test_failure_report_on_completed_goal(capsys):
     from orchestrator.cli import cmd_failure_report
+
     goal = Goal(
         goal_id="fail-report-success",
         title="Success",
@@ -46,6 +48,7 @@ def test_failure_report_on_completed_goal(capsys):
 def test_failure_report_on_failed_goal(capsys, monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "FAIL")
     from orchestrator.cli import cmd_failure_report
+
     goal = Goal(
         goal_id="fail-report-fail",
         title="Fail",
@@ -72,6 +75,7 @@ def test_failure_report_on_failed_goal(capsys, monkeypatch):
 
 def test_failure_report_json_output(capsys):
     from orchestrator.cli import cmd_failure_report
+
     goal = Goal(
         goal_id="fail-report-json",
         title="JSON",

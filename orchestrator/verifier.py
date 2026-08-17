@@ -4,19 +4,18 @@ import ast
 import json
 import os
 import re
-import subprocess
 import shlex
+import subprocess
 import sys
 from typing import Optional
-from .exceptions import VerifierError
-from . import scope as sc
+
+from .exceptions import VerifierError as VerifierError
 
 
 class VerifierResult:
     """Result of a single verification check."""
 
-    def __init__(self, check_id, kind, passed, message="",
-                 stdout="", stderr="", exit_code=None):
+    def __init__(self, check_id, kind, passed, message="", stdout="", stderr="", exit_code=None):
         self.check_id = check_id
         self.kind = kind
         self.passed = passed
@@ -58,9 +57,21 @@ _SECRET_ENV_NAMES = (
 # Scrub any var whose underscore-separated name
 # contains a secret-ish segment, plus known prefixes and common composites.
 _SECRET_ENV_SEGMENTS = (
-    "KEY", "KEYS", "TOKEN", "TOKENS", "SECRET", "SECRETS",
-    "PASSWORD", "PASSWORDS", "CREDENTIAL", "CREDENTIALS",
-    "AUTH", "DATABASE_URL", "MONGODB_URI", "REDIS_URL", "DSN",
+    "KEY",
+    "KEYS",
+    "TOKEN",
+    "TOKENS",
+    "SECRET",
+    "SECRETS",
+    "PASSWORD",
+    "PASSWORDS",
+    "CREDENTIAL",
+    "CREDENTIALS",
+    "AUTH",
+    "DATABASE_URL",
+    "MONGODB_URI",
+    "REDIS_URL",
+    "DSN",
 )
 _SECRET_ENV_PREFIXES = (
     "NVIDIA_API_KEY",
@@ -115,9 +126,7 @@ def _normalize_win_args(tokens):
     args = []
     prev = None
     for tok in tokens:
-        if len(tok) >= 2 and (
-            (tok[0] == "'" and tok[-1] == "'") or (tok[0] == '"' and tok[-1] == '"')
-        ):
+        if len(tok) >= 2 and ((tok[0] == "'" and tok[-1] == "'") or (tok[0] == '"' and tok[-1] == '"')):
             inner = tok[1:-1]
             if tok[0] == '"':
                 tok = inner
@@ -156,6 +165,7 @@ def _kill_process_tree(proc):
     else:
         try:
             import signal
+
             pgid = os.getpgid(proc.pid)
             os.killpg(pgid, signal.SIGKILL)
         except Exception:
@@ -172,9 +182,9 @@ def _kill_process_tree(proc):
 def _run_command_check(command, expected, workspace_root, timeout_sec=60):
     """Run a shell command and check exit code equals expected."""
     if not command:
-        return VerifierResult(check_id="command", kind="command",
-                              passed=False,
-                              message="empty command string", exit_code=-1)
+        return VerifierResult(
+            check_id="command", kind="command", passed=False, message="empty command string", exit_code=-1
+        )
     kwargs = {
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
@@ -207,32 +217,26 @@ def _run_command_check(command, expected, workspace_root, timeout_sec=60):
                     args = list(command)
                 if args and args[0] in ("python", "python3") and sys.executable:
                     args[0] = sys.executable
-                proc = subprocess.Popen(
-                    args,
-                    **kwargs
-                )
+                proc = subprocess.Popen(args, **kwargs)
             except (FileNotFoundError, OSError):
-                proc = subprocess.Popen(
-                    ["cmd", "/c", command],
-                    **kwargs
-                )
+                proc = subprocess.Popen(["cmd", "/c", command], **kwargs)
         else:
             args = shlex.split(command) if isinstance(command, str) else list(command)
             if args and args[0] in ("python", "python3") and sys.executable:
                 args[0] = sys.executable
-            proc = subprocess.Popen(
-                args,
-                **kwargs
-            )
+            proc = subprocess.Popen(args, **kwargs)
 
         try:
             stdout, stderr = proc.communicate(timeout=timeout_sec)
         except subprocess.TimeoutExpired:
             _kill_process_tree(proc)
-            return VerifierResult(check_id="command", kind="command",
-                                  passed=False,
-                                  message=f"command timed out ({timeout_sec}s)",
-                                  exit_code=-1)
+            return VerifierResult(
+                check_id="command",
+                kind="command",
+                passed=False,
+                message=f"command timed out ({timeout_sec}s)",
+                exit_code=-1,
+            )
 
         stdout = _cap_output(stdout or "")
         stderr = _cap_output(stderr or "")
@@ -242,19 +246,18 @@ def _run_command_check(command, expected, workspace_root, timeout_sec=60):
             passed = exit_code == expected_code
         except (ValueError, TypeError):
             passed = str(exit_code) == str(expected)
-        msg = (
-            f"exit code {exit_code}, expected {expected}"
-            if not passed else
-            f"exit code {exit_code} matches expected"
+        msg = f"exit code {exit_code}, expected {expected}" if not passed else f"exit code {exit_code} matches expected"
+        return VerifierResult(
+            check_id="command",
+            kind="command",
+            passed=passed,
+            message=msg,
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=exit_code,
         )
-        return VerifierResult(check_id="command", kind="command",
-                              passed=passed, message=msg,
-                              stdout=stdout, stderr=stderr,
-                              exit_code=exit_code)
     except OSError as e:
-        return VerifierResult(check_id="command", kind="command",
-                              passed=False, message=str(e),
-                              exit_code=-1)
+        return VerifierResult(check_id="command", kind="command", passed=False, message=str(e), exit_code=-1)
 
 
 def _run_file_exists_check(path, expected_nonempty, workspace_root):
@@ -262,93 +265,82 @@ def _run_file_exists_check(path, expected_nonempty, workspace_root):
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     exists = os.path.isfile(full_path)
     if not exists:
-        return VerifierResult(check_id="file_exists", kind="file_exists",
-                              passed=False,
-                              message=f"file not found: {path}")
+        return VerifierResult(
+            check_id="file_exists", kind="file_exists", passed=False, message=f"file not found: {path}"
+        )
     if expected_nonempty:
         size = os.path.getsize(full_path)
         if size == 0:
-            return VerifierResult(check_id="file_exists", kind="file_exists",
-                                  passed=False,
-                                  message=f"file is empty: {path}")
-    return VerifierResult(check_id="file_exists", kind="file_exists",
-                          passed=True,
-                          message=f"file exists: {path} ({os.path.getsize(full_path)} bytes)")
+            return VerifierResult(
+                check_id="file_exists", kind="file_exists", passed=False, message=f"file is empty: {path}"
+            )
+    return VerifierResult(
+        check_id="file_exists",
+        kind="file_exists",
+        passed=True,
+        message=f"file exists: {path} ({os.path.getsize(full_path)} bytes)",
+    )
 
 
 def _run_json_schema_check(path, schema, workspace_root):
     """Check file parses as JSON; optionally validate against schema."""
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="json_schema", kind="json_schema",
-                              passed=False,
-                              message=f"file not found: {path}")
+        return VerifierResult(
+            check_id="json_schema", kind="json_schema", passed=False, message=f"file not found: {path}"
+        )
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
-        return VerifierResult(check_id="json_schema", kind="json_schema",
-                              passed=False,
-                              message=f"JSON parse error: {e}")
+        return VerifierResult(
+            check_id="json_schema", kind="json_schema", passed=False, message=f"JSON parse error: {e}"
+        )
 
     if schema is not None:
         if not isinstance(data, dict):
-            return VerifierResult(check_id="json_schema", kind="json_schema",
-                                  passed=False,
-                                  message="JSON root is not a dict")
+            return VerifierResult(
+                check_id="json_schema", kind="json_schema", passed=False, message="JSON root is not a dict"
+            )
         if isinstance(schema, dict):
             for key in schema.get("required", []):
                 if key not in data:
-                    return VerifierResult(check_id="json_schema", kind="json_schema",
-                                          passed=False,
-                                          message=f"JSON missing required key: {key}")
+                    return VerifierResult(
+                        check_id="json_schema",
+                        kind="json_schema",
+                        passed=False,
+                        message=f"JSON missing required key: {key}",
+                    )
 
-    return VerifierResult(check_id="json_schema", kind="json_schema",
-                          passed=True,
-                          message="JSON parse OK")
+    return VerifierResult(check_id="json_schema", kind="json_schema", passed=True, message="JSON parse OK")
 
 
 def _run_content_check(path, pattern, kind, workspace_root):
     """Check file content matches exact string or regex."""
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="content", kind=kind,
-                              passed=False,
-                              message=f"file not found: {path}")
+        return VerifierResult(check_id="content", kind=kind, passed=False, message=f"file not found: {path}")
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="content", kind=kind,
-                              passed=False, message=str(e))
+        return VerifierResult(check_id="content", kind=kind, passed=False, message=str(e))
 
     if kind == "content_exact":
         if content == pattern:
-            return VerifierResult(check_id="content", kind=kind,
-                                  passed=True,
-                                  message="content matches exact")
+            return VerifierResult(check_id="content", kind=kind, passed=True, message="content matches exact")
         else:
-            return VerifierResult(check_id="content", kind=kind,
-                                  passed=False,
-                                  message="content does not match exact")
+            return VerifierResult(check_id="content", kind=kind, passed=False, message="content does not match exact")
     elif kind == "content_regex":
         if re.search(pattern, content):
-            return VerifierResult(check_id="content", kind=kind,
-                                  passed=True,
-                                  message=f"regex matches: {pattern}")
+            return VerifierResult(check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}")
         else:
-            return VerifierResult(check_id="content", kind=kind,
-                                  passed=False,
-                                  message=f"regex no match: {pattern}")
+            return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}")
 
-    return VerifierResult(check_id="content", kind=kind,
-                          passed=False,
-                          message=f"unknown content kind: {kind}")
+    return VerifierResult(check_id="content", kind=kind, passed=False, message=f"unknown content kind: {kind}")
 
 
-_PLACEHOLDER_PATTERN = re.compile(
-    r"(?i)\b(TODO|FIXME|XXX|HACK|TEMP|TBD|PLACEHOLDER|YOUR_CODE_HERE|IMPLEMENT_ME)\b"
-)
+_PLACEHOLDER_PATTERN = re.compile(r"(?i)\b(TODO|FIXME|XXX|HACK|TEMP|TBD|PLACEHOLDER|YOUR_CODE_HERE|IMPLEMENT_ME)\b")
 _CONVERSATIONAL_PATTERN = re.compile(
     r"(?i)^\s*(sure!|here is the|i cannot|as an ai language model|i hope the)",
     re.MULTILINE,
@@ -363,14 +355,12 @@ _SECRET_KEY_HEADER = re.compile(r"-----BEGIN (RSA|OPENSSH|EC|PGP|PRIVATE) KEY---
 def _run_syntax_check(path, expected_language, workspace_root, optional=False):
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="syntax", kind="syntax",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"file not found: {path}")
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="syntax", kind="syntax",
-                              passed=False, message=str(e))
+        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=str(e))
 
     lang = expected_language or _detect_language(path)
     import shutil
@@ -378,179 +368,257 @@ def _run_syntax_check(path, expected_language, workspace_root, optional=False):
     if lang == "python":
         try:
             ast.parse(content, filename=full_path)
-            return VerifierResult(check_id="syntax", kind="syntax",
-                                  passed=True, message="Python syntax valid")
+            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="Python syntax valid")
         except SyntaxError as e:
-            return VerifierResult(check_id="syntax", kind="syntax",
-                                  passed=False,
-                                  message=f"Python SyntaxError line {e.lineno}: {e.msg}")
+            return VerifierResult(
+                check_id="syntax", kind="syntax", passed=False, message=f"Python SyntaxError line {e.lineno}: {e.msg}"
+            )
     elif lang == "json":
         try:
             json.loads(content)
-            return VerifierResult(check_id="syntax", kind="syntax",
-                                  passed=True, message="JSON syntax valid")
+            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="JSON syntax valid")
         except json.JSONDecodeError as e:
-            return VerifierResult(check_id="syntax", kind="syntax",
-                                  passed=False,
-                                  message=f"JSON parse error: {e.msg}")
+            return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"JSON parse error: {e.msg}")
     elif lang in ("javascript", "js"):
         node_bin = shutil.which("node")
         if node_bin:
             try:
                 proc = subprocess.run(
                     [node_bin, "--check", full_path],
-                    capture_output=True, text=True, timeout=10, cwd=workspace_root,
-                    encoding="utf-8", errors="replace",
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    cwd=workspace_root,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if proc.returncode == 0:
-                    return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="JavaScript syntax valid (node)")
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"JavaScript syntax error: {proc.stderr[:200]}")
+                    return VerifierResult(
+                        check_id="syntax", kind="syntax", passed=True, message="JavaScript syntax valid (node)"
+                    )
+                return VerifierResult(
+                    check_id="syntax",
+                    kind="syntax",
+                    passed=False,
+                    message=f"JavaScript syntax error: {proc.stderr[:200]}",
+                )
             except Exception as e:
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"JavaScript syntax check failed: {e}")
+                return VerifierResult(
+                    check_id="syntax", kind="syntax", passed=False, message=f"JavaScript syntax check failed: {e}"
+                )
         if optional:
-            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: node not found (optional)")
-        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message="syntax check failed: node unavailable for javascript")
+            return VerifierResult(
+                check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: node not found (optional)"
+            )
+        return VerifierResult(
+            check_id="syntax",
+            kind="syntax",
+            passed=False,
+            message="syntax check failed: node unavailable for javascript",
+        )
     elif lang in ("typescript", "ts"):
         tsc_bin = shutil.which("tsc") or shutil.which("npx")
         if tsc_bin:
             try:
-                cmd = [tsc_bin, "--noEmit", "--pretty", "false", full_path] if "tsc" in tsc_bin else ["npx", "tsc", "--noEmit", "--pretty", "false", full_path]
+                cmd = (
+                    [tsc_bin, "--noEmit", "--pretty", "false", full_path]
+                    if "tsc" in tsc_bin
+                    else ["npx", "tsc", "--noEmit", "--pretty", "false", full_path]
+                )
                 proc = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=15, cwd=workspace_root,
-                    encoding="utf-8", errors="replace",
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    cwd=workspace_root,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if proc.returncode == 0:
-                    return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="TypeScript syntax valid (tsc)")
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"TypeScript syntax error: {proc.stdout[:200] or proc.stderr[:200]}")
+                    return VerifierResult(
+                        check_id="syntax", kind="syntax", passed=True, message="TypeScript syntax valid (tsc)"
+                    )
+                return VerifierResult(
+                    check_id="syntax",
+                    kind="syntax",
+                    passed=False,
+                    message=f"TypeScript syntax error: {proc.stdout[:200] or proc.stderr[:200]}",
+                )
             except Exception as e:
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"TypeScript syntax check failed: {e}")
+                return VerifierResult(
+                    check_id="syntax", kind="syntax", passed=False, message=f"TypeScript syntax check failed: {e}"
+                )
         if optional:
-            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: tsc not found (optional)")
-        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message="syntax check failed: tsc unavailable for typescript")
+            return VerifierResult(
+                check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: tsc not found (optional)"
+            )
+        return VerifierResult(
+            check_id="syntax",
+            kind="syntax",
+            passed=False,
+            message="syntax check failed: tsc unavailable for typescript",
+        )
     elif lang == "go":
         go_bin = shutil.which("go")
         if go_bin:
             try:
                 proc = subprocess.run(
                     [go_bin, "vet", full_path],
-                    capture_output=True, text=True, timeout=15, cwd=workspace_root,
-                    encoding="utf-8", errors="replace",
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    cwd=workspace_root,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if proc.returncode == 0:
-                    return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="Go syntax valid (go vet)")
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"Go syntax error: {proc.stderr[:200]}")
+                    return VerifierResult(
+                        check_id="syntax", kind="syntax", passed=True, message="Go syntax valid (go vet)"
+                    )
+                return VerifierResult(
+                    check_id="syntax", kind="syntax", passed=False, message=f"Go syntax error: {proc.stderr[:200]}"
+                )
             except Exception as e:
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"Go syntax check failed: {e}")
+                return VerifierResult(
+                    check_id="syntax", kind="syntax", passed=False, message=f"Go syntax check failed: {e}"
+                )
         if optional:
-            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: go not found (optional)")
-        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message="syntax check failed: go unavailable")
+            return VerifierResult(
+                check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: go not found (optional)"
+            )
+        return VerifierResult(
+            check_id="syntax", kind="syntax", passed=False, message="syntax check failed: go unavailable"
+        )
     elif lang == "rust":
         cargo_bin = shutil.which("cargo") or shutil.which("rustc")
         if cargo_bin:
             try:
                 cmd = [cargo_bin, "check"] if "cargo" in cargo_bin else [cargo_bin, "--parse-only", full_path]
                 proc = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=15, cwd=workspace_root,
-                    encoding="utf-8", errors="replace",
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    cwd=workspace_root,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if proc.returncode == 0:
                     return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="Rust syntax valid")
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"Rust syntax error: {proc.stderr[:200]}")
+                return VerifierResult(
+                    check_id="syntax", kind="syntax", passed=False, message=f"Rust syntax error: {proc.stderr[:200]}"
+                )
             except Exception as e:
-                return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"Rust syntax check failed: {e}")
+                return VerifierResult(
+                    check_id="syntax", kind="syntax", passed=False, message=f"Rust syntax check failed: {e}"
+                )
         if optional:
-            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message="syntax check skipped: rust tooling not found (optional)")
-        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message="syntax check failed: rust tooling unavailable")
+            return VerifierResult(
+                check_id="syntax",
+                kind="syntax",
+                passed=True,
+                message="syntax check skipped: rust tooling not found (optional)",
+            )
+        return VerifierResult(
+            check_id="syntax", kind="syntax", passed=False, message="syntax check failed: rust tooling unavailable"
+        )
     else:
         if optional:
-            return VerifierResult(check_id="syntax", kind="syntax", passed=True, message=f"syntax check skipped: unsupported language {lang} (optional)")
-        return VerifierResult(check_id="syntax", kind="syntax", passed=False, message=f"syntax check skipped: unsupported language {lang}")
+            return VerifierResult(
+                check_id="syntax",
+                kind="syntax",
+                passed=True,
+                message=f"syntax check skipped: unsupported language {lang} (optional)",
+            )
+        return VerifierResult(
+            check_id="syntax", kind="syntax", passed=False, message=f"syntax check skipped: unsupported language {lang}"
+        )
 
 
 def _detect_language(path):
     ext = os.path.splitext(path)[1].lower()
-    return {".py": "python", ".json": "json", ".js": "javascript",
-            ".ts": "typescript", ".yaml": "yaml", ".yml": "yaml",
-            ".go": "go", ".rs": "rust"}.get(ext, "unknown")
+    return {
+        ".py": "python",
+        ".json": "json",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".go": "go",
+        ".rs": "rust",
+    }.get(ext, "unknown")
 
 
 def _run_hygiene_check(path, expected, workspace_root):
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(check_id="hygiene", kind="hygiene", passed=False, message=f"file not found: {path}")
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False, message=str(e))
+        return VerifierResult(check_id="hygiene", kind="hygiene", passed=False, message=str(e))
 
-    lines = content.splitlines()
+    content.splitlines()
 
     if _MARKDOWN_FENCE_START.match(content.strip()):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False,
-                              message="file starts with markdown code fence")
+        return VerifierResult(
+            check_id="hygiene", kind="hygiene", passed=False, message="file starts with markdown code fence"
+        )
 
     if _CONVERSATIONAL_PATTERN.search(content):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False,
-                              message="conversational LLM preamble detected")
+        return VerifierResult(
+            check_id="hygiene", kind="hygiene", passed=False, message="conversational LLM preamble detected"
+        )
 
     if _PLACEHOLDER_PATTERN.search(content):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False,
-                              message="placeholder token detected (TODO/FIXME/etc)")
+        return VerifierResult(
+            check_id="hygiene", kind="hygiene", passed=False, message="placeholder token detected (TODO/FIXME/etc)"
+        )
 
     if _NOT_IMPLEMENTED_ERROR.search(content):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False,
-                              message="raise NotImplementedError detected")
+        return VerifierResult(
+            check_id="hygiene", kind="hygiene", passed=False, message="raise NotImplementedError detected"
+        )
 
     lang = _detect_language(path)
     if lang == "python":
         if _DEBUG_PYTHON.search(content):
-            return VerifierResult(check_id="hygiene", kind="hygiene",
-                                  passed=False,
-                                  message="debug statement detected (breakpoint/pdb)")
+            return VerifierResult(
+                check_id="hygiene", kind="hygiene", passed=False, message="debug statement detected (breakpoint/pdb)"
+            )
 
     if _SECRET_AWS.search(content):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False,
-                              message="AWS credential pattern detected")
+        return VerifierResult(
+            check_id="hygiene", kind="hygiene", passed=False, message="AWS credential pattern detected"
+        )
 
     if _SECRET_KEY_HEADER.search(content):
-        return VerifierResult(check_id="hygiene", kind="hygiene",
-                              passed=False,
-                              message="private key header detected")
+        return VerifierResult(check_id="hygiene", kind="hygiene", passed=False, message="private key header detected")
 
-    return VerifierResult(check_id="hygiene", kind="hygiene",
-                          passed=True, message="hygiene checks passed")
+    return VerifierResult(check_id="hygiene", kind="hygiene", passed=True, message="hygiene checks passed")
 
 
 def _run_min_size_check(path, min_size, workspace_root):
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="min_size", kind="min_size",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(check_id="min_size", kind="min_size", passed=False, message=f"file not found: {path}")
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="min_size", kind="min_size",
-                              passed=False, message=str(e))
+        return VerifierResult(check_id="min_size", kind="min_size", passed=False, message=str(e))
 
     size = len(content)
     threshold = int(min_size) if min_size else 1
     if size >= threshold:
-        return VerifierResult(check_id="min_size", kind="min_size",
-                              passed=True,
-                              message=f"content length {size} >= {threshold}")
+        return VerifierResult(
+            check_id="min_size", kind="min_size", passed=True, message=f"content length {size} >= {threshold}"
+        )
     else:
-        return VerifierResult(check_id="min_size", kind="min_size",
-                              passed=False,
-                              message=f"content length {size} < {threshold}")
+        return VerifierResult(
+            check_id="min_size", kind="min_size", passed=False, message=f"content length {size} < {threshold}"
+        )
 
 
 _SUPPORTED_RENDER_FORMATS = {"markdown", "html"}
@@ -585,18 +653,18 @@ def _run_required_sections_check(path, required_sections, workspace_root):
     """
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="required_sections", kind="required_sections",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(
+            check_id="required_sections", kind="required_sections", passed=False, message=f"file not found: {path}"
+        )
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="required_sections", kind="required_sections",
-                              passed=False, message=str(e))
+        return VerifierResult(check_id="required_sections", kind="required_sections", passed=False, message=str(e))
     if not required_sections:
-        return VerifierResult(check_id="required_sections", kind="required_sections",
-                              passed=True,
-                              message="no required sections to check")
+        return VerifierResult(
+            check_id="required_sections", kind="required_sections", passed=True, message="no required sections to check"
+        )
 
     candidates = []
     try:
@@ -617,52 +685,60 @@ def _run_required_sections_check(path, required_sections, workspace_root):
         if isinstance(section, str) and section.lower() not in candidates_lower:
             missing.append(section)
     if missing:
-        return VerifierResult(check_id="required_sections", kind="required_sections",
-                              passed=False,
-                              message=f"missing sections: {missing}")
-    return VerifierResult(check_id="required_sections", kind="required_sections",
-                          passed=True,
-                          message=f"all {len(required_sections)} required sections found")
+        return VerifierResult(
+            check_id="required_sections", kind="required_sections", passed=False, message=f"missing sections: {missing}"
+        )
+    return VerifierResult(
+        check_id="required_sections",
+        kind="required_sections",
+        passed=True,
+        message=f"all {len(required_sections)} required sections found",
+    )
 
 
 def _run_render_check(path, expected_format, workspace_root):
     """Source-level validation for content structure and formatting.
-    
+
     This is NOT a full renderer — it performs heuristic checks on the source
     content to detect common issues. Supported formats: markdown, html.
     """
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if expected_format not in _SUPPORTED_RENDER_FORMATS:
-        return VerifierResult(check_id="render", kind="render",
-                              passed=False,
-                              message=f"unsupported render format: {expected_format!r} (supported: {sorted(_SUPPORTED_RENDER_FORMATS)})")
+        return VerifierResult(
+            check_id="render",
+            kind="render",
+            passed=False,
+            message=f"unsupported render format: {expected_format!r} (supported: {sorted(_SUPPORTED_RENDER_FORMATS)})",
+        )
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="render", kind="render",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(check_id="render", kind="render", passed=False, message=f"file not found: {path}")
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="render", kind="render",
-                              passed=False, message=str(e))
+        return VerifierResult(check_id="render", kind="render", passed=False, message=str(e))
     if expected_format == "markdown":
-        raw_latex = re.findall(r'\$\$(.+?)\$\$|\\\((.*?)\\\)|\\\[(.*?)\\]', content)
+        raw_latex = re.findall(r"\$\$(.+?)\$\$|\\\((.*?)\\\)|\\\[(.*?)\\]", content)
         if raw_latex:
-            return VerifierResult(check_id="render", kind="render",
-                                  passed=False,
-                                  message=f"raw LaTeX detected in markdown: {len(raw_latex)} instances")
-        unresolved_anchors = re.findall(r'\[([^\]]+)\]\(\)', content)
+            return VerifierResult(
+                check_id="render",
+                kind="render",
+                passed=False,
+                message=f"raw LaTeX detected in markdown: {len(raw_latex)} instances",
+            )
+        unresolved_anchors = re.findall(r"\[([^\]]+)\]\(\)", content)
         if unresolved_anchors:
-            return VerifierResult(check_id="render", kind="render",
-                                  passed=False,
-                                  message=f"unresolved anchors: {unresolved_anchors}")
+            return VerifierResult(
+                check_id="render", kind="render", passed=False, message=f"unresolved anchors: {unresolved_anchors}"
+            )
     elif expected_format == "html":
-        if not content.strip().startswith('<'):
-            return VerifierResult(check_id="render", kind="render",
-                                  passed=False,
-                                  message="HTML content does not start with '<'")
-    return VerifierResult(check_id="render", kind="render",
-                          passed=True, message=f"source-level {expected_format} check passed")
+        if not content.strip().startswith("<"):
+            return VerifierResult(
+                check_id="render", kind="render", passed=False, message="HTML content does not start with '<'"
+            )
+    return VerifierResult(
+        check_id="render", kind="render", passed=True, message=f"source-level {expected_format} check passed"
+    )
 
 
 def _count_regex_matches(content: str, patterns: list) -> int:
@@ -680,89 +756,116 @@ def _run_contradiction_count_check(path, expected_minimum, workspace_root):
     """Count 'contradiction' or 'contradicts' mentions in file. Must meet minimum."""
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="contradiction_count", kind="contradiction_count",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(
+            check_id="contradiction_count", kind="contradiction_count", passed=False, message=f"file not found: {path}"
+        )
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="contradiction_count", kind="contradiction_count",
-                              passed=False, message=str(e))
-    count = _count_regex_matches(content, [
-        r'(?i)\bcontradiction\b',
-        r'(?i)\bcontrarian\b',
-        r'(?i)\btension\s+between\b',
-        r'(?i)\bconflicts?\s+with\b',
-        r'(?i)\buncomfortable\s+truth\b',
-        r'(?i)\binternal(ly)?\s+inconsistent\b',
-    ])
+        return VerifierResult(check_id="contradiction_count", kind="contradiction_count", passed=False, message=str(e))
+    count = _count_regex_matches(
+        content,
+        [
+            r"(?i)\bcontradiction\b",
+            r"(?i)\bcontrarian\b",
+            r"(?i)\btension\s+between\b",
+            r"(?i)\bconflicts?\s+with\b",
+            r"(?i)\buncomfortable\s+truth\b",
+            r"(?i)\binternal(ly)?\s+inconsistent\b",
+        ],
+    )
     threshold = int(expected_minimum) if expected_minimum else 1
     if count >= threshold:
-        return VerifierResult(check_id="contradiction_count",
-                              kind="contradiction_count", passed=True,
-                              message=f"found {count} contradiction mentions >= {threshold}")
-    return VerifierResult(check_id="contradiction_count",
-                          kind="contradiction_count", passed=False,
-                          message=f"found {count} contradiction mentions < {threshold}")
+        return VerifierResult(
+            check_id="contradiction_count",
+            kind="contradiction_count",
+            passed=True,
+            message=f"found {count} contradiction mentions >= {threshold}",
+        )
+    return VerifierResult(
+        check_id="contradiction_count",
+        kind="contradiction_count",
+        passed=False,
+        message=f"found {count} contradiction mentions < {threshold}",
+    )
 
 
 def _run_edge_case_count_check(path, expected_minimum, workspace_root):
     """Count edge-case or failure-scenario mentions in file."""
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="edge_case_count", kind="edge_case_count",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(
+            check_id="edge_case_count", kind="edge_case_count", passed=False, message=f"file not found: {path}"
+        )
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="edge_case_count", kind="edge_case_count",
-                              passed=False, message=str(e))
-    count = _count_regex_matches(content, [
-        r'(?i)\bedge\s+case',
-        r'(?i)\bfailure\s+(mode|scenario|case)',
-        r'(?i)\bcorner\s+case\b',
-        r'(?i)\bif\s+.*\b(fails?|breaks?|crashes|dies?|time.?out)\b',
-        r'(?i)\bscenario\s+\d+\b',
-    ])
+        return VerifierResult(check_id="edge_case_count", kind="edge_case_count", passed=False, message=str(e))
+    count = _count_regex_matches(
+        content,
+        [
+            r"(?i)\bedge\s+case",
+            r"(?i)\bfailure\s+(mode|scenario|case)",
+            r"(?i)\bcorner\s+case\b",
+            r"(?i)\bif\s+.*\b(fails?|breaks?|crashes|dies?|time.?out)\b",
+            r"(?i)\bscenario\s+\d+\b",
+        ],
+    )
     threshold = int(expected_minimum) if expected_minimum else 1
     if count >= threshold:
-        return VerifierResult(check_id="edge_case_count",
-                              kind="edge_case_count", passed=True,
-                              message=f"found {count} edge case mentions >= {threshold}")
-    return VerifierResult(check_id="edge_case_count",
-                          kind="edge_case_count", passed=False,
-                          message=f"found {count} edge case mentions < {threshold}")
+        return VerifierResult(
+            check_id="edge_case_count",
+            kind="edge_case_count",
+            passed=True,
+            message=f"found {count} edge case mentions >= {threshold}",
+        )
+    return VerifierResult(
+        check_id="edge_case_count",
+        kind="edge_case_count",
+        passed=False,
+        message=f"found {count} edge case mentions < {threshold}",
+    )
 
 
 def _run_schema_count_check(path, expected_minimum, workspace_root):
     """Count JSON schema or YAML frontmatter blocks in file."""
     full_path = os.path.join(workspace_root, path) if not os.path.isabs(path) else path
     if not os.path.isfile(full_path):
-        return VerifierResult(check_id="schema_count", kind="schema_count",
-                              passed=False, message=f"file not found: {path}")
+        return VerifierResult(
+            check_id="schema_count", kind="schema_count", passed=False, message=f"file not found: {path}"
+        )
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
     except OSError as e:
-        return VerifierResult(check_id="schema_count", kind="schema_count",
-                              passed=False, message=str(e))
-    count = _count_regex_matches(content, [
-        r'```json\s*\{',
-        r'```yaml',
-        r'```yml',
-        r'---\n\w+:\s*\w+',
-        r'(?i)\bJSON\s+schema\b',
-        r'(?i)\b(tier|level|rank|type|category)\s+(table|matrix|classification)\b',
-    ])
+        return VerifierResult(check_id="schema_count", kind="schema_count", passed=False, message=str(e))
+    count = _count_regex_matches(
+        content,
+        [
+            r"```json\s*\{",
+            r"```yaml",
+            r"```yml",
+            r"---\n\w+:\s*\w+",
+            r"(?i)\bJSON\s+schema\b",
+            r"(?i)\b(tier|level|rank|type|category)\s+(table|matrix|classification)\b",
+        ],
+    )
     threshold = int(expected_minimum) if expected_minimum else 1
     if count >= threshold:
-        return VerifierResult(check_id="schema_count",
-                              kind="schema_count", passed=True,
-                              message=f"found {count} schema/structured-artifact indicators >= {threshold}")
-    return VerifierResult(check_id="schema_count",
-                          kind="schema_count", passed=False,
-                          message=f"found {count} schema indicators < {threshold}")
+        return VerifierResult(
+            check_id="schema_count",
+            kind="schema_count",
+            passed=True,
+            message=f"found {count} schema/structured-artifact indicators >= {threshold}",
+        )
+    return VerifierResult(
+        check_id="schema_count",
+        kind="schema_count",
+        passed=False,
+        message=f"found {count} schema indicators < {threshold}",
+    )
 
 
 def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspace_root, allowed_paths):
@@ -771,12 +874,17 @@ def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspa
     Excludes the supervisor's own runtime files (under run_dir) which exist
     before/after snapshot but are not worker outputs.
     """
-    from .scope import load_snapshot, _walk_matching
+    from .scope import _walk_matching, load_snapshot
+
     run_dir = os.path.dirname(scope_snapshot_path) if scope_snapshot_path else ""
     before = load_snapshot(run_dir) if scope_snapshot_path else {}
     if not before:
-        return VerifierResult(check_id="undeclared_outputs", kind="undeclared_outputs",
-                              passed=True, message="no scope snapshot available, skipping")
+        return VerifierResult(
+            check_id="undeclared_outputs",
+            kind="undeclared_outputs",
+            passed=True,
+            message="no scope snapshot available, skipping",
+        )
     declared_abs = set()
     for p in declared_outputs:
         full = os.path.join(workspace_root, p) if not os.path.isabs(p) else p
@@ -795,11 +903,15 @@ def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspa
         if old_hash is None:
             undeclared.append(rel_path)
     if undeclared:
-        return VerifierResult(check_id="undeclared_outputs", kind="undeclared_outputs",
-                              passed=False,
-                              message=f"undeclared output files: {undeclared}")
-    return VerifierResult(check_id="undeclared_outputs", kind="undeclared_outputs",
-                          passed=True, message="no undeclared output files")
+        return VerifierResult(
+            check_id="undeclared_outputs",
+            kind="undeclared_outputs",
+            passed=False,
+            message=f"undeclared output files: {undeclared}",
+        )
+    return VerifierResult(
+        check_id="undeclared_outputs", kind="undeclared_outputs", passed=True, message="no undeclared output files"
+    )
 
 
 def run_checks(checks, workspace_root):
@@ -892,11 +1004,9 @@ def run_checks(checks, workspace_root):
             expected = check.get("expected", 1)
             result = _run_schema_count_check(path, expected, workspace_root)
         else:
-            result = VerifierResult(check_id=check_id, kind=kind,
-                                     passed=False,
-                                     message=f"unknown check kind: {kind}")
+            result = VerifierResult(check_id=check_id, kind=kind, passed=False, message=f"unknown check kind: {kind}")
         status = "PASS" if result.passed else "FAIL"
-        print(f'[verify] {result.check_id} ({result.kind}): {status}', file=sys.stderr)
+        print(f"[verify] {result.check_id} ({result.kind}): {status}", file=sys.stderr)
         results.append(result)
     return results
 
@@ -907,11 +1017,11 @@ def run_verification(contract, workspace_root, run_dir):
     Returns (all_passed, results, evidence_path).
     """
     checks = contract.acceptance_checks
-    print(f'[verify] task={contract.task_id} starting ({len(checks)} checks)', file=sys.stderr)
+    print(f"[verify] task={contract.task_id} starting ({len(checks)} checks)", file=sys.stderr)
     results = run_checks(checks, workspace_root)
     all_passed = all(r.passed for r in results)
     passed_count = sum(1 for r in results if r.passed)
-    print(f'[verify] task={contract.task_id} finished ({passed_count}/{len(checks)} passed)', file=sys.stderr)
+    print(f"[verify] task={contract.task_id} finished ({passed_count}/{len(checks)} passed)", file=sys.stderr)
 
     evidence = {
         "task_id": contract.task_id,

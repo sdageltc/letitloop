@@ -1,10 +1,12 @@
 """Tests for persistent evidence ledger."""
 
 import os
+
 import pytest
+
 from orchestrator import evidence as ev
-from orchestrator.goal import Goal
 from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 from orchestrator.supervisor import Supervisor
 
 
@@ -42,7 +44,7 @@ def test_ledger_survives_new_supervisor(tmp_path):
     supervisor.execute_plan()
 
     # New supervisor without calling execute — should rebuild from ledger
-    supervisor2 = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
+    Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
     ledger = ev.load_ledger(run_dir)
     store = ev.rebuild_evidence_store(ledger)
     assert len(store) > 0

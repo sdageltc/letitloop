@@ -27,15 +27,15 @@ from orchestrator.quality_plane import (
     run_quality_plane,
 )
 from orchestrator.review_artifact import (
-    EvidenceRead,
-    ReviewArtifact,
-    ReviewIssue,
-    synthesize_artifacts,
     VERDICT_CONDITIONAL_PASS,
     VERDICT_ERROR,
     VERDICT_INSUFFICIENT_EVIDENCE,
     VERDICT_PASS,
     VERDICT_REJECT,
+    EvidenceRead,
+    ReviewArtifact,
+    ReviewIssue,
+    synthesize_artifacts,
 )
 
 
@@ -75,33 +75,41 @@ class TestSynthesisPrecedence:
         assert result.status == VERDICT_REJECT
 
     def test_error_verdict_precedes_evidence(self):
-        result = synthesize_artifacts([
-            artifact(VERDICT_PASS),
-            artifact(VERDICT_ERROR, evidence=True),
-        ])
+        result = synthesize_artifacts(
+            [
+                artifact(VERDICT_PASS),
+                artifact(VERDICT_ERROR, evidence=True),
+            ]
+        )
         assert result.status == VERDICT_ERROR
 
     def test_error_precedes_reject(self):
-        result = synthesize_artifacts([
-            artifact(VERDICT_REJECT),
-            artifact(VERDICT_ERROR),
-        ])
+        result = synthesize_artifacts(
+            [
+                artifact(VERDICT_REJECT),
+                artifact(VERDICT_ERROR),
+            ]
+        )
         assert result.status == VERDICT_ERROR
 
     def test_all_error_panel_without_evidence_is_error_not_ie(self):
-        result = synthesize_artifacts([
-            artifact(VERDICT_ERROR, evidence=False),
-            artifact(VERDICT_ERROR, evidence=False),
-        ])
+        result = synthesize_artifacts(
+            [
+                artifact(VERDICT_ERROR, evidence=False),
+                artifact(VERDICT_ERROR, evidence=False),
+            ]
+        )
         assert result.status == VERDICT_ERROR
 
     def test_p0_without_claim_is_not_a_blocker(self):
-        result = synthesize_artifacts([
-            artifact(
-                VERDICT_PASS,
-                [ReviewIssue(severity="P0", claim="", evidence="")],
-            )
-        ])
+        result = synthesize_artifacts(
+            [
+                artifact(
+                    VERDICT_PASS,
+                    [ReviewIssue(severity="P0", claim="", evidence="")],
+                )
+            ]
+        )
         assert result.status == VERDICT_PASS
         assert result.p0_blockers == []
 
@@ -114,15 +122,11 @@ class TestStrictNormalization:
     @pytest.mark.parametrize("issues", [None, ["x"], [None], {"severity": "P0"}, 5])
     def test_malformed_issues_are_error_artifacts(self, issues):
         raw = {"status": VERDICT_PASS, "issues": issues}
-        result = _parse_reviewer_response(
-            raw, "r", "maintainer", "model", "component_0", ["out.txt"]
-        )
+        result = _parse_reviewer_response(raw, "r", "maintainer", "model", "component_0", ["out.txt"])
         assert result.verdict == VERDICT_ERROR
 
     def test_non_dict_raw_is_error(self):
-        result = _parse_reviewer_response(
-            ["PASS"], "r", "maintainer", "model", "component_0", ["out.txt"]
-        )
+        result = _parse_reviewer_response(["PASS"], "r", "maintainer", "model", "component_0", ["out.txt"])
         assert result.verdict == VERDICT_ERROR
 
     @pytest.mark.parametrize("score", ["nan", "inf", "-inf", -5, 2.0, "unknown"])
@@ -159,9 +163,7 @@ class TestStrictNormalization:
                 {"severity": "MAJOR", "line": None, "description": None},
             ],
         }
-        result = _parse_reviewer_response(
-            raw, "r", "maintainer", "model", "component_0", ["out.txt"]
-        )
+        result = _parse_reviewer_response(raw, "r", "maintainer", "model", "component_0", ["out.txt"])
         assert result.verdict == "REJECT"
         assert result.issues[0].line == 0
         assert result.issues[1].claim == ""
@@ -222,9 +224,7 @@ class TestModeDispatch:
             raise AssertionError("legacy QC path was used")
 
         monkeypatch.setattr("orchestrator.quality_plane.run_qc_review", legacy)
-        result = run_quality_plane(
-            contract_stub(), [], [], ".", quality_plan=qp
-        )
+        result = run_quality_plane(contract_stub(), [], [], ".", quality_plan=qp)
         assert result.status == VERDICT_ERROR
         assert "arbitration_only" in result.reason
 
@@ -300,9 +300,7 @@ class TestClaimScopedArbitration:
         )
         monkeypatch.setattr(
             "orchestrator.quality_plane._run_arbitration",
-            lambda *args: (_ for _ in ()).throw(
-                AssertionError("arbitration must not run when budget is exhausted")
-            ),
+            lambda *args: (_ for _ in ()).throw(AssertionError("arbitration must not run when budget is exhausted")),
         )
 
         result = _component_verdict_to_qp_verdict(
@@ -357,9 +355,7 @@ class TestBudgetAndWallClock:
         qp = plan(MODE_PANEL, max_wall_clock_sec=0)
         monkeypatch.setattr(
             "orchestrator.quality_plane._invoke_reviewer",
-            lambda *args, **kwargs: (_ for _ in ()).throw(
-                AssertionError("reviewer should not be invoked")
-            ),
+            lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("reviewer should not be invoked")),
         )
 
         result = run_quality_plane(
@@ -371,10 +367,7 @@ class TestBudgetAndWallClock:
         )
         assert result.status == VERDICT_ERROR
         assert result.review_artifacts
-        assert all(
-            item["reason"] == "insufficient remaining wall clock budget"
-            for item in result.review_artifacts
-        )
+        assert all(item["reason"] == "insufficient remaining wall clock budget" for item in result.review_artifacts)
 
 
 class TestErrorVerdictSemantics:
@@ -447,16 +440,19 @@ class TestErrorVerdictSemantics:
         assert result.passed is False
 
     def test_error_mixed_with_pass_reviewers_stays_error(self):
-        result = synthesize_artifacts([
-            artifact(VERDICT_PASS),
-            artifact(VERDICT_ERROR, evidence=False),
-        ])
+        result = synthesize_artifacts(
+            [
+                artifact(VERDICT_PASS),
+                artifact(VERDICT_ERROR, evidence=False),
+            ]
+        )
         assert result.status == VERDICT_ERROR
 
 
 class TestArbitrationParseHardening:
     def test_non_dict_raw_is_reject_not_raise(self):
         from orchestrator.quality_plane import _raw_to_arbitration_verdict
+
         verdict = _raw_to_arbitration_verdict(["PASS"])
         assert verdict.status == VERDICT_REJECT
         assert verdict.confidence == 0.0
@@ -464,24 +460,21 @@ class TestArbitrationParseHardening:
     @pytest.mark.parametrize("confidence", ["high", "nan", "inf", None, [0.9]])
     def test_non_numeric_confidence_never_raises(self, confidence):
         from orchestrator.quality_plane import _raw_to_arbitration_verdict
-        verdict = _raw_to_arbitration_verdict(
-            {"status": VERDICT_PASS, "confidence": confidence}
-        )
+
+        verdict = _raw_to_arbitration_verdict({"status": VERDICT_PASS, "confidence": confidence})
         assert verdict.confidence == 0.0
         assert verdict.status == VERDICT_PASS
 
     def test_string_winning_claims_are_not_iterated_as_chars(self):
         from orchestrator.quality_plane import _raw_to_arbitration_verdict
-        verdict = _raw_to_arbitration_verdict(
-            {"status": VERDICT_PASS, "winning_claims": "dangerous operation is fine"}
-        )
+
+        verdict = _raw_to_arbitration_verdict({"status": VERDICT_PASS, "winning_claims": "dangerous operation is fine"})
         assert verdict.winning_claims == []
 
     def test_claims_filter_to_strings(self):
         from orchestrator.quality_plane import _raw_to_arbitration_verdict
-        verdict = _raw_to_arbitration_verdict(
-            {"status": VERDICT_PASS, "winning_claims": ["ok", 5, None, "also ok"]}
-        )
+
+        verdict = _raw_to_arbitration_verdict({"status": VERDICT_PASS, "winning_claims": ["ok", 5, None, "also ok"]})
         assert verdict.winning_claims == ["ok", "also ok"]
 
     def test_arbitration_with_none_budget_does_not_raise(self, monkeypatch):
@@ -524,9 +517,7 @@ class TestGatewayHardening:
             raise AssertionError("legacy QC path must not run for invalid mode")
 
         monkeypatch.setattr("orchestrator.quality_plane.run_qc_review", legacy)
-        result = run_quality_plane(
-            contract_stub(), [], [], ".", quality_plan=qp
-        )
+        result = run_quality_plane(contract_stub(), [], [], ".", quality_plan=qp)
         assert result.status == VERDICT_ERROR
         assert "bogus_mode" in result.reason
 
@@ -541,9 +532,7 @@ class TestGatewayHardening:
             raise AssertionError("must not dispatch")
 
         monkeypatch.setattr("orchestrator.quality_plane.run_qc_review", legacy)
-        result = run_quality_plane(
-            contract_stub(), ["out.txt"], [], ".", quality_plan=qp
-        )
+        result = run_quality_plane(contract_stub(), ["out.txt"], [], ".", quality_plan=qp)
         assert result.status == VERDICT_ERROR
         assert "invalid quality plan" in result.reason
 
@@ -561,9 +550,7 @@ class TestGatewayHardening:
             return {"status": "PASS", "score": 0.9, "issues": [], "files_reviewed": ["out.txt"]}
 
         monkeypatch.setattr("orchestrator.quality_plane._invoke_reviewer", hook)
-        result = run_quality_plane(
-            contract_stub(), ["out.txt"], [], ".", quality_plan=qp
-        )
+        result = run_quality_plane(contract_stub(), ["out.txt"], [], ".", quality_plan=qp)
         assert result.status == VERDICT_PASS
         assert captured["calls"] == 1
 
@@ -578,9 +565,7 @@ class TestGatewayHardening:
             raise AssertionError("legacy QC path was used")
 
         monkeypatch.setattr("orchestrator.quality_plane.run_qc_review", legacy)
-        result = run_quality_plane(
-            contract_stub(), [], [], ".", quality_plan=qp
-        )
+        result = run_quality_plane(contract_stub(), [], [], ".", quality_plan=qp)
         assert result.status == VERDICT_ERROR
         assert "arbitration_only" in result.reason
 
@@ -633,6 +618,7 @@ class TestComponentResolvedStatus:
 class TestSeverityStrict:
     def test_unknown_severity_becomes_error_artifact(self):
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "REJECT", "score": 0.5, "issues": [{"severity": "BLOCKER", "description": "bad"}]}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "component_0", ["out.txt"])
         assert result.verdict == VERDICT_ERROR
@@ -642,12 +628,14 @@ class TestSeverityStrict:
 class TestEvidenceOrigin:
     def test_provided_evidence_default(self):
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "PASS", "score": 0.9, "issues": []}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "component_0", ["out.txt"])
         assert all(er.origin == "provided" for er in result.evidence_read)
 
     def test_cited_evidence_detected(self):
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {
             "status": "REJECT",
             "score": 0.5,
@@ -667,6 +655,7 @@ class TestEvidenceOrigin:
 
     def test_evidence_roundtrip_preserves_origin(self):
         from orchestrator.review_artifact import EvidenceRead
+
         er = EvidenceRead("out.txt", "line 12", origin="cited")
         restored = EvidenceRead.from_dict(er.to_dict())
         assert restored.origin == "cited"
@@ -675,6 +664,7 @@ class TestEvidenceOrigin:
 class TestRedaction:
     def test_redacts_sk_and_gw_keys(self):
         from orchestrator.qc_review import _redact_secrets
+
         text = "key=sk-abc123def456ghi789jkl0123456789 secret gw_sk_abcdef1234567890abcdef12 ok"
         out = _redact_secrets(text)
         assert "sk-abc[REDACTED]" in out
@@ -684,6 +674,7 @@ class TestRedaction:
 
     def test_redacts_aws_and_github(self):
         from orchestrator.qc_review import _redact_secrets
+
         text = "AKIAABCDEFGHIJKLMNOP ghp_abcdefghijklmnopqrstuvwxyz1234567890 plain"
         out = _redact_secrets(text)
         assert "AKIAABCDEFGHIJKLMNOP" not in out
@@ -692,8 +683,10 @@ class TestRedaction:
 
     def test_legit_content_survives(self):
         from orchestrator.qc_review import _redact_secrets
+
         text = "normal code review content with no secrets"
         assert _redact_secrets(text) == text
+
 
 class TestRoundAFindings:
     def test_validate_never_raises_on_non_int_budget_fields(self):
@@ -717,35 +710,48 @@ class TestRoundAFindings:
             reviewers=[ReviewerRole("maintainer")],
             budget=QualityBudget(max_components="x"),
         )
+
         def legacy(*args, **kwargs):
             raise AssertionError("must not dispatch")
+
         monkeypatch.setattr("orchestrator.quality_plane.run_qc_review", legacy)
         result = run_quality_plane(contract_stub(), ["out.txt"], [], ".", quality_plan=qp)
         assert result.status == VERDICT_ERROR
         assert "invalid quality plan" in result.reason
 
     def test_artifact_from_dict_coerces_invalid_values_fail_closed(self):
-        from orchestrator.review_artifact import ArbitrationVerdict, ReviewArtifact, ReviewIssue
-        a = ReviewArtifact.from_dict({
-            "reviewer_id": "r", "role": "x", "verdict": "BOGUS",
-            "confidence": 7.0, "issues": [{"severity": "BOGUS", "claim": "c"}],
-            "evidence_read": [{"path": "a.py"}, "not-a-dict"],
-        })
+        from orchestrator.review_artifact import ArbitrationVerdict, ReviewArtifact
+
+        a = ReviewArtifact.from_dict(
+            {
+                "reviewer_id": "r",
+                "role": "x",
+                "verdict": "BOGUS",
+                "confidence": 7.0,
+                "issues": [{"severity": "BOGUS", "claim": "c"}],
+                "evidence_read": [{"path": "a.py"}, "not-a-dict"],
+            }
+        )
         assert a.verdict == VERDICT_INSUFFICIENT_EVIDENCE
         assert a.confidence == 1.0
         assert a.issues[0].severity == "P3"
         assert len(a.evidence_read) == 1
-        arb = ArbitrationVerdict.from_dict({
-            "status": "BOGUS", "confidence": float("inf"),
-            "winning_claims": ["ok", 5],
-        })
+        arb = ArbitrationVerdict.from_dict(
+            {
+                "status": "BOGUS",
+                "confidence": float("inf"),
+                "winning_claims": ["ok", 5],
+            }
+        )
         assert arb.status == VERDICT_REJECT
         assert arb.confidence == 0.0
         assert arb.winning_claims == ["ok"]
 
     def test_arbitration_skipped_when_deadline_passed(self, monkeypatch):
         import time as _time
+
         from orchestrator.quality_plane import _component_verdict_to_qp_verdict
+
         qp = plan()
         qp.arbitration.enabled = True
         monkeypatch.setattr("orchestrator.quality_plane._should_arbitrate", lambda *a: True)
@@ -756,7 +762,8 @@ class TestRoundAFindings:
         result = _component_verdict_to_qp_verdict(
             [artifact(VERDICT_PASS)],
             [ComponentSlice("component_0", ["out.txt"])],
-            qp, ".",
+            qp,
+            ".",
             deadline=_time.monotonic() - 1,
         )
         assert result.arbitration_result is None
@@ -764,23 +771,24 @@ class TestRoundAFindings:
     def test_invoke_reviewer_forwards_timeout_and_returns_error_on_llm_failure(self, monkeypatch):
         import orchestrator.quality_plane as qp_mod
         from orchestrator.llm import LLMError
+
         captured = {}
+
         def fake_call_llm(prompt, model, timeout_s=None):
             captured["timeout_s"] = timeout_s
             raise LLMError("connection refused")
+
         monkeypatch.setattr(qp_mod, "call_llm", fake_call_llm)
         monkeypatch.delenv("FAKE_QC", raising=False)
-        import pytest as _pytest
         raw = qp_mod._invoke_reviewer("prompt", "model", ".", timeout_sec=42)
         assert raw["status"] == "ERROR"
         assert "QC invocation error" in raw["reason"]
         assert captured["timeout_s"] == 42
 
     def test_schedule_one_call_per_provider_per_wave(self):
-        from orchestrator.provider_scheduler import ProviderScheduler
-        from orchestrator.provider_scheduler import CallSpec
-        calls = [CallSpec(call_id=str(i), prompt="p", model="any:model", reviewer_id="r")
-                 for i in range(3)]
+        from orchestrator.provider_scheduler import CallSpec, ProviderScheduler
+
+        calls = [CallSpec(call_id=str(i), prompt="p", model="any:model", reviewer_id="r") for i in range(3)]
         waves = ProviderScheduler().schedule(calls)
         assert len(waves) == 3
         for w in waves:
@@ -789,8 +797,11 @@ class TestRoundAFindings:
 
     def test_synthesis_requires_cited_evidence_for_pass(self):
         provided = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_PASS,
-            confidence=0.9, evidence_read=[EvidenceRead("out.txt")],
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_PASS,
+            confidence=0.9,
+            evidence_read=[EvidenceRead("out.txt")],
         )
         result = synthesize_artifacts([provided])
         assert result.status == VERDICT_INSUFFICIENT_EVIDENCE
@@ -798,6 +809,7 @@ class TestRoundAFindings:
 
     def test_files_reviewed_counts_as_cited_evidence(self):
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "PASS", "score": 0.9, "issues": [], "files_reviewed": ["out.txt"]}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "component_0", ["out.txt"])
         assert result.has_cited_evidence()
@@ -805,16 +817,21 @@ class TestRoundAFindings:
 
     def test_prompt_redaction_covers_contract_metadata(self):
         from orchestrator.qc_review import _build_qc_prompt
+
         contract = contract_stub()
         contract.objective = "deploy with token sk-abc123def456ghi789jkl0123456789 stored in vault"
-        contract.acceptance_checks = [{"kind": "cmd", "command": "run", "expected": "sk-abc123def456ghi789jkl0123456789"}]
+        contract.acceptance_checks = [
+            {"kind": "cmd", "command": "run", "expected": "sk-abc123def456ghi789jkl0123456789"}
+        ]
         prompt = _build_qc_prompt(contract, ["out.txt"], [], quality_spec={})
         assert "sk-abc[REDACTED]" in prompt
         assert "sk-abc123def456ghi789jkl0123456789" not in prompt
 
     def test_no_duplicate_to_dict(self):
         import inspect
+
         from orchestrator.review_artifact import QualityPlaneVerdict
+
         sources = inspect.getsource(QualityPlaneVerdict.to_dict)
         assert sources.count("def to_dict") == 1
 
@@ -826,16 +843,20 @@ class TestRoundBFindings:
         """N1: an arbiter invocation exception must become a structured
         REJECT verdict — never crash the quality plane."""
         from orchestrator.quality_plane import _component_verdict_to_qp_verdict
+
         qp = plan()
         qp.arbitration.enabled = True
         monkeypatch.setattr("orchestrator.quality_plane._should_arbitrate", lambda *a: True)
+
         def boom(*a, **kw):
             raise RuntimeError("arbiter subprocess exploded")
+
         monkeypatch.setattr("orchestrator.quality_plane._invoke_reviewer", boom)
         result = _component_verdict_to_qp_verdict(
             [artifact(VERDICT_PASS), artifact(VERDICT_REJECT)],
             [ComponentSlice("component_0", ["out.txt"])],
-            qp, ".",
+            qp,
+            ".",
         )
         assert result.arbitration_result is not None
         assert result.arbitration_result["status"] == VERDICT_REJECT
@@ -844,12 +865,16 @@ class TestRoundBFindings:
     def test_synthesis_verdict_from_dict_fail_closed(self):
         """N2: persisted SynthesisVerdict records normalize fail-closed."""
         from orchestrator.review_artifact import SynthesisVerdict
-        sv = SynthesisVerdict.from_dict({
-            "status": "BOGUS", "score": float("inf"),
-            "merged_issues": ["not-a-dict", {"severity": "P1", "claim": "c"}],
-            "unresolved_disagreements": "x",
-            "recommended_next_actions": [1, 2],
-        })
+
+        sv = SynthesisVerdict.from_dict(
+            {
+                "status": "BOGUS",
+                "score": float("inf"),
+                "merged_issues": ["not-a-dict", {"severity": "P1", "claim": "c"}],
+                "unresolved_disagreements": "x",
+                "recommended_next_actions": [1, 2],
+            }
+        )
         assert sv.status == VERDICT_INSUFFICIENT_EVIDENCE
         assert sv.score == 0.0
         assert len(sv.merged_issues) == 1
@@ -859,11 +884,17 @@ class TestRoundBFindings:
     def test_plane_verdict_from_dict_fail_closed(self):
         """N2: persisted QualityPlaneVerdict records normalize fail-closed."""
         from orchestrator.review_artifact import QualityPlaneVerdict, SynthesisVerdict
-        qv = QualityPlaneVerdict.from_dict({
-            "passed": True, "status": "BOGUS", "score": 9.9,
-            "issues": ["bad"], "budget_used": "nope",
-            "synthesis_result": {"status": "BOGUS", "score": float("inf")},
-        })
+
+        qv = QualityPlaneVerdict.from_dict(
+            {
+                "passed": True,
+                "status": "BOGUS",
+                "score": 9.9,
+                "issues": ["bad"],
+                "budget_used": "nope",
+                "synthesis_result": {"status": "BOGUS", "score": float("inf")},
+            }
+        )
         assert qv.passed is False
         assert qv.status == VERDICT_INSUFFICIENT_EVIDENCE
         assert qv.score == 0.0
@@ -878,10 +909,13 @@ class TestRoundBFindings:
         import orchestrator.quality_plane as qp_mod
         from orchestrator.llm import LLMError
         from orchestrator.quality_plane import _invoke_reviewer
+
         captured = {}
+
         def fake_call_llm(prompt, model, timeout_s=None):
             captured["timeout_s"] = timeout_s
             raise LLMError("timed out")
+
         monkeypatch.setattr(qp_mod, "call_llm", fake_call_llm)
         monkeypatch.delenv("FAKE_QC", raising=False)
         raw = _invoke_reviewer("prompt", "model", ".", timeout_sec=0)
@@ -893,26 +927,36 @@ class TestRoundBFindings:
         covers; unrelated components keep their own verdicts."""
         from orchestrator.quality_plane import _component_verdict_to_qp_verdict
         from orchestrator.review_artifact import ArbitrationVerdict
+
         qp = plan()
         qp.arbitration.enabled = True
         blocked = ReviewArtifact(
-            reviewer_id="r1", role="maintainer", verdict=VERDICT_REJECT,
-            confidence=0.3, component_id="c0",
+            reviewer_id="r1",
+            role="maintainer",
+            verdict=VERDICT_REJECT,
+            confidence=0.3,
+            component_id="c0",
             issues=[ReviewIssue(severity="P0", claim="deletes production data", evidence="x")],
             evidence_read=[EvidenceRead("out.txt", origin="cited")],
         )
         clean_ie = ReviewArtifact(
-            reviewer_id="r2", role="reviewer", verdict=VERDICT_INSUFFICIENT_EVIDENCE,
-            confidence=0.0, component_id="c1",
+            reviewer_id="r2",
+            role="reviewer",
+            verdict=VERDICT_INSUFFICIENT_EVIDENCE,
+            confidence=0.0,
+            component_id="c1",
             evidence_read=[EvidenceRead("other.txt", origin="cited")],
         )
+
         def fake_arb(artifacts, synthesis, policy, workspace_root, deadline=None):
             return ArbitrationVerdict(status=VERDICT_PASS, winning_claims=["deletes production data"])
+
         monkeypatch.setattr("orchestrator.quality_plane._run_arbitration", fake_arb)
         result = _component_verdict_to_qp_verdict(
             [blocked, clean_ie],
             [ComponentSlice("c0", ["out.txt"]), ComponentSlice("c1", ["other.txt"])],
-            qp, ".",
+            qp,
+            ".",
         )
         assert result.passed is True
         by_id = {v["component_id"]: v for v in result.component_verdicts}
@@ -925,6 +969,7 @@ class TestRoundBFindings:
         """N5: '*' is not a file — self-attestation with a glob must not
         satisfy the cited-evidence gate."""
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "PASS", "score": 0.9, "issues": [], "files_reviewed": ["*"]}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "component_0", ["out.txt"])
         assert not result.has_cited_evidence()
@@ -933,6 +978,7 @@ class TestRoundBFindings:
     def test_phantom_files_reviewed_is_not_cited(self):
         """N5: naming a file outside the component scope is not evidence."""
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "PASS", "score": 0.9, "issues": [], "files_reviewed": ["nope.txt"]}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "component_0", ["out.txt"])
         assert not result.has_cited_evidence()
@@ -940,8 +986,11 @@ class TestRoundBFindings:
     def test_minimum_score_gate_downgrades_pass(self):
         """N6: quality_spec.minimum_score is a deterministic gate."""
         art = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_PASS,
-            confidence=0.6, evidence_read=[EvidenceRead("out.txt", origin="cited")],
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_PASS,
+            confidence=0.6,
+            evidence_read=[EvidenceRead("out.txt", origin="cited")],
         )
         result = synthesize_artifacts([art], quality_spec={"minimum_score": 0.9})
         assert result.status == VERDICT_CONDITIONAL_PASS
@@ -950,7 +999,9 @@ class TestRoundBFindings:
     def test_hard_failures_gate_rejects(self):
         """N6: quality_spec.hard_failures identifiers are enforced in code."""
         art = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_PASS,
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_PASS,
             confidence=0.95,
             issues=[ReviewIssue(severity="P2", claim="kept placeholder TODO")],
             evidence_read=[EvidenceRead("out.txt", origin="cited")],
@@ -961,8 +1012,11 @@ class TestRoundBFindings:
     def test_minimum_counts_cited_evidence_gate(self):
         """N6: quality_spec.minimum_counts.cited_evidence is enforced."""
         art = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_PASS,
-            confidence=0.9, evidence_read=[EvidenceRead("a.py", origin="cited")],
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_PASS,
+            confidence=0.9,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
         )
         result = synthesize_artifacts([art], quality_spec={"minimum_counts": {"cited_evidence": 2}})
         assert result.status == VERDICT_CONDITIONAL_PASS
@@ -972,13 +1026,18 @@ class TestRoundBFindings:
         """N7: arbitration prompts must redact secret-shaped strings."""
         from orchestrator.quality_plane import _build_arbitration_prompt
         from orchestrator.review_artifact import SynthesisVerdict
+
         art = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_REJECT,
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_REJECT,
             confidence=0.4,
-            issues=[ReviewIssue(
-                severity="P0",
-                claim="key sk-abc123def456ghi789jkl0123456789 leaked in deployment",
-            )],
+            issues=[
+                ReviewIssue(
+                    severity="P0",
+                    claim="key sk-abc123def456ghi789jkl0123456789 leaked in deployment",
+                )
+            ],
         )
         prompt = _build_arbitration_prompt(
             [art],
@@ -995,6 +1054,7 @@ class TestRoundCFindings:
         """F-NEW-3: the wall-clock deadline must bound every reviewer
         subprocess — never the 120s default."""
         from orchestrator.quality_plane import _run_component_reviews
+
         captured = {}
 
         def fake_invoke(prompt, model, workspace_root, timeout_sec=None):
@@ -1005,10 +1065,13 @@ class TestRoundCFindings:
         qp.budget.max_wall_clock_sec = 60
         deadline = __import__("time").monotonic() + 30
         monkeypatch.setattr("orchestrator.quality_plane._invoke_reviewer", fake_invoke)
-        from orchestrator.quality_plane import _run_component_reviews
-        arts = _run_component_reviews(
-            contract_stub(), [ComponentSlice("c0", ["out.txt"])], [],
-            ".", qp, deadline=deadline,
+        _run_component_reviews(
+            contract_stub(),
+            [ComponentSlice("c0", ["out.txt"])],
+            [],
+            ".",
+            qp,
+            deadline=deadline,
         )
         assert captured["timeout_sec"] is not None
         assert 1 <= captured["timeout_sec"] <= 30
@@ -1017,6 +1080,7 @@ class TestRoundCFindings:
         """F-NEW-1: substring citations are not evidence — 'foo' must not
         match 'foobar.py'."""
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "PASS", "score": 0.9, "issues": [], "files_reviewed": ["foo"]}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "c0", ["foobar.py"])
         assert not result.has_cited_evidence()
@@ -1024,6 +1088,7 @@ class TestRoundCFindings:
     def test_evidence_citation_exact_basename_matches(self):
         """F-NEW-1: an exact basename citation still counts as evidence."""
         from orchestrator.quality_plane import _parse_reviewer_response
+
         raw = {"status": "PASS", "score": 0.9, "issues": [], "files_reviewed": ["foobar.py"]}
         result = _parse_reviewer_response(raw, "r", "maintainer", "m", "c0", ["foobar.py"])
         assert result.has_cited_evidence()
@@ -1031,11 +1096,18 @@ class TestRoundCFindings:
     def test_artifact_from_dict_normalizes_all_list_fields(self):
         """F-NEW-2: scalar persisted values must not crash serialization."""
         from orchestrator.review_artifact import ReviewArtifact
-        a = ReviewArtifact.from_dict({
-            "reviewer_id": "r", "verdict": "PASS",
-            "strengths": 7, "dissent": "x", "unsupported_claims": None,
-            "owner_level_challenges": [1, "ok"], "elapsed_sec": "nope",
-        })
+
+        a = ReviewArtifact.from_dict(
+            {
+                "reviewer_id": "r",
+                "verdict": "PASS",
+                "strengths": 7,
+                "dissent": "x",
+                "unsupported_claims": None,
+                "owner_level_challenges": [1, "ok"],
+                "elapsed_sec": "nope",
+            }
+        )
         assert a.strengths == []
         assert a.dissent == []
         assert a.unsupported_claims == []
@@ -1048,20 +1120,27 @@ class TestRoundCFindings:
         """F-NEW-4: an arbiter PASS must never turn IE into PASS."""
         from orchestrator.quality_plane import _component_verdict_to_qp_verdict
         from orchestrator.review_artifact import ArbitrationVerdict
+
         qp = plan()
         qp.arbitration.enabled = True
         ie = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_INSUFFICIENT_EVIDENCE,
-            confidence=0.0, component_id="c0",
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_INSUFFICIENT_EVIDENCE,
+            confidence=0.0,
+            component_id="c0",
             evidence_read=[EvidenceRead("out.txt", origin="cited")],
         )
+
         def fake_arb(artifacts, synthesis, policy, workspace_root, deadline=None):
             return ArbitrationVerdict(status=VERDICT_PASS, winning_claims=["n/a"])
+
         monkeypatch.setattr("orchestrator.quality_plane._run_arbitration", fake_arb)
         result = _component_verdict_to_qp_verdict(
             [ie],
             [ComponentSlice("c0", ["out.txt"])],
-            qp, ".",
+            qp,
+            ".",
         )
         assert result.passed is False
         assert result.status == VERDICT_INSUFFICIENT_EVIDENCE
@@ -1070,21 +1149,28 @@ class TestRoundCFindings:
         """F-NEW-4: arbiter PASS still resolves a genuine P0-based REJECT."""
         from orchestrator.quality_plane import _component_verdict_to_qp_verdict
         from orchestrator.review_artifact import ArbitrationVerdict
+
         qp = plan()
         qp.arbitration.enabled = True
         rej = ReviewArtifact(
-            reviewer_id="r", role="maintainer", verdict=VERDICT_REJECT,
-            confidence=0.3, component_id="c0",
+            reviewer_id="r",
+            role="maintainer",
+            verdict=VERDICT_REJECT,
+            confidence=0.3,
+            component_id="c0",
             issues=[ReviewIssue(severity="P0", claim="deletes data", evidence="x")],
             evidence_read=[EvidenceRead("out.txt", origin="cited")],
         )
+
         def fake_arb(artifacts, synthesis, policy, workspace_root, deadline=None):
             return ArbitrationVerdict(status=VERDICT_PASS, winning_claims=["deletes data"])
+
         monkeypatch.setattr("orchestrator.quality_plane._run_arbitration", fake_arb)
         result = _component_verdict_to_qp_verdict(
             [rej],
             [ComponentSlice("c0", ["out.txt"])],
-            qp, ".",
+            qp,
+            ".",
         )
         assert result.passed is True
         assert result.status == VERDICT_PASS
@@ -1102,9 +1188,7 @@ class TestRoundCFindings:
         # estimate_calls for a panel with 2 reviewers = 2 > 1 -> degrade
         contract = contract_stub()
         with unittest.mock.patch.dict(os.environ, {"FAKE_QC": "PASS"}):
-            verdict = run_quality_plane(
-                contract, ["out.txt"], [], ".", quality_plan=qp
-            )
+            verdict = run_quality_plane(contract, ["out.txt"], [], ".", quality_plan=qp)
         assert verdict.degraded is True
         assert verdict.degrade_reason
 
@@ -1115,7 +1199,6 @@ class TestRoundCFindings:
         import os
         import tempfile
 
-        import orchestrator.qc_review as qc_review_mod
         from orchestrator.llm import LLMError
         from orchestrator.qc_review import run_qc_review
 
@@ -1139,6 +1222,7 @@ class TestRoundCFindings:
         """NEW-2 (T1 audit round 2): ArbitrationVerdict.from_dict must fail
         closed on non-dict input like every other from_dict."""
         from orchestrator.review_artifact import ArbitrationVerdict
+
         for bad in (None, "x", 7, ["a"]):
             av = ArbitrationVerdict.from_dict(bad)
             assert av.status == VERDICT_REJECT
@@ -1149,19 +1233,29 @@ class TestRoundCFindings:
         with nested synthesis/arbitration must reserialize to JSON without
         leaking typed objects."""
         import json as _json
+
         from orchestrator.review_artifact import QualityPlaneVerdict
-        qv = QualityPlaneVerdict.from_dict({
-            "passed": True, "status": "PASS", "score": 0.9,
-            "synthesis_result": {
-                "status": "PASS", "score": 0.9,
-                "merged_issues": [{"severity": "P1", "claim": "c", "line": 3}],
-                "p0_blockers": [], "p1_required_fixes": [],
-            },
-            "arbitration_result": {
-                "status": "PASS", "confidence": 0.8,
-                "winning_claims": ["fixed"], "discarded_claims": [],
-            },
-        })
+
+        qv = QualityPlaneVerdict.from_dict(
+            {
+                "passed": True,
+                "status": "PASS",
+                "score": 0.9,
+                "synthesis_result": {
+                    "status": "PASS",
+                    "score": 0.9,
+                    "merged_issues": [{"severity": "P1", "claim": "c", "line": 3}],
+                    "p0_blockers": [],
+                    "p1_required_fixes": [],
+                },
+                "arbitration_result": {
+                    "status": "PASS",
+                    "confidence": 0.8,
+                    "winning_claims": ["fixed"],
+                    "discarded_claims": [],
+                },
+            }
+        )
         d = qv.to_dict()
         _json.dumps(d)
         assert isinstance(d["synthesis_result"], dict)
@@ -1176,6 +1270,7 @@ class TestMandatoryQCNonDegradation:
 
     def test_explicit_panel_does_not_degrade_to_single(self):
         from orchestrator.quality_plane import run_quality_plane
+
         qp = QualityPlan(
             mode=MODE_PANEL,
             reviewers=[ReviewerRole("maintainer"), ReviewerRole("minimalist")],
@@ -1195,11 +1290,17 @@ class TestT1AuditRound2:
     def test_legacy_path_enforces_minimum_score_gate(self):
         """NEW-4: quality_spec gates must hold on the legacy single-QC path
         (the budget-degraded route that skips synthesize_artifacts)."""
-        from orchestrator.quality_plane import _apply_quality_spec_gates
         from orchestrator.qc_review import QCVerdict
+        from orchestrator.quality_plane import _apply_quality_spec_gates
         from orchestrator.review_artifact import QualityPlaneVerdict
-        qcv = QCVerdict(passed=True, reason="ok", status="PASS", score=0.95,
-                        issues=[{"severity": "MINOR", "description": "cosmetic"}])
+
+        qcv = QCVerdict(
+            passed=True,
+            reason="ok",
+            status="PASS",
+            score=0.95,
+            issues=[{"severity": "MINOR", "description": "cosmetic"}],
+        )
         verdict = QualityPlaneVerdict.from_qc_verdict(qcv)
         _apply_quality_spec_gates(verdict, {"minimum_score": 0.99})
         assert verdict.passed is False
@@ -1208,11 +1309,17 @@ class TestT1AuditRound2:
 
     def test_legacy_path_enforces_hard_failures_gate(self):
         """NEW-4: hard-failure identifiers are enforced on the legacy path."""
-        from orchestrator.quality_plane import _apply_quality_spec_gates
         from orchestrator.qc_review import QCVerdict
+        from orchestrator.quality_plane import _apply_quality_spec_gates
         from orchestrator.review_artifact import QualityPlaneVerdict
-        qcv = QCVerdict(passed=True, reason="ok", status="PASS", score=0.95,
-                        issues=[{"severity": "MINOR", "description": "kept placeholder TODO"}])
+
+        qcv = QCVerdict(
+            passed=True,
+            reason="ok",
+            status="PASS",
+            score=0.95,
+            issues=[{"severity": "MINOR", "description": "kept placeholder TODO"}],
+        )
         verdict = QualityPlaneVerdict.from_qc_verdict(qcv)
         _apply_quality_spec_gates(verdict, {"hard_failures": ["placeholder"]})
         assert verdict.passed is False
@@ -1223,7 +1330,9 @@ class TestT1AuditRound2:
         quality-spec enforcement (via the legacy-path gate)."""
         import os as _os
         from unittest import mock as _mock
+
         from orchestrator.quality_plane import run_quality_plane
+
         qp = QualityPlan(
             mode=MODE_COMPONENT_PANEL,
             reviewers=[ReviewerRole("maintainer"), ReviewerRole("minimalist")],
@@ -1241,6 +1350,7 @@ class TestT1AuditRound2:
         """NEW-5: persona desc/focus appended after base-prompt redaction
         must be redacted too."""
         from orchestrator.quality_plane import _build_persona_prompt
+
         role = ReviewerRole("maintainer", focus=["deploy key sk-abc123def456ghi789jkl0123456789 safe"])
         prompt = _build_persona_prompt("base prompt", role)
         assert "sk-abc123def456ghi789jkl0123456789" not in prompt
@@ -1250,6 +1360,7 @@ class TestT1AuditRound2:
         """NEW-6: namespaced models must be classified by their explicit
         provider prefix, never guessed from the model id content."""
         from orchestrator.provider_scheduler import _extract_provider
+
         assert _extract_provider("my-gateway:gemini-3.5-flash") == "my-gateway"
         assert _extract_provider("gemini:gemini-3.6-flash 3.6 Flash") == "gemini"
         assert _extract_provider("kimi-k2") == "any"
@@ -1258,14 +1369,17 @@ class TestT1AuditRound2:
         """NEW-8: a wall-clock-deadline skip must not be labeled budget
         exhaustion."""
         import time as _time
+
         from orchestrator.quality_plane import _component_verdict_to_qp_verdict
+
         qp = plan()
         qp.arbitration.enabled = True
         monkeypatch.setattr("orchestrator.quality_plane._should_arbitrate", lambda *a: True)
         result = _component_verdict_to_qp_verdict(
             [artifact(VERDICT_PASS)],
             [ComponentSlice("component_0", ["out.txt"])],
-            qp, ".",
+            qp,
+            ".",
             deadline=_time.monotonic() - 1,
         )
         assert "wall-clock deadline exhausted" in result.reason
@@ -1274,6 +1388,7 @@ class TestT1AuditRound2:
     def test_evidence_read_from_dict_coerces_non_strings(self):
         """NEW-9: persisted EvidenceRead fields must normalize to strings."""
         from orchestrator.review_artifact import EvidenceRead
+
         er = EvidenceRead.from_dict({"path": 7, "sections_or_lines": None, "origin": "cited"})
         assert er.path == ""
         assert er.sections_or_lines == ""

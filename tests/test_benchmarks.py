@@ -3,20 +3,20 @@
 Uses pytest-benchmark if available; falls back to simple timing assertions.
 """
 
-import os
 import json
+import os
 import time
+
 import pytest
 
-from orchestrator.goal import Plan, ContractGraph
 from orchestrator.contract import Contract, validate_contract
-from orchestrator.state import create_initial_state, load_state, save_state
+from orchestrator.evidence import append_output, load_ledger
 from orchestrator.failure import classify_failure
 from orchestrator.feedback import collect_feedback
-from orchestrator.limits import check_limits, ResourceLimits
+from orchestrator.goal import ContractGraph, Plan
+from orchestrator.limits import ResourceLimits, check_limits
 from orchestrator.scope import snapshot_scope
-from orchestrator.evidence import append_output, load_ledger
-
+from orchestrator.state import create_initial_state, load_state, save_state
 
 SAMPLE_CONTRACT = {
     "task_id": "bench",
@@ -28,7 +28,9 @@ SAMPLE_CONTRACT = {
     "worker": {"model": "test", "max_attempts": 1},
     "inputs": [],
     "outputs": [{"path": "scratch/bench_out.txt"}],
-    "acceptance_checks": [{"id": "bench-chk", "kind": "file_exists", "path": "scratch/bench_out.txt", "expected": True}],
+    "acceptance_checks": [
+        {"id": "bench-chk", "kind": "file_exists", "path": "scratch/bench_out.txt", "expected": True}
+    ],
     "qc": {"required": False, "lens": "code_correctness"},
 }
 
@@ -93,6 +95,7 @@ def test_failure_classification_performance(benchmark):
     state = create_initial_state("bench_fc")
     state._status = "VERIFICATION_FAILED"
     from orchestrator.contract import Contract
+
     contract = Contract(SAMPLE_CONTRACT)
     benchmark(classify_failure, state, contract)
 
@@ -128,7 +131,9 @@ def test_evidence_append_performance(benchmark, tmp_path):
 def test_evidence_ledger_load_performance(benchmark, tmp_path):
     ledger = {}
     for i in range(200):
-        ledger[f"t{i}"] = [{"path": f"out_{i}.txt", "sha256": "a" * 64, "absolute_path": str(tmp_path / f"out_{i}.txt")}]
+        ledger[f"t{i}"] = [
+            {"path": f"out_{i}.txt", "sha256": "a" * 64, "absolute_path": str(tmp_path / f"out_{i}.txt")}
+        ]
     p = os.path.join(str(tmp_path), "evidence_ledger.json")
     with open(p, "w") as f:
         json.dump(ledger, f)
@@ -142,14 +147,14 @@ def test_validate_contract_performance(benchmark):
 
 # --- Fallback timing tests (run even without pytest-benchmark) ---
 
-class TestTimingSanity:
 
+class TestTimingSanity:
     def test_state_create_under_10ms(self):
         t0 = time.perf_counter()
         for _ in range(100):
             create_initial_state("t")
         elapsed = (time.perf_counter() - t0) / 100
-        assert elapsed < 0.01, f"create_initial_state avg {elapsed*1000:.1f}ms > 10ms"
+        assert elapsed < 0.01, f"create_initial_state avg {elapsed * 1000:.1f}ms > 10ms"
 
     def test_graph_100_nodes_under_50ms(self):
         contracts = [_minimal_contract_dict(f"t{i}") for i in range(100)]
@@ -157,7 +162,7 @@ class TestTimingSanity:
         t0 = time.perf_counter()
         ContractGraph(plan)
         elapsed = time.perf_counter() - t0
-        assert elapsed < 0.05, f"graph construction {elapsed*1000:.1f}ms > 50ms"
+        assert elapsed < 0.05, f"graph construction {elapsed * 1000:.1f}ms > 50ms"
 
     def test_limit_check_1k_calls_under_100ms(self):
         limits = ResourceLimits()
@@ -165,7 +170,7 @@ class TestTimingSanity:
         for _ in range(1000):
             check_limits(limits, elapsed_sec=5, output_size=512, attempts=1, iterations=2)
         elapsed = time.perf_counter() - t0
-        assert elapsed < 0.1, f"1000 limit checks {elapsed*1000:.1f}ms > 100ms"
+        assert elapsed < 0.1, f"1000 limit checks {elapsed * 1000:.1f}ms > 100ms"
 
     def test_failure_classify_1k_under_200ms(self):
         state = create_initial_state("t")
@@ -175,4 +180,4 @@ class TestTimingSanity:
         for _ in range(1000):
             classify_failure(state, contract)
         elapsed = time.perf_counter() - t0
-        assert elapsed < 0.2, f"1000 classifications {elapsed*1000:.1f}ms > 200ms"
+        assert elapsed < 0.2, f"1000 classifications {elapsed * 1000:.1f}ms > 200ms"

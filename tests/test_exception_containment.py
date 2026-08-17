@@ -1,13 +1,15 @@
 """Tests for Phase 1 — structured exception containment in supervisor execution paths."""
 
-import os
 import json
-import pytest
+import os
 from unittest.mock import patch
-from tests.fault_injection import inject_fault
+
+import pytest
+
+from orchestrator.failure import FAILURE_CLASS_TASK_CRASHED
 from orchestrator.goal import Goal, Plan
 from orchestrator.supervisor import Supervisor
-from orchestrator.failure import FAILURE_CLASS_TASK_CRASHED
+from tests.fault_injection import inject_fault
 
 
 def _make_contract(task_id, output_path=None):
@@ -26,8 +28,12 @@ def _make_contract(task_id, output_path=None):
             "inputs": [],
             "outputs": [{"path": output_path or f"scratch/{task_id}_out.txt"}],
             "acceptance_checks": [
-                {"id": f"{task_id}-chk", "kind": "file_exists",
-                 "path": output_path or f"scratch/{task_id}_out.txt", "expected": True},
+                {
+                    "id": f"{task_id}-chk",
+                    "kind": "file_exists",
+                    "path": output_path or f"scratch/{task_id}_out.txt",
+                    "expected": True,
+                },
             ],
             "qc": {"required": False, "lens": "code_correctness"},
         },
@@ -35,7 +41,6 @@ def _make_contract(task_id, output_path=None):
 
 
 class TestExceptionContainment:
-
     @pytest.mark.fast
     def test_worker_crash_returns_crashed_status(self, tmp_path):
         """Injected worker fault returns CRASHED, not unhandled exception."""
@@ -122,8 +127,9 @@ class TestExceptionContainment:
     def test_state_load_crash_contained(self, tmp_path):
         """Injected state load crash on resume returns CRASHED."""
         # First, run to create a state file
-        from orchestrator.state import create_initial_state, save_state
         from orchestrator.goal import Goal, Plan
+        from orchestrator.state import create_initial_state, save_state
+
         goal = Goal(goal_id="g_ec8", title="EC8", description="desc")
         contracts = [_make_contract("ec8")]
         plan = Plan(goal_id=goal.goal_id, contracts=contracts)

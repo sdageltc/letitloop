@@ -2,21 +2,24 @@
 
 import json
 import os
+
 import pytest
 
-from orchestrator.goal import Goal, Plan
-from orchestrator.generator import generate_contracts
-from orchestrator.supervisor import Supervisor
 from orchestrator.contract import requires_semantic_qc
-from orchestrator.state import load_state
 from orchestrator.exceptions import PlannerError
+from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal, Plan
+from orchestrator.state import load_state
+from orchestrator.supervisor import Supervisor
 
 
 @pytest.fixture(autouse=True)
 def prevent_real_llm_calls(monkeypatch):
     """Prevent real LLM calls during planner decomposition."""
+
     def mock_planner(*args, **kwargs):
         raise PlannerError("Real LLM disabled in tests")
+
     monkeypatch.setattr("orchestrator.generator.decompose_goal", mock_planner)
 
 
@@ -88,7 +91,8 @@ def test_profile_b_repair(tmp_path, monkeypatch):
     }
 
     goal = Goal(
-        goal_id="repair-goal", title="Repair Profile Goal",
+        goal_id="repair-goal",
+        title="Repair Profile Goal",
         description="Goal to test repair_then_success hybrid profile",
     )
     plan = Plan(goal_id=goal.goal_id, contracts=[{"task_id": task_id, "contract": contract_dict}])
@@ -141,12 +145,14 @@ def test_profile_c_quality_rejection(tmp_path, monkeypatch):
         "qc": {"required": True, "lens": "code_correctness"},
     }
 
-    assert requires_semantic_qc(
-        contract_dict["risk_tier"], contract_dict["outputs"], contract_dict["acceptance_checks"]
-    ) is True
+    assert (
+        requires_semantic_qc(contract_dict["risk_tier"], contract_dict["outputs"], contract_dict["acceptance_checks"])
+        is True
+    )
 
     goal = Goal(
-        goal_id="quality-goal", title="Quality Rejection Goal",
+        goal_id="quality-goal",
+        title="Quality Rejection Goal",
         description="Goal to test quality rejection",
         constraints={"risk_tier": "qc_required"},
     )

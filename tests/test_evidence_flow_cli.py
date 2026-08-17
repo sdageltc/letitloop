@@ -1,10 +1,10 @@
-import os
-import sys
 import json
+import os
+
 import pytest
-from unittest.mock import patch
-from orchestrator.goal import Goal
+
 from orchestrator.generator import generate_contracts
+from orchestrator.goal import Goal
 from orchestrator.supervisor import Supervisor
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -48,8 +48,10 @@ def evidence_plan(evidence_goal):
 
 def test_evidence_flow_cli_runs(capsys):
     """Test that evidence flow CLI produces output without error."""
-    from orchestrator.cli import cmd_evidence_flow
     from argparse import Namespace
+
+    from orchestrator.cli import cmd_evidence_flow
+
     os.environ["FAKE_WORKER"] = "1"
     try:
         # Run supervision first
@@ -59,8 +61,20 @@ def test_evidence_flow_cli_runs(capsys):
             description="Test evidence flow CLI",
             constraints={
                 "subtasks": [
-                    {"task_id": "evidence-cli-run-test-step-1", "title": "Step 1", "objective": "Test", "output_path": "scratch/test_evidence_cli_1.txt", "depends_on": []},
-                    {"task_id": "evidence-cli-run-test-step-2", "title": "Step 2", "objective": "Test", "output_path": "scratch/test_evidence_cli_2.txt", "depends_on": ["evidence-cli-run-test-step-1"]},
+                    {
+                        "task_id": "evidence-cli-run-test-step-1",
+                        "title": "Step 1",
+                        "objective": "Test",
+                        "output_path": "scratch/test_evidence_cli_1.txt",
+                        "depends_on": [],
+                    },
+                    {
+                        "task_id": "evidence-cli-run-test-step-2",
+                        "title": "Step 2",
+                        "objective": "Test",
+                        "output_path": "scratch/test_evidence_cli_2.txt",
+                        "depends_on": ["evidence-cli-run-test-step-1"],
+                    },
                 ]
             },
         )
@@ -90,8 +104,10 @@ def test_evidence_flow_cli_runs(capsys):
 
 def test_evidence_flow_shows_downstream_injection(capsys):
     """Test that evidence flow correctly shows downstream injection."""
-    from orchestrator.cli import cmd_evidence_flow
     from argparse import Namespace
+
+    from orchestrator.cli import cmd_evidence_flow
+
     os.environ["FAKE_WORKER"] = "1"
     try:
         goal = Goal(
@@ -100,9 +116,27 @@ def test_evidence_flow_shows_downstream_injection(capsys):
             description="Test evidence injection display",
             constraints={
                 "subtasks": [
-                    {"task_id": "evidence-inject-test-a", "title": "Step A", "objective": "Create", "output_path": "scratch/test_inject_a.txt", "depends_on": []},
-                    {"task_id": "evidence-inject-test-b", "title": "Step B", "objective": "Use A", "output_path": "scratch/test_inject_b.txt", "depends_on": ["evidence-inject-test-a"]},
-                    {"task_id": "evidence-inject-test-c", "title": "Step C", "objective": "Use A too", "output_path": "scratch/test_inject_c.txt", "depends_on": ["evidence-inject-test-a"]},
+                    {
+                        "task_id": "evidence-inject-test-a",
+                        "title": "Step A",
+                        "objective": "Create",
+                        "output_path": "scratch/test_inject_a.txt",
+                        "depends_on": [],
+                    },
+                    {
+                        "task_id": "evidence-inject-test-b",
+                        "title": "Step B",
+                        "objective": "Use A",
+                        "output_path": "scratch/test_inject_b.txt",
+                        "depends_on": ["evidence-inject-test-a"],
+                    },
+                    {
+                        "task_id": "evidence-inject-test-c",
+                        "title": "Step C",
+                        "objective": "Use A too",
+                        "output_path": "scratch/test_inject_c.txt",
+                        "depends_on": ["evidence-inject-test-a"],
+                    },
                 ]
             },
         )
@@ -128,9 +162,11 @@ def test_evidence_flow_shows_downstream_injection(capsys):
 
 
 def test_evidence_flow_json_output(capsys):
-    from orchestrator.cli import cmd_evidence_flow
-    from argparse import Namespace
     import json
+    from argparse import Namespace
+
+    from orchestrator.cli import cmd_evidence_flow
+
     os.environ["FAKE_WORKER"] = "1"
     try:
         goal = Goal(
@@ -139,8 +175,20 @@ def test_evidence_flow_json_output(capsys):
             description="Test JSON output",
             constraints={
                 "subtasks": [
-                    {"task_id": "evidence-json-test-a", "title": "A", "objective": "A", "output_path": "scratch/test_json_a.txt", "depends_on": []},
-                    {"task_id": "evidence-json-test-b", "title": "B", "objective": "B", "output_path": "scratch/test_json_b.txt", "depends_on": ["evidence-json-test-a"]},
+                    {
+                        "task_id": "evidence-json-test-a",
+                        "title": "A",
+                        "objective": "A",
+                        "output_path": "scratch/test_json_a.txt",
+                        "depends_on": [],
+                    },
+                    {
+                        "task_id": "evidence-json-test-b",
+                        "title": "B",
+                        "objective": "B",
+                        "output_path": "scratch/test_json_b.txt",
+                        "depends_on": ["evidence-json-test-a"],
+                    },
                 ]
             },
         )
@@ -164,4 +212,3 @@ def test_evidence_flow_json_output(capsys):
         assert "evidence_store" in data
     finally:
         del os.environ["FAKE_WORKER"]
-

@@ -14,9 +14,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from .contract import check_path_allowed
-from .llm import call_llm, LLMError
+from .llm import LLMError, call_llm
 from .token_gate import TokenGateError, check_usage_authoritative, preflight
-
 
 HYBRID_DEFAULT_MAX_TURNS = 3
 HYBRID_ROLES = ("Implementer", "Critic", "Verifier")
@@ -204,16 +203,17 @@ def _call_llm(
     raw = resp["text"]
     # TOKEN GATE authoritative: the API reported actual usage over the cap.
     over_cap = check_usage_authoritative(
-        resp.get("usage", {}) or {}, estimated_prompt,
-        caller=f"hybrid_worker:{model}", model=model,
+        resp.get("usage", {}) or {},
+        estimated_prompt,
+        caller=f"hybrid_worker:{model}",
+        model=model,
     )
     if over_cap:
         return {
             "ok": False,
             "raw": raw,
             "stderr": (
-                "TOKEN GATE HARD STOP: provider-reported usage over cap. "
-                "See scratch/token_gate_violations.jsonl."
+                "TOKEN GATE HARD STOP: provider-reported usage over cap. See scratch/token_gate_violations.jsonl."
             ),
             "exit_code": 3,
             "prompt_tokens": estimated_prompt,
@@ -233,6 +233,7 @@ def _call_llm(
 # ---------------------------------------------------------------
 # Profile-based deterministic path (existing tests depend on this)
 # ---------------------------------------------------------------
+
 
 def _run_deterministic_loop(
     contract,
@@ -306,7 +307,9 @@ def _run_deterministic_loop(
 
         trace.append(HybridStep(turn, "Critic", "validate_outputs", "pass", "artifact set accepted"))
         verifier_ok, verifier_reason = _validate_outputs(contract, workspace_root)
-        trace.append(HybridStep(turn, "Verifier", "check_artifacts", "pass" if verifier_ok else "fail", verifier_reason))
+        trace.append(
+            HybridStep(turn, "Verifier", "check_artifacts", "pass" if verifier_ok else "fail", verifier_reason)
+        )
         if verifier_ok:
             final_status = "success"
             break
@@ -339,6 +342,7 @@ def _run_deterministic_loop(
 # Real LLM loop path (production)
 # ---------------------------------------------------------------
 
+
 def _run_llm_loop(
     contract,
     workspace_root: str,
@@ -350,10 +354,10 @@ def _run_llm_loop(
     brief_text: str,
     supervisor_attempt: int = 1,
 ) -> Dict[str, Any]:
+    from .budget import BudgetExhaustedError, BudgetGuard, LoopDetector, UsageLedger
     from .parsing import parse_llm_artifacts
-    from .budget import BudgetGuard, BudgetExhaustedError, LoopDetector, UsageLedger
+    from .prompts import build_critic_prompt, build_implementer_prompt, summarize_acceptance, summarize_verifier_results
     from .verifier import run_checks
-    from .prompts import build_implementer_prompt, build_critic_prompt, summarize_acceptance, summarize_verifier_results
 
     os.makedirs(run_dir, exist_ok=True)
     start = time.time()
@@ -381,7 +385,6 @@ def _run_llm_loop(
     prior_failures: List[Dict[str, Any]] = []
     critic_feedback: Optional[str] = None
     verifier_feedback: Optional[str] = None
-    last_parse_error: str = ""
     parse_failure_count: int = 0
     max_parse_failures: int = 2
 
@@ -422,7 +425,7 @@ def _run_llm_loop(
             return _fail(5, f"budget exhausted: {e}")
 
         # --- Implementer ---
-        quality_spec = getattr(contract, 'quality_spec', {})
+        quality_spec = getattr(contract, "quality_spec", {})
         implementer_prompt = build_implementer_prompt(
             title=contract.title,
             objective=contract.objective,
@@ -451,26 +454,42 @@ def _run_llm_loop(
                 return _fail(6, f"stuck loop: {msg}")
             continue
 
-        trace.append(HybridStep(turn, "Implementer", "llm_call", "pass", "implementer produced output", budget=_budget_snapshot()))
+        trace.append(
+            HybridStep(
+                turn, "Implementer", "llm_call", "pass", "implementer produced output", budget=_budget_snapshot()
+            )
+        )
 
         # --- Parse ---
         parse_result = parse_llm_artifacts(llm_result["raw"], expected_paths)
         if not parse_result.ok:
-            last_parse_error = parse_result.error
             parse_failure_count += 1
             msg = f"parse failed: {parse_result.error}"
-            tier = ""
-            trace.append(HybridStep(turn, "Implementer", "parse_output", "fail", msg, parser_tier="none", budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn, "Implementer", "parse_output", "fail", msg, parser_tier="none", budget=_budget_snapshot()
+                )
+            )
             stderr_parts.append(msg)
             prior_failures.append({"message": msg})
             if parse_failure_count >= max_parse_failures:
                 return _fail(7, f"parse failure budget exhausted: {msg}")
             if loop_detector.record_failure(f"parse:{parse_result.error}"):
-                return _fail(6, f"stuck loop: repeated parse failure")
+                return _fail(6, "stuck loop: repeated parse failure")
             continue
 
         parser_tier = parse_result.artifacts[0].parser_tier if parse_result.artifacts else "?"
-        trace.append(HybridStep(turn, "Parser", "parse_output", "pass", f"parsed via {parser_tier}", parser_tier=parser_tier, budget=_budget_snapshot()))
+        trace.append(
+            HybridStep(
+                turn,
+                "Parser",
+                "parse_output",
+                "pass",
+                f"parsed via {parser_tier}",
+                parser_tier=parser_tier,
+                budget=_budget_snapshot(),
+            )
+        )
 
         # --- Write artifacts ---
         current_artifacts = _write_llm_outputs(contract, workspace_root, parse_result.artifacts)
@@ -482,7 +501,11 @@ def _run_llm_loop(
         scope_ok, scope_reason = _validate_outputs(contract, workspace_root)
         if not scope_ok:
             msg = f"scope violation: {scope_reason}"
-            trace.append(HybridStep(turn, "Critic", "validate_outputs", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn, "Critic", "validate_outputs", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()
+                )
+            )
             return _fail(4, msg)
 
         # --- Loop detection ---
@@ -490,7 +513,11 @@ def _run_llm_loop(
         stuck = loop_detector.record_outputs(content_hashes)
         if stuck:
             msg = f"stuck loop: {stuck}"
-            trace.append(HybridStep(turn, "LoopDetector", "check", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn, "LoopDetector", "check", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()
+                )
+            )
             return _fail(6, msg)
 
         # --- Deterministic precheck ---
@@ -500,23 +527,34 @@ def _run_llm_loop(
             verifier_results_dict = [r.to_dict() for r in precheck_results]
             verifier_feedback = summarize_verifier_results(verifier_results_dict)
             msg = "deterministic precheck failed"
-            trace.append(HybridStep(turn, "Verifier", "precheck", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn, "Verifier", "precheck", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()
+                )
+            )
             stderr_parts.append(msg)
             prior_failures.append({"message": msg, "verifier": verifier_results_dict})
             if loop_detector.record_failure(f"precheck:{msg}"):
-                return _fail(6, f"stuck loop: repeated precheck failure")
+                return _fail(6, "stuck loop: repeated precheck failure")
             continue
 
-        trace.append(HybridStep(turn, "Verifier", "precheck", "pass", "deterministic checks passed", parser_tier=parser_tier, budget=_budget_snapshot()))
+        trace.append(
+            HybridStep(
+                turn,
+                "Verifier",
+                "precheck",
+                "pass",
+                "deterministic checks passed",
+                parser_tier=parser_tier,
+                budget=_budget_snapshot(),
+            )
+        )
 
         # --- Critic ---
-        artifact_summaries = [
-            {"path": a.path, "content": a.content}
-            for a in parse_result.artifacts
-        ]
+        artifact_summaries = [{"path": a.path, "content": a.content} for a in parse_result.artifacts]
         verifier_results_dict = [r.to_dict() for r in precheck_results]
 
-        quality_spec = getattr(contract, 'quality_spec', {})
+        quality_spec = getattr(contract, "quality_spec", {})
         critic_prompt = build_critic_prompt(
             title=contract.title,
             objective=contract.objective,
@@ -549,15 +587,45 @@ def _run_llm_loop(
 
         stuck_verdict = loop_detector.record_critic_verdict(critic_verdict)
         if stuck_verdict:
-            trace.append(HybridStep(turn, "Critic", "evaluate", "fail", stuck_verdict, parser_tier=parser_tier, budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn,
+                    "Critic",
+                    "evaluate",
+                    "fail",
+                    stuck_verdict,
+                    parser_tier=parser_tier,
+                    budget=_budget_snapshot(),
+                )
+            )
             return _fail(6, stuck_verdict)
 
         if critic_verdict == "PASS":
-            trace.append(HybridStep(turn, "Critic", "evaluate", "pass", "critic approved", parser_tier=parser_tier, budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn,
+                    "Critic",
+                    "evaluate",
+                    "pass",
+                    "critic approved",
+                    parser_tier=parser_tier,
+                    budget=_budget_snapshot(),
+                )
+            )
             final_status = "success"
             break
         else:
-            trace.append(HybridStep(turn, "Critic", "evaluate", "fail", critic_feedback[:200], parser_tier=parser_tier, budget=_budget_snapshot()))
+            trace.append(
+                HybridStep(
+                    turn,
+                    "Critic",
+                    "evaluate",
+                    "fail",
+                    critic_feedback[:200],
+                    parser_tier=parser_tier,
+                    budget=_budget_snapshot(),
+                )
+            )
             stderr_parts.append(f"critic: {critic_feedback[:200]}")
             prior_failures.append({"message": f"critic: {critic_feedback[:200]}"})
             if repair_budget <= 0:
@@ -570,10 +638,15 @@ def _run_llm_loop(
 
     # --- Final verification (full) ---
     from .verifier import run_verification
+
     final_passed, final_results, _ = run_verification(contract, workspace_root, run_dir)
     if not final_passed:
         msg = "final verification failed"
-        trace.append(HybridStep(turn=turn, role="Verifier", action="final_check", status="fail", message=msg, budget=_budget_snapshot()))
+        trace.append(
+            HybridStep(
+                turn=turn, role="Verifier", action="final_check", status="fail", message=msg, budget=_budget_snapshot()
+            )
+        )
         return _fail(1, msg)
 
     trace_path = _write_trace(run_dir, trace)
@@ -601,6 +674,7 @@ def _run_llm_loop(
 # Public entry point
 # ---------------------------------------------------------------
 
+
 def run_hybrid_worker(
     contract,
     workspace_root: str,
@@ -624,7 +698,9 @@ def run_hybrid_worker(
     if "hybrid_profile" in contract.worker:
         profile = str(contract.worker["hybrid_profile"])
         return _run_deterministic_loop(
-            contract, workspace_root, run_dir,
+            contract,
+            workspace_root,
+            run_dir,
             profile=profile,
             max_turns=max_turns,
             repair_budget=repair_budget,
@@ -636,7 +712,9 @@ def run_hybrid_worker(
     inner_model = inner_model_raw.replace("hybrid:", "", 1)
 
     return _run_llm_loop(
-        contract, workspace_root, run_dir,
+        contract,
+        workspace_root,
+        run_dir,
         inner_model=inner_model,
         max_turns=max_turns,
         repair_budget=repair_budget,

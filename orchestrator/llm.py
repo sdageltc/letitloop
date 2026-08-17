@@ -91,7 +91,7 @@ def strip_provider(model: str) -> str:
     """Return the model id without its provider prefix."""
     p = provider_of(model)
     prefix = p + ":"
-    return model[len(prefix):] if model.startswith(prefix) else model
+    return model[len(prefix) :] if model.startswith(prefix) else model
 
 
 def base_url(provider: str) -> str:
@@ -142,6 +142,7 @@ def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeo
         try:
             detail = e.read().decode("utf-8", errors="replace")[:500]
             from .qc_review import _redact_secrets
+
             detail = _redact_secrets(detail)
         except Exception:
             pass
@@ -198,9 +199,7 @@ def call_llm(
             payload["temperature"] = temperature
         data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
         try:
-            text = "".join(
-                block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"
-            )
+            text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
         except (AttributeError, TypeError):
             text = ""
         usage = data.get("usage", {})

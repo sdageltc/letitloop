@@ -1,18 +1,21 @@
 """Tests for quality_plane.py — component dispatch and legacy path."""
 
-import json
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
+from orchestrator.component_slicer import ComponentSlice
 from orchestrator.quality_plan import (
-    ArbitrationPolicy, QualityPlan, QualityBudget, ReviewerRole,
-    MODE_COMPONENT_PANEL, MODE_PANEL, MODE_SINGLE,
-    LENS_CODE_CORRECTNESS,
+    MODE_COMPONENT_PANEL,
+    MODE_PANEL,
+    MODE_SINGLE,
+    ArbitrationPolicy,
+    QualityBudget,
+    QualityPlan,
+    ReviewerRole,
 )
 from orchestrator.quality_plane import (
-    QualityPlaneVerdict,
     _REVIEWER_HOOK,
+    QualityPlaneVerdict,
     _build_arbitration_prompt,
     _build_persona_prompt,
     _component_verdict_to_qp_verdict,
@@ -22,18 +25,16 @@ from orchestrator.quality_plane import (
     _resolve_arbitration_model,
     _resolve_reviewer_model,
     _run_arbitration,
-    _run_component_reviews,
     _run_component_quality_plane,
+    _run_component_reviews,
     _should_arbitrate,
     _synthesis_reason,
     run_quality_plane,
 )
 from orchestrator.review_artifact import ArbitrationVerdict, EvidenceRead, ReviewArtifact, ReviewIssue, SynthesisVerdict
-from orchestrator.component_slicer import ComponentSlice, slice_components
-from orchestrator.review_artifact import EvidenceRead, ReviewArtifact, ReviewIssue
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _make_contract(**overrides):
     """Build a minimal mock contract object."""
@@ -61,16 +62,29 @@ def _make_reviewer_hook(*responses):
             resp = responses[idx]
             idx += 1
             return resp
-        return {"status": "PASS", "reason": "fallthrough", "score": 0.95, "issues": [], "files_reviewed": ["a.py", "b.py"]}
+        return {
+            "status": "PASS",
+            "reason": "fallthrough",
+            "score": 0.95,
+            "issues": [],
+            "files_reviewed": ["a.py", "b.py"],
+        }
 
     return hook
 
 
 # ── Tests: _raw_to_artifact ────────────────────────────────────────────────
 
+
 class TestRawToArtifact:
     def test_pass_conversion(self):
-        raw = {"status": "PASS", "reason": "looks good", "score": 0.95, "issues": [], "files_reviewed": ["a.py", "b.py"]}
+        raw = {
+            "status": "PASS",
+            "reason": "looks good",
+            "score": 0.95,
+            "issues": [],
+            "files_reviewed": ["a.py", "b.py"],
+        }
         art = _raw_to_artifact(raw, "reviewer_0", "maintainer", "test-model", "component_0", ["a.py"])
         assert art.verdict == "PASS"
         assert art.confidence >= 0.9
@@ -115,6 +129,7 @@ class TestRawToArtifact:
 
 # ── Tests: _synthesis_reason ───────────────────────────────────────────────
 
+
 class TestSynthesisReason:
     def test_insufficient_evidence(self):
         assert "No reviewer examined evidence" == _synthesis_reason("INSUFFICIENT_EVIDENCE", False, [], [])
@@ -136,9 +151,11 @@ class TestSynthesisReason:
 
 # ── Tests: _resolve_arbitration_model ─────────────────────────────────────
 
+
 class TestResolveArbitrationModel:
     def test_default_uses_qc_model(self):
         from orchestrator.models import ModelRegistry
+
         policy = ArbitrationPolicy()
         model = _resolve_arbitration_model(policy)
         assert model == ModelRegistry.default_qc()
@@ -149,11 +166,13 @@ class TestResolveArbitrationModel:
 
     def test_cheap_uses_default_fallback(self):
         from orchestrator.models import ModelRegistry
+
         policy = ArbitrationPolicy(model_policy="cheap_cross_family")
         assert _resolve_arbitration_model(policy) == ModelRegistry.FALLBACK
 
 
 # ── Tests: _should_arbitrate ──────────────────────────────────────────────
+
 
 class TestShouldArbitrate:
     def test_not_armed_disabled(self):
@@ -162,45 +181,76 @@ class TestShouldArbitrate:
 
     def test_p0_disagreement_triggers(self):
         policy = ArbitrationPolicy(enabled=True, trigger=["p0_disagreement"])
-        art1 = ReviewArtifact("r1", "reviewer", "m1", "c0",
-                              verdict="REJECT", evidence_read=[EvidenceRead("a.py", origin="cited")],
-                              issues=[ReviewIssue("P0", claim="bug")])
+        art1 = ReviewArtifact(
+            "r1",
+            "reviewer",
+            "m1",
+            "c0",
+            verdict="REJECT",
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+            issues=[ReviewIssue("P0", claim="bug")],
+        )
         synthesis = SynthesisVerdict(p0_blockers=[ReviewIssue("P0", claim="bug")])
         assert _should_arbitrate([art1], synthesis, policy) is True
 
     def test_low_confidence_triggers(self):
         policy = ArbitrationPolicy(enabled=True, trigger=["low_confidence"])
-        art1 = ReviewArtifact("r1", "reviewer", "m1", "c0",
-                              verdict="PASS", confidence=0.2,
-                              evidence_read=[EvidenceRead("a.py", origin="cited")])
+        art1 = ReviewArtifact(
+            "r1",
+            "reviewer",
+            "m1",
+            "c0",
+            verdict="PASS",
+            confidence=0.2,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+        )
         synthesis = SynthesisVerdict()
         assert _should_arbitrate([art1], synthesis, policy) is True
 
     def test_any_reject_triggers_on_reject(self):
         policy = ArbitrationPolicy(enabled=True, trigger=["any_reject"])
-        art1 = ReviewArtifact("r1", "reviewer", "m1", "c0",
-                              verdict="REJECT", confidence=0.8,
-                              evidence_read=[EvidenceRead("a.py", origin="cited")])
+        art1 = ReviewArtifact(
+            "r1",
+            "reviewer",
+            "m1",
+            "c0",
+            verdict="REJECT",
+            confidence=0.8,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+        )
         synthesis = SynthesisVerdict()
         assert _should_arbitrate([art1], synthesis, policy) is True
 
     def test_no_trigger_match_returns_false(self):
         policy = ArbitrationPolicy(enabled=True, trigger=["low_confidence"])
-        art1 = ReviewArtifact("r1", "reviewer", "m1", "c0",
-                              verdict="PASS", confidence=0.9,
-                              evidence_read=[EvidenceRead("a.py", origin="cited")])
+        art1 = ReviewArtifact(
+            "r1",
+            "reviewer",
+            "m1",
+            "c0",
+            verdict="PASS",
+            confidence=0.9,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+        )
         synthesis = SynthesisVerdict()
         assert _should_arbitrate([art1], synthesis, policy) is False
 
 
 # ── Tests: _build_arbitration_prompt ─────────────────────────────────────
 
+
 class TestBuildArbitrationPrompt:
     def test_includes_disagreements(self):
-        art = ReviewArtifact("r1", "maintainer", "m1", "c0",
-                             verdict="REJECT", confidence=0.3,
-                             evidence_read=[EvidenceRead("a.py", origin="cited")],
-                             issues=[ReviewIssue("P0", claim="crash")])
+        art = ReviewArtifact(
+            "r1",
+            "maintainer",
+            "m1",
+            "c0",
+            verdict="REJECT",
+            confidence=0.3,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+            issues=[ReviewIssue("P0", claim="crash")],
+        )
         synth = SynthesisVerdict(p0_blockers=[ReviewIssue("P0", claim="crash")])
         prompt = _build_arbitration_prompt([art], synth)
         assert "Reviewer 1" in prompt
@@ -209,10 +259,16 @@ class TestBuildArbitrationPrompt:
         assert "P0 BLOCKERS" in prompt
 
     def test_p1_section_included(self):
-        art = ReviewArtifact("r1", "reviewer", "m1", "c0",
-                             verdict="CONDITIONAL_PASS", confidence=0.6,
-                             evidence_read=[EvidenceRead("a.py", origin="cited")],
-                             issues=[ReviewIssue("P1", claim="warn")])
+        art = ReviewArtifact(
+            "r1",
+            "reviewer",
+            "m1",
+            "c0",
+            verdict="CONDITIONAL_PASS",
+            confidence=0.6,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+            issues=[ReviewIssue("P1", claim="warn")],
+        )
         synth = SynthesisVerdict(p1_required_fixes=[ReviewIssue("P1", claim="warn")])
         prompt = _build_arbitration_prompt([art], synth)
         assert "P1 REQUIRED FIXES" in prompt
@@ -220,10 +276,16 @@ class TestBuildArbitrationPrompt:
 
 # ── Tests: _raw_to_arbitration_verdict ───────────────────────────────────
 
+
 class TestRawToArbitrationVerdict:
     def test_valid_status_preserved(self):
-        raw = {"status": "PASS", "reason": "ok", "confidence": 0.95,
-               "winning_claims": ["c1"], "discarded_claims": ["c2"]}
+        raw = {
+            "status": "PASS",
+            "reason": "ok",
+            "confidence": 0.95,
+            "winning_claims": ["c1"],
+            "discarded_claims": ["c2"],
+        }
         av = _raw_to_arbitration_verdict(raw)
         assert av.status == "PASS"
         assert av.reason == "ok"
@@ -243,20 +305,36 @@ class TestRawToArbitrationVerdict:
 
 # ── Tests: _run_arbitration ──────────────────────────────────────────────
 
+
 class TestRunArbitration:
     def test_returns_arbitration_verdict(self):
         policy = ArbitrationPolicy(enabled=True)
-        art = ReviewArtifact("r1", "reviewer", "m1", "c0",
-                             verdict="REJECT", confidence=0.3,
-                             evidence_read=[EvidenceRead("a.py", origin="cited")],
-                             issues=[ReviewIssue("P0", claim="bug")])
+        art = ReviewArtifact(
+            "r1",
+            "reviewer",
+            "m1",
+            "c0",
+            verdict="REJECT",
+            confidence=0.3,
+            evidence_read=[EvidenceRead("a.py", origin="cited")],
+            issues=[ReviewIssue("P0", claim="bug")],
+        )
         synth = SynthesisVerdict(p0_blockers=[ReviewIssue("P0", claim="bug")])
 
-        hook = _make_reviewer_hook({"status": "PASS", "reason": "overruled", "confidence": 0.9, "winning_claims": ["safe"], "discarded_claims": ["bug"]})
+        hook = _make_reviewer_hook(
+            {
+                "status": "PASS",
+                "reason": "overruled",
+                "confidence": 0.9,
+                "winning_claims": ["safe"],
+                "discarded_claims": ["bug"],
+            }
+        )
 
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             result = _run_arbitration([art], synth, policy, ".")
         finally:
@@ -269,14 +347,21 @@ class TestRunArbitration:
 
 # ── Tests: arbitration integrated in component verdict ────────────────────
 
+
 class TestComponentVerdictWithArbitration:
     def test_arbitration_overrides_to_pass(self):
         components = [ComponentSlice("c0", ["a.py"], "file a")]
         artifacts = [
-            ReviewArtifact("r1", "m1", "m1", "c0",
-                           verdict="REJECT", confidence=0.3,
-                           evidence_read=[EvidenceRead("a.py", origin="cited")],
-                           issues=[ReviewIssue("P0", claim="bug")]),
+            ReviewArtifact(
+                "r1",
+                "m1",
+                "m1",
+                "c0",
+                verdict="REJECT",
+                confidence=0.3,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+                issues=[ReviewIssue("P0", claim="bug")],
+            ),
         ]
         plan = QualityPlan(
             mode=MODE_COMPONENT_PANEL,
@@ -291,6 +376,7 @@ class TestComponentVerdictWithArbitration:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             verdict = _component_verdict_to_qp_verdict(artifacts, components, plan, workspace_root=".")
         finally:
@@ -303,9 +389,15 @@ class TestComponentVerdictWithArbitration:
     def test_arbitration_not_invoked_when_disabled(self):
         components = [ComponentSlice("c0", ["a.py"], "file a")]
         artifacts = [
-            ReviewArtifact("r1", "m1", "m1", "c0",
-                           verdict="PASS", confidence=0.95,
-                           evidence_read=[EvidenceRead("a.py", origin="cited")]),
+            ReviewArtifact(
+                "r1",
+                "m1",
+                "m1",
+                "c0",
+                verdict="PASS",
+                confidence=0.95,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+            ),
         ]
         plan = QualityPlan(
             mode=MODE_COMPONENT_PANEL,
@@ -319,10 +411,16 @@ class TestComponentVerdictWithArbitration:
     def test_arbitration_budget_tracked(self):
         components = [ComponentSlice("c0", ["a.py"], "file a")]
         artifacts = [
-            ReviewArtifact("r1", "m1", "m1", "c0",
-                           verdict="REJECT", confidence=0.3,
-                           evidence_read=[EvidenceRead("a.py", origin="cited")],
-                           issues=[ReviewIssue("P0", claim="bug")]),
+            ReviewArtifact(
+                "r1",
+                "m1",
+                "m1",
+                "c0",
+                verdict="REJECT",
+                confidence=0.3,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+                issues=[ReviewIssue("P0", claim="bug")],
+            ),
         ]
         plan = QualityPlan(
             mode=MODE_COMPONENT_PANEL,
@@ -335,6 +433,7 @@ class TestComponentVerdictWithArbitration:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             verdict = _component_verdict_to_qp_verdict(artifacts, components, plan, workspace_root=".")
         finally:
@@ -346,10 +445,16 @@ class TestComponentVerdictWithArbitration:
         """An arbiter REJECT must override a CONDITIONAL_PASS synthesis."""
         components = [ComponentSlice("c0", ["a.py"], "file a")]
         artifacts = [
-            ReviewArtifact("r1", "m1", "m1", "c0",
-                           verdict="REJECT", confidence=0.5,
-                           evidence_read=[EvidenceRead("a.py", origin="cited")],
-                           issues=[ReviewIssue("P1", claim="test gap")]),
+            ReviewArtifact(
+                "r1",
+                "m1",
+                "m1",
+                "c0",
+                verdict="REJECT",
+                confidence=0.5,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+                issues=[ReviewIssue("P1", claim="test gap")],
+            ),
         ]
         plan = QualityPlan(
             mode=MODE_COMPONENT_PANEL,
@@ -364,6 +469,7 @@ class TestComponentVerdictWithArbitration:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             verdict = _component_verdict_to_qp_verdict(artifacts, components, plan, workspace_root=".")
         finally:
@@ -375,6 +481,7 @@ class TestComponentVerdictWithArbitration:
 
 
 # ── Tests: _build_persona_prompt ───────────────────────────────────────────
+
 
 class TestBuildPersonaPrompt:
     def test_appends_persona_section(self):
@@ -402,6 +509,7 @@ class TestBuildPersonaPrompt:
 
 # ── Tests: _component_verdict_to_qp_verdict ────────────────────────────────
 
+
 class TestComponentVerdictToQpVerdict:
     def test_all_components_pass(self):
         components = [
@@ -409,8 +517,24 @@ class TestComponentVerdictToQpVerdict:
             ComponentSlice("component_1", ["b.py"], "file b"),
         ]
         artifacts = [
-            ReviewArtifact("r1", "reviewer", "m1", "component_0", verdict="PASS", confidence=0.95, evidence_read=[EvidenceRead("a.py", origin="cited")]),
-            ReviewArtifact("r2", "reviewer", "m1", "component_1", verdict="PASS", confidence=0.9, evidence_read=[EvidenceRead("b.py", origin="cited")]),
+            ReviewArtifact(
+                "r1",
+                "reviewer",
+                "m1",
+                "component_0",
+                verdict="PASS",
+                confidence=0.95,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+            ),
+            ReviewArtifact(
+                "r2",
+                "reviewer",
+                "m1",
+                "component_1",
+                verdict="PASS",
+                confidence=0.9,
+                evidence_read=[EvidenceRead("b.py", origin="cited")],
+            ),
         ]
         plan = QualityPlan(mode=MODE_COMPONENT_PANEL, reviewers=[ReviewerRole("maintainer")])
         verdict = _component_verdict_to_qp_verdict(artifacts, components, plan)
@@ -425,8 +549,12 @@ class TestComponentVerdictToQpVerdict:
         components = [ComponentSlice("component_0", ["a.py"], "file a")]
         artifacts = [
             ReviewArtifact(
-                "r1", "reviewer", "m1", "component_0",
-                verdict="REJECT", confidence=0.3,
+                "r1",
+                "reviewer",
+                "m1",
+                "component_0",
+                verdict="REJECT",
+                confidence=0.3,
                 evidence_read=[EvidenceRead("a.py", origin="cited")],
                 issues=[ReviewIssue("P0", path="a.py", claim="crash bug")],
             ),
@@ -447,7 +575,11 @@ class TestComponentVerdictToQpVerdict:
 
     def test_budget_used_tracks_calls(self):
         components = [ComponentSlice("c0", ["a.py"])]
-        artifacts = [ReviewArtifact("r1", "reviewer", "m1", "c0", verdict="PASS", evidence_read=[EvidenceRead("a.py", origin="cited")])]
+        artifacts = [
+            ReviewArtifact(
+                "r1", "reviewer", "m1", "c0", verdict="PASS", evidence_read=[EvidenceRead("a.py", origin="cited")]
+            )
+        ]
         plan = QualityPlan(
             mode=MODE_COMPONENT_PANEL,
             reviewers=[ReviewerRole("maintainer")],
@@ -458,10 +590,29 @@ class TestComponentVerdictToQpVerdict:
     def test_multiple_reviewers_per_component_verdict(self):
         components = [ComponentSlice("c0", ["a.py"], "file a")]
         artifacts = [
-            ReviewArtifact("r1", "maintainer", "m1", "c0", verdict="PASS", confidence=0.9, evidence_read=[EvidenceRead("a.py", origin="cited")]),
-            ReviewArtifact("r2", "security_safety", "m1", "c0", verdict="REJECT", confidence=0.3, evidence_read=[EvidenceRead("a.py", origin="cited")], issues=[ReviewIssue("P0", path="a.py", claim="unsafe")]),
+            ReviewArtifact(
+                "r1",
+                "maintainer",
+                "m1",
+                "c0",
+                verdict="PASS",
+                confidence=0.9,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+            ),
+            ReviewArtifact(
+                "r2",
+                "security_safety",
+                "m1",
+                "c0",
+                verdict="REJECT",
+                confidence=0.3,
+                evidence_read=[EvidenceRead("a.py", origin="cited")],
+                issues=[ReviewIssue("P0", path="a.py", claim="unsafe")],
+            ),
         ]
-        plan = QualityPlan(mode=MODE_COMPONENT_PANEL, reviewers=[ReviewerRole("maintainer"), ReviewerRole("security_safety")])
+        plan = QualityPlan(
+            mode=MODE_COMPONENT_PANEL, reviewers=[ReviewerRole("maintainer"), ReviewerRole("security_safety")]
+        )
         verdict = _component_verdict_to_qp_verdict(artifacts, components, plan)
         assert verdict.passed is False
         assert verdict.status == "REJECT"
@@ -472,6 +623,7 @@ class TestComponentVerdictToQpVerdict:
 
 
 # ── Tests: integration with mocked reviewer hook ──────────────────────────
+
 
 class TestRunComponentReviews:
     def test_dispatches_per_component(self):
@@ -493,6 +645,7 @@ class TestRunComponentReviews:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             artifacts = _run_component_reviews(contract, components, [], ".", plan)
         finally:
@@ -518,6 +671,7 @@ class TestRunComponentReviews:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             artifacts = _run_component_reviews(contract, components, [], ".", plan)
         finally:
@@ -551,6 +705,7 @@ class TestRunComponentReviews:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             artifacts = _run_component_reviews(contract, components, [], ".", plan)
         finally:
@@ -568,11 +723,14 @@ class TestRunComponentReviews:
             reviewers=[ReviewerRole("maintainer")],
         )
 
-        hook = _make_reviewer_hook({"status": "PASS", "reason": "ok", "score": 0.9, "issues": [], "files_reviewed": ["a.py", "b.py"]})
+        hook = _make_reviewer_hook(
+            {"status": "PASS", "reason": "ok", "score": 0.9, "issues": [], "files_reviewed": ["a.py", "b.py"]}
+        )
 
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             artifacts = _run_component_reviews(contract, components, [], ".", plan)
         finally:
@@ -597,9 +755,14 @@ class TestRunComponentQualityPlane:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             verdict = _run_component_quality_plane(
-                contract, ["a.py", "b.py"], [], ".", plan,
+                contract,
+                ["a.py", "b.py"],
+                [],
+                ".",
+                plan,
             )
         finally:
             qp_mod._REVIEWER_HOOK = orig_hook
@@ -630,6 +793,7 @@ class TestRunQualityPlane:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             verdict = run_quality_plane(contract, ["a.py"], [], ".", quality_plan=plan)
         finally:
@@ -669,6 +833,7 @@ class TestRunQualityPlane:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             verdict = run_quality_plane(contract, ["a.py", "b.py"], [], ".", quality_plan=plan)
         finally:
@@ -748,6 +913,7 @@ class TestInvokeReviewerFakeQcParity:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             with patch.dict(os.environ, {"FAKE_QC": "REJECT"}):
                 raw = _invoke_reviewer("p", "m", ".")
@@ -760,15 +926,20 @@ class TestInvokeReviewerFakeQcParity:
 class TestModelResolution:
     def test_reviewer_model_policies(self):
         from orchestrator.models import ModelRegistry
+
         assert _resolve_reviewer_model(ReviewerRole("maintainer")) == ModelRegistry.default_qc()
         assert _resolve_reviewer_model(ReviewerRole("reviewer", model_policy="default")) == ModelRegistry.default_qc()
-        assert _resolve_reviewer_model(ReviewerRole("reviewer", model_policy="cheap_cross_family")) == ModelRegistry.FALLBACK
+        assert (
+            _resolve_reviewer_model(ReviewerRole("reviewer", model_policy="cheap_cross_family"))
+            == ModelRegistry.FALLBACK
+        )
         assert _resolve_reviewer_model(ReviewerRole("reviewer", model_policy="premium")) == ModelRegistry.OPUS
         assert _resolve_reviewer_model(ReviewerRole("reviewer", model_policy="deep")) == ModelRegistry.KIMI
 
     def test_dispatch_uses_per_reviewer_model(self):
         """Each reviewer's model_policy must flow into the reviewer hook call."""
         from orchestrator.models import ModelRegistry
+
         contract = _make_contract()
         components = [ComponentSlice("c0", ["a.py"], "file a")]
         plan = QualityPlan(
@@ -788,6 +959,7 @@ class TestModelResolution:
         orig_hook = _REVIEWER_HOOK
         try:
             import orchestrator.quality_plane as qp_mod
+
             qp_mod._REVIEWER_HOOK = hook
             artifacts = _run_component_reviews(contract, components, [], ".", plan)
         finally:
@@ -802,9 +974,9 @@ class TestInvokeReviewerLLMTransport:
     MASTER_CONTEXT envelope for premium models, and fail closed on errors."""
 
     def _call(self, model, prompt="prompt", response=None, side_effect=None):
-        import orchestrator.quality_plane as qp_mod
-        from orchestrator.llm import LLMError
         from unittest.mock import patch
+
+        import orchestrator.quality_plane as qp_mod
 
         def _default_response(*a, **k):
             return {"text": '{"status":"PASS","score":0.9,"issues":[]}', "provider": "openai"}
@@ -836,8 +1008,10 @@ class TestInvokeReviewerLLMTransport:
     def test_llm_error_fails_closed(self):
         import orchestrator.quality_plane as qp_mod
         from orchestrator.llm import LLMError
-        with patch("orchestrator.quality_plane.call_llm",
-                   side_effect=LLMError("auth failed", provider="openai", status=401)):
+
+        with patch(
+            "orchestrator.quality_plane.call_llm", side_effect=LLMError("auth failed", provider="openai", status=401)
+        ):
             raw = qp_mod._invoke_reviewer("prompt", "openai:gpt-4o-mini", ".")
         assert raw["status"] == "ERROR"
         assert "QC invocation error" in raw["reason"]
@@ -849,14 +1023,17 @@ class TestNormalizeIssueEvidence:
 
     def test_legacy_string_passthrough(self):
         import orchestrator.quality_plane as qp_mod
+
         assert qp_mod._normalize_issue_evidence("worker.py:12 quote") == "worker.py:12 quote"
 
     def test_none_empty(self):
         import orchestrator.quality_plane as qp_mod
+
         assert qp_mod._normalize_issue_evidence(None) == ""
 
     def test_full_structured_object(self):
         import orchestrator.quality_plane as qp_mod
+
         ev = {
             "path": "orchestrator/worker.py",
             "symbol": "run_task",
@@ -873,30 +1050,32 @@ class TestNormalizeIssueEvidence:
 
     def test_partial_object_uses_available_keys(self):
         import orchestrator.quality_plane as qp_mod
+
         out = qp_mod._normalize_issue_evidence({"file": "lock.py", "line": "44"})
         assert "path=lock.py" in out
         assert "lines=44" in out
 
     def test_parsed_issue_keeps_normalized_evidence(self):
         import orchestrator.quality_plane as qp_mod
+
         raw = {
             "status": "REJECT",
             "score": 0.3,
             "reason": "evidence gap",
-            "issues": [{
-                "severity": "P1",
-                "description": "x",
-                "evidence": {
-                    "path": "orchestrator/lock.py",
-                    "symbol": "_pid_alive",
-                    "line_range": "78-85",
-                    "type": "implementation",
-                },
-            }],
+            "issues": [
+                {
+                    "severity": "P1",
+                    "description": "x",
+                    "evidence": {
+                        "path": "orchestrator/lock.py",
+                        "symbol": "_pid_alive",
+                        "line_range": "78-85",
+                        "type": "implementation",
+                    },
+                }
+            ],
         }
-        parsed = qp_mod._parse_reviewer_response(
-            raw, "r1", "reviewer", "kimi-k2", "c0"
-        )
+        parsed = qp_mod._parse_reviewer_response(raw, "r1", "reviewer", "kimi-k2", "c0")
         assert isinstance(parsed.issues[0].evidence, str)
         assert "path=orchestrator/lock.py" in parsed.issues[0].evidence
 
@@ -905,9 +1084,10 @@ class TestConcurrentComponentWaves:
     """Wave calls must execute concurrently yet collect in deterministic order."""
 
     def test_wave_calls_run_in_parallel_and_keep_order(self):
-        import orchestrator.quality_plane as qp_mod
         import threading
         import time
+
+        import orchestrator.quality_plane as qp_mod
 
         contract = _make_contract()
         components = [
@@ -941,8 +1121,11 @@ class TestConcurrentComponentWaves:
             with lock:
                 active.pop()
             return {
-                "status": "PASS", "reason": "ok", "score": 0.9,
-                "issues": [], "files_reviewed": ["a.py", "b.py"],
+                "status": "PASS",
+                "reason": "ok",
+                "score": 0.9,
+                "issues": [],
+                "files_reviewed": ["a.py", "b.py"],
             }
 
         start = time.monotonic()

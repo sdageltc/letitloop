@@ -1,14 +1,11 @@
 """Structured error schema — typed error codes with severity, component, and context."""
 
 import os
-import json
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
-from .state import load_state, State
 from .failure import classify_failure
-from .contract import load_contract
-
+from .state import State, load_state
 
 # Error severity levels
 SEVERITY_ERROR = "error"
@@ -48,17 +45,41 @@ E_UNKNOWN = "E999"
 
 ERROR_META: Dict[str, Dict[str, str]] = {
     E_CONTRACT_INVALID: {"title": "Contract Invalid", "severity": SEVERITY_ERROR, "component": COMPONENT_CONTRACT},
-    E_CONTRACT_MISSING_FIELD: {"title": "Missing Contract Field", "severity": SEVERITY_ERROR, "component": COMPONENT_CONTRACT},
-    E_ILLEGAL_TRANSITION: {"title": "Illegal State Transition", "severity": SEVERITY_ERROR, "component": COMPONENT_STATE},
+    E_CONTRACT_MISSING_FIELD: {
+        "title": "Missing Contract Field",
+        "severity": SEVERITY_ERROR,
+        "component": COMPONENT_CONTRACT,
+    },
+    E_ILLEGAL_TRANSITION: {
+        "title": "Illegal State Transition",
+        "severity": SEVERITY_ERROR,
+        "component": COMPONENT_STATE,
+    },
     E_PREFLIGHT_FAILED: {"title": "Preflight Failed", "severity": SEVERITY_ERROR, "component": COMPONENT_PREFLIGHT},
     E_WORKER_NONZERO_EXIT: {"title": "Worker Non-Zero Exit", "severity": SEVERITY_ERROR, "component": COMPONENT_WORKER},
     E_WORKER_TIMEOUT: {"title": "Worker Timeout", "severity": SEVERITY_CRITICAL, "component": COMPONENT_WORKER},
     E_WORKER_EMPTY_OUTPUT: {"title": "Worker Empty Output", "severity": SEVERITY_ERROR, "component": COMPONENT_WORKER},
-    E_VERIFIER_OUTPUT_MISSING: {"title": "Verifier Output Missing", "severity": SEVERITY_ERROR, "component": COMPONENT_VERIFIER},
-    E_VERIFIER_CONTENT_MISMATCH: {"title": "Verifier Content Mismatch", "severity": SEVERITY_ERROR, "component": COMPONENT_VERIFIER},
+    E_VERIFIER_OUTPUT_MISSING: {
+        "title": "Verifier Output Missing",
+        "severity": SEVERITY_ERROR,
+        "component": COMPONENT_VERIFIER,
+    },
+    E_VERIFIER_CONTENT_MISMATCH: {
+        "title": "Verifier Content Mismatch",
+        "severity": SEVERITY_ERROR,
+        "component": COMPONENT_VERIFIER,
+    },
     E_SCOPE_VIOLATION: {"title": "Scope Violation", "severity": SEVERITY_CRITICAL, "component": COMPONENT_SCOPE},
-    E_RECONCILE_TAMPER: {"title": "Reconcile Hash Changed", "severity": SEVERITY_CRITICAL, "component": COMPONENT_RECONCILE},
-    E_RECONCILE_MISSING: {"title": "Reconcile Missing Output", "severity": SEVERITY_ERROR, "component": COMPONENT_RECONCILE},
+    E_RECONCILE_TAMPER: {
+        "title": "Reconcile Hash Changed",
+        "severity": SEVERITY_CRITICAL,
+        "component": COMPONENT_RECONCILE,
+    },
+    E_RECONCILE_MISSING: {
+        "title": "Reconcile Missing Output",
+        "severity": SEVERITY_ERROR,
+        "component": COMPONENT_RECONCILE,
+    },
     E_LOCK_HELD: {"title": "Lock Held", "severity": SEVERITY_ERROR, "component": COMPONENT_LOCK},
     E_LOCK_STALE: {"title": "Lock Stale", "severity": SEVERITY_WARNING, "component": COMPONENT_LOCK},
     E_PLANNER_FAILED: {"title": "Planner Failed", "severity": SEVERITY_ERROR, "component": COMPONENT_PLANNER},
@@ -116,7 +137,9 @@ class StructuredError:
         return f"[{self.code}] {self.severity.upper()} {self.component}: {self.message}"
 
 
-def from_failure_class(failure_class: str, task_id: str = "", message: str = "", context: Optional[Dict] = None) -> StructuredError:
+def from_failure_class(
+    failure_class: str, task_id: str = "", message: str = "", context: Optional[Dict] = None
+) -> StructuredError:
     """Create a StructuredError from a failure class string."""
     code = FAILURE_CLASS_TO_CODE.get(failure_class, E_UNKNOWN)
     msg = message or ERROR_META.get(code, ERROR_META[E_UNKNOWN])["title"]
@@ -125,11 +148,13 @@ def from_failure_class(failure_class: str, task_id: str = "", message: str = "",
 
 def from_state(state: State, task_id: str, workspace_root: str = "") -> Optional[StructuredError]:
     """Create a StructuredError from a task's state and workspace, if errored."""
-    from .contract import Contract
 
     is_error = state.status in (
-        "PREFLIGHT_FAILED", "BLOCKED", "VERIFICATION_FAILED",
-        "ESCALATED", "RETRY_PENDING",
+        "PREFLIGHT_FAILED",
+        "BLOCKED",
+        "VERIFICATION_FAILED",
+        "ESCALATED",
+        "RETRY_PENDING",
     )
     if not is_error:
         return None
@@ -138,12 +163,14 @@ def from_state(state: State, task_id: str, workspace_root: str = "") -> Optional
     if not fclass or fclass == "unknown":
         if state.status == "ESCALATED":
             return StructuredError(
-                code=E_UNKNOWN, message=f"Task escalated after {state.attempt} attempts",
+                code=E_UNKNOWN,
+                message=f"Task escalated after {state.attempt} attempts",
                 task_id=task_id,
                 context={"attempt": state.attempt, "worker_runs": len(state.worker_results)},
             )
         return StructuredError(
-            code=E_UNKNOWN, message=f"Unknown failure (status: {state.status})",
+            code=E_UNKNOWN,
+            message=f"Unknown failure (status: {state.status})",
             task_id=task_id,
             context={"status": state.status},
         )
