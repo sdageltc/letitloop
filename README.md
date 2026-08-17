@@ -40,6 +40,26 @@ Unlike conversational agent loops that rely on open-ended text streaming and opt
 
 ---
 
+## 🧩 Use `letitloop` as an AI Agent Skill
+
+`letitloop` can be used both as a **standalone Python CLI / MCP engine** and as a **universal Agent Skill** inside your favorite coding agent (**Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, **Windsurf**):
+
+### 1-Click Skill Installation:
+```bash
+python skill/install_skill.py --all
+```
+*(Or specify `--claude`, `--cursor`, `--antigravity`, `--hermes`, `--opencode`, `--cline`, `--windsurf`)*
+
+### 💡 Skill-Only Mode vs. Full Python Engine:
+- **Full Engine Mode (`pip install -e .` + Skill / MCP)**:
+  - 🚀 **Full Capabilities**: Host agents invoke the `lil` CLI or `letitloop-mcp` tools directly.
+  - 🛡️ **Machine-Enforced Proof**: Real AST syntax parsers (Python, TypeScript, JS, Go, Rust), true command exit-code assertions (`exit_code == 0`), OS process-tree timeout killing, and atomic Write-Ahead Log (WAL) journal locks.
+- **Skill-Only / Zero-Install Mode (`skill/SKILL.md` prompt only)**:
+  - 📝 **Self-Governed Protocol**: If you only copy `SKILL.md` into your agent environment without installing Python, the agent follows the structured DAG contract lifecycle, 3-strike escalation rules, and multi-lens quality gates directly inside chat.
+  - ⚠️ *Note*: Machine-verified AST parsing, rogue file detection, and OS-level crash recovery require the Python package runtime.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Installation
