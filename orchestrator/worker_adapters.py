@@ -32,6 +32,14 @@ class MockWorkerAdapter(BaseWorkerAdapter):
         self.call_history: List[Dict[str, Any]] = []
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 300) -> Dict[str, Any]:
+        if not os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("LIL_TEST_MODE"):
+            import sys
+
+            print(
+                f"[SECURITY WARNING] Running with MockWorkerAdapter on task {task_id}. Execution is simulated!",
+                file=sys.stderr,
+            )
+
         result = {
             "exit_code": 0,
             "stdout": f"Mock execution succeeded for {task_id}",
