@@ -349,7 +349,10 @@ _MARKDOWN_FENCE_START = re.compile(r"^\s*```")
 _NOT_IMPLEMENTED_ERROR = re.compile(r"raise\s+NotImplementedError")
 _DEBUG_PYTHON = re.compile(r"\b(breakpoint\(\)|pdb\.set_trace\(\))")
 _SECRET_AWS = re.compile(r"\b(AKIA|ASIA)[0-9A-Z]{16}\b")
-_SECRET_KEY_HEADER = re.compile(r"-----BEGIN (RSA|OPENSSH|EC|PGP|PRIVATE) KEY-----")
+_SECRET_KEY_HEADER = re.compile(
+    r"-----BEGIN\s+(?:[A-Z0-9_\-]+\s+)?(?:ENCRYPTED\s+)?(?:PRIVATE\s+KEY|(?:RSA|OPENSSH|EC|PGP|DSA)\s+(?:PRIVATE\s+)?KEY)-----",
+    re.IGNORECASE,
+)
 
 
 def _run_syntax_check(path, expected_language, workspace_root, optional=False):

@@ -580,3 +580,39 @@ class TestCommandCheckEnhancements:
         results = run_checks([{"id": "ec1", "kind": "command", "command": "", "expected": 0}], workspace_root=".")
         assert not results[0].passed
         assert "empty command" in results[0].message
+
+
+class TestSecretsAndLintDetection:
+    """Tests that deterministic verifier rejects code containing leaked secrets or private keys."""
+
+    def test_rejects_leaked_aws_key(self, tmp_path):
+        bad_file = tmp_path / "service.py"
+        bad_file.write_text("AWS_KEY = 'AKIA1234567890ABCDEF'\n", encoding="utf-8")
+        results = run_checks(
+            [{"id": "h1", "kind": "hygiene", "path": str(bad_file), "expected": "clean"}],
+            workspace_root=str(tmp_path),
+        )
+        assert len(results) == 1
+        assert not results[0].passed
+        assert "aws" in results[0].message.lower()
+
+    def test_rejects_leaked_pem_key_header(self, tmp_path):
+        bad_file = tmp_path / "cert.pem"
+        bad_file.write_text("-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA...\n", encoding="utf-8")
+        results = run_checks(
+            [{"id": "h2", "kind": "hygiene", "path": str(bad_file), "expected": "clean"}],
+            workspace_root=str(tmp_path),
+        )
+        assert len(results) == 1
+        assert not results[0].passed
+        assert "private key header" in results[0].message.lower()
+
+    def test_passes_clean_code(self, tmp_path):
+        clean_file = tmp_path / "clean.py"
+        clean_file.write_text("def hello(): return 'world'\n", encoding="utf-8")
+        results = run_checks(
+            [{"id": "h3", "kind": "hygiene", "path": str(clean_file), "expected": "clean"}],
+            workspace_root=str(tmp_path),
+        )
+        assert len(results) == 1
+        assert results[0].passed
