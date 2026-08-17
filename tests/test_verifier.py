@@ -485,13 +485,17 @@ class TestCommandCheckEnhancements:
 
     @pytest.mark.skipif(os.name == "nt", reason="Tree-kill test is POSIX only")
     def test_tree_kill_posix(self, tmp_path):
-        pid_file = str(tmp_path / "child.pid").replace("\\", "/")
-        script = (
-            "import subprocess, sys, time; "
-            f"p = subprocess.Popen([sys.executable, '-c', 'import time, os; open(\"{pid_file}\", \"w\").write(str(os.getpid())); time.sleep(30)']); "
-            "time.sleep(30)"
-        )
-        cmd = f"python -c '{script}'"
+        import sys
+
+        pid_file = str(tmp_path / "child.pid")
+        runner_file = str(tmp_path / "tree_runner.py")
+        with open(runner_file, "w", encoding="utf-8") as f:
+            f.write(
+                "import subprocess, sys, time, os\n"
+                f"p = subprocess.Popen([sys.executable, '-c', 'import time, os; open(r\"{pid_file}\", \"w\").write(str(os.getpid())); time.sleep(30)'])\n"
+                "time.sleep(30)\n"
+            )
+        cmd = f"{sys.executable} {runner_file}"
         results = run_checks(
             [{"id": "tk1", "kind": "command", "command": cmd, "expected": 0, "timeout_sec": 1}],
             workspace_root=str(tmp_path),
