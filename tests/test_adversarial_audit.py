@@ -133,7 +133,7 @@ class TestVerifierCountChecks:
 1. **Contradiction 1:** The system claims O(1) memory but uses sqlite-vec.
    This tension between the two design goals creates inconsistency.
 
-2. **Contradiction 2:** The agent loop claims no external deps but imports FastAPI.
+2. **Contradiction 2:** The control loop claims no external deps but imports FastAPI.
    The conflict with the stated policy is clear.
 
 3. Another contradiction between speed and safety.

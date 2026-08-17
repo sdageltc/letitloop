@@ -1,6 +1,6 @@
-# Complete Guide: Publishing agent-loop to GitHub
+# Complete Guide: Publishing letitloop to GitHub
 
-This guide will walk you through every step to publish the agent-loop system to GitHub, including all the files you need, how to set up the repository, and how to make it available for others to use.
+This guide will walk you through every step to publish the letitloop system to GitHub, including all the files you need, how to set up the repository, and how to make it available for others to use.
 
 ## Table of Contents
 
@@ -58,6 +58,7 @@ All the files have been created for you. Here's what you should have in your `/p
 |-----------|----------|
 | `orchestrator/` | Main Python package (all your code) |
 | `tests/` | Test suite (363 tests) |
+| `skill/` | Universal Agent Skill specification and installer |
 
 ---
 
@@ -117,7 +118,7 @@ Make sure you see:
 
 ```bash
 # Create your first commit
-git commit -m "Initial release: agent-loop orchestration system
+git commit -m "Initial release: letitloop orchestration system
 
 - Core orchestration engine with durable state management
 - Multi-provider LLM support (OpenAI, Anthropic, Gemini, DeepSeek, any OpenAI-compatible)
@@ -200,7 +201,7 @@ cd letitloop
 pip install -e .
 
 # Test that it works
-orchestrator --help
+lil --help
 
 # Run the tests
 python -m pytest tests -q --ignore=tests/test_integration.py
@@ -370,7 +371,7 @@ If you need help:
 
 ## Congratulations! 🎉
 
-You've successfully published your agent-loop system to GitHub! Others can now:
+You've successfully published your letitloop system to GitHub! Others can now:
 
 1. Find your repository
 2. Read the documentation
@@ -386,4 +387,4 @@ Remember to:
 
 ---
 
-*This guide was created to help you publish agent-loop to GitHub. All files have been prepared and are ready to upload.*
+*This guide was created to help you publish letitloop to GitHub. All files have been prepared and are ready to upload.*

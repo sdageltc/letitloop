@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Setup script for agent-loop.
+"""Setup script for letitloop.
 
 This file is maintained for backward compatibility with older pip versions.
 The canonical configuration is in pyproject.toml.
