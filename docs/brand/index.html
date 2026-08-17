@@ -63,10 +63,10 @@
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 32px;
       width: 100%;
-      max-width: 1100px;
+      max-width: 1200px;
     }
     .card {
       background: var(--card-bg);
@@ -77,6 +77,10 @@
       flex-direction: column;
       align-items: center;
       transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card.featured {
+      border-color: rgba(255, 51, 102, 0.5);
+      box-shadow: 0 0 40px rgba(255, 51, 102, 0.15);
     }
     .card:hover {
       transform: translateY(-4px);
@@ -97,7 +101,7 @@
     .preview-box img, .preview-box svg {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
     }
     .card-title {
       font-size: 20px;
@@ -161,63 +165,45 @@
 <body>
 
   <header>
-    <div class="badge">Brand Identity Refinement</div>
-    <h1>LIL (let it loop) — Vector Icons</h1>
-    <p class="sub">Precision vector icons engineered with zero hallucinations: crisp, unmistakable <strong>L</strong> and <strong>i</strong> letterforms, cute-yet-modern colorways, and clean untangled loop geometry.</p>
+    <div class="badge">Official Brand Assets</div>
+    <h1>LIL (let it loop) — Brand Icon</h1>
+    <p class="sub">100% authentic original design with the hallucinated double-dot seamlessly fixed: exact neon strawberry pink, ultraviolet, and cyan infinity circuit with a single glowing dot on the 'i'.</p>
   </header>
 
   <div class="grid">
-    <!-- Option 3 Refined -->
+    <!-- Original Option 3 (Single Dot Fixed) -->
+    <div class="card featured">
+      <div class="preview-box">
+        <img src="lil_option3_original_fixed_singledot.png" alt="Option 3 Single Dot Fixed">
+      </div>
+      <div class="card-title">Option 3: Original Design (1-Dot Fixed) 🏆</div>
+      <div class="card-desc">The exact original Option 3 artwork with 100% of the original lighting, neon textures, and bold Strawberry Pink & Ultraviolet 'L's—cleaned up so the 'i' has <strong>strictly ONE glowing cyan dot</strong>.</div>
+      <div class="tag-row">
+        <span class="tag">#FF3366 Neon Pink</span>
+        <span class="tag">#00E5FF Cyan</span>
+        <span class="tag">1024x1024 PNG</span>
+      </div>
+      <div class="btn-row">
+        <a href="lil_option3_original_fixed_singledot.png" download class="btn btn-primary">Download PNG</a>
+        <a href="lil_option3_original_fixed_singledot.png" target="_blank" class="btn btn-secondary">View Full Res</a>
+      </div>
+    </div>
+
+    <!-- Original Option 3 (Continuous Solid Stem) -->
     <div class="card">
       <div class="preview-box">
-        <img src="lil_logo_option3_refined.svg" alt="Option 3 Refined">
+        <img src="lil_option3_original_fixed_solidstem.png" alt="Option 3 Solid Stem Fixed">
       </div>
-      <div class="card-title">Option 3: Pop-Art Neon Circuit ⭐</div>
-      <div class="card-desc">Two bold capital 'L' pillars in Strawberry Pink & Electric Violet framing <strong>exactly ONE glowing cyan dot 'i'</strong> on an infinity circuit track.</div>
+      <div class="card-title">Option 3B: Solid Stem Treatment</div>
+      <div class="card-desc">The original Option 3 with the vertical cyan stem extending continuously up below the single glowing top dot.</div>
       <div class="tag-row">
         <span class="tag">#FF3366</span>
-        <span class="tag">#00E5FF</span>
         <span class="tag">#8A2BE2</span>
+        <span class="tag">1024x1024 PNG</span>
       </div>
       <div class="btn-row">
-        <a href="lil_logo_option3_refined.svg" download class="btn btn-primary">Download SVG</a>
-        <a href="lil_logo_option3_refined.svg" target="_blank" class="btn btn-secondary">Open Vector</a>
-      </div>
-    </div>
-
-    <!-- Option 3 Alt Block Cut -->
-    <div class="card">
-      <div class="preview-box">
-        <img src="lil_logo_option3_alt.svg" alt="Option 3 Alt">
-      </div>
-      <div class="card-title">Option 3B: Solid Block Loop</div>
-      <div class="card-desc">Clean geometric block-cut typography with sharp rectangular 'L' arms and a bold central pillar with a single cyan dot.</div>
-      <div class="tag-row">
-        <span class="tag">#FF2A7A</span>
-        <span class="tag">#00F5D4</span>
-        <span class="tag">#7B2CBF</span>
-      </div>
-      <div class="btn-row">
-        <a href="lil_logo_option3_alt.svg" download class="btn btn-primary">Download SVG</a>
-        <a href="lil_logo_option3_alt.svg" target="_blank" class="btn btn-secondary">Open Vector</a>
-      </div>
-    </div>
-
-    <!-- Option 1 Simplified -->
-    <div class="card">
-      <div class="preview-box">
-        <img src="lil_logo_option1_simplified.svg" alt="Option 1 Simplified">
-      </div>
-      <div class="card-title">Option 1: Untangled Sakura Ribbon</div>
-      <div class="card-desc">Simplified, uncluttered infinity ribbon with zero tangled rings. Sakura Pink, Electric Lavender, and Cyan with bold 'L' accents and a single dot.</div>
-      <div class="tag-row">
-        <span class="tag">#FF5388</span>
-        <span class="tag">#D946EF</span>
-        <span class="tag">#00F2FE</span>
-      </div>
-      <div class="btn-row">
-        <a href="lil_logo_option1_simplified.svg" download class="btn btn-primary">Download SVG</a>
-        <a href="lil_logo_option1_simplified.svg" target="_blank" class="btn btn-secondary">Open Vector</a>
+        <a href="lil_option3_original_fixed_solidstem.png" download class="btn btn-primary">Download PNG</a>
+        <a href="lil_option3_original_fixed_solidstem.png" target="_blank" class="btn btn-secondary">View Full Res</a>
       </div>
     </div>
   </div>
