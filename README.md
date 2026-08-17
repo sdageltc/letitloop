@@ -1,23 +1,24 @@
 # let it loop (LIL)
 
-**let it loop (LIL)** — Autonomous Task Orchestration System. A durable, production-grade macro-task control loop with automated DAG planning, execution, deterministic verification, multi-lens quality review, and Model Context Protocol (MCP) support.
+**let it loop (LIL)** — Autonomous Macro-Task Orchestration & Verification Control Loop. A durable, production-grade agent framework featuring automated DAG contract planning, crash-resilient supervisor execution, deterministic multi-phase verification, multi-lens quality reviews, and native Model Context Protocol (MCP) support.
 
 [![CI](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![MCP Ready](https://img.shields.io/badge/MCP-Supported-purple.svg)](docs/MCP_GUIDE.md)
+[![MCP Supported](https://img.shields.io/badge/MCP-Supported-purple.svg)](docs/MCP_GUIDE.md)
 
 ---
 
-## 🌟 Key Highlights
+## 🌟 Key Capabilities
 
-- 🧠 **Autonomous DAG Planning**: Decomposes natural language goals into cryptographically scoped, typed contract dependency graphs.
-- 🔄 **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic heartbeat file-locking, and bounded 3-strike retries.
-- 🛡️ **Zero-Trust Verification Engine**: Deterministic acceptance checks (AST syntax checks, regex matchers, unit tests, and command exit code assertions).
-- ⚖️ **Multi-Lens Quality Plane**: Multi-agent evaluation with specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Clarity*, *Test Completeness*).
-- 🔌 **Native Model Context Protocol (MCP) Server**: Connect directly with Claude Desktop, Cursor, Antigravity, and OpenCode assistants via standard stdio JSON-RPC.
-- 📊 **Interactive Terminal Dashboard**: Live ASCII DAG status matrix, execution progress bars, and event telemetry.
-- 📦 **Containerized & Turnkey**: Complete multi-stage Docker build and Docker Compose orchestration.
+- 🧠 **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs.
+- 🔄 **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic file-locking, and bounded 3-strike retries.
+- 🛡️ **Zero-Trust Verification Engine**: Multi-tiered deterministic acceptance checks (AST syntax validators, regex matchers, unit test runners, and command exit code assertions).
+- ⚖️ **Multi-Lens Quality Plane**: Multi-perspective evaluation with specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Coverage*).
+- 🔌 **Native Model Context Protocol (MCP) Server**: Connect directly with **Google Antigravity**, **Claude Desktop**, **Cursor**, and **OpenCode** via standard stdio JSON-RPC.
+- 🤖 **Pluggable Worker Adapters**: Native interfaces for Claude Code, Google Antigravity CLI (`agy`), Omniroute gateways, custom scripts, and direct LLM APIs.
+- 📊 **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
+- 📦 **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
 
 ---
 
@@ -30,21 +31,57 @@
 git clone https://github.com/sdageltc/letitloop.git
 cd letitloop
 
-# Install package and dependencies
+# Install package in editable mode
 pip install -e .
 
-# Test CLI
+# Verify CLI installation
 lil --help
 ```
 
 ---
 
-### 2. Model Context Protocol (MCP) Server
+### 2. Model & Provider Configuration
 
-`letitloop` includes a built-in MCP server for seamless integration with AI coding assistants.
+Configure your environment variables in `.env` (see [`.env.example`](.env.example)):
 
-#### Claude Desktop Setup
-Add to your `claude_desktop_config.json`:
+```bash
+# Core API Keys
+export GEMINI_API_KEY="your-gemini-key"
+export OPENAI_API_KEY="your-openai-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export DEEPSEEK_API_KEY="your-deepseek-key"
+
+# Model Routing Defaults
+export WORKER_MODEL="gemini:gemini-3.6-flash"
+export QC_MODEL="gemini:gemini-3.1-pro"
+export PLANNER_MODEL="gemini:gemini-3.6-flash"
+
+# Optional Gateways (Omniroute, OpenRouter, Groq, Ollama)
+export OMNIROUTE_BASE_URL="http://localhost:8000/v1"
+```
+
+---
+
+### 3. Model Context Protocol (MCP) Server
+
+`letitloop` includes a built-in MCP server (`letitloop-mcp`) exposing 8 autonomous management tools for AI assistants.
+
+#### Configuration for Google Antigravity & Cursor
+```json
+{
+  "mcpServers": {
+    "letitloop": {
+      "command": "letitloop-mcp",
+      "env": {
+        "WORKER_MODEL": "gemini:gemini-3.6-flash",
+        "QC_MODEL": "gemini:gemini-3.1-pro"
+      }
+    }
+  }
+}
+```
+
+#### Configuration for Claude Desktop
 ```json
 {
   "mcpServers": {
@@ -56,19 +93,18 @@ Add to your `claude_desktop_config.json`:
   }
 }
 ```
-
-See [docs/MCP_GUIDE.md](docs/MCP_GUIDE.md) for full Cursor and IDE setup guides.
+*For detailed integration instructions, see [docs/MCP_GUIDE.md](docs/MCP_GUIDE.md).*
 
 ---
 
-### 3. CLI Usage
+### 4. CLI Usage
 
-#### Initialize and Execute a Macro-Goal
+#### Propose and Run an Autonomous Macro-Goal
 ```bash
-# Propose a plan from a natural language prompt
+# Propose a contract DAG from a natural language prompt and execute it
 lil propose "Build a user authentication module with JWT validation and unit tests" --run
 
-# View real-time terminal status dashboard
+# View real-time terminal dashboard
 lil dashboard
 
 # Run deterministic reconciliation audit across workspace files
@@ -77,7 +113,7 @@ lil reconcile <goal_id>
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture & Control Loop
 
 ```
                           ┌───────────────────────────┐
@@ -94,41 +130,54 @@ lil reconcile <goal_id>
                                         ▼
                        ┌─────────────────────────────────┐
                        │       Supervisor Loop           │
-                       │  - Preflight Scoping            │
+                       │  - Preflight & Sandbox Scoping  │
                        │  - Pluggable Worker Execution   │
                        │  - Deterministic Verification   │
-                       │  - Multi-Lens QC Evaluation     │
+                       │  - Multi-Lens QC Review         │
                        └─────────────┬───────────────────┘
                                      ▼
                     ┌─────────────────────────────────┐
                     │ Cryptographic Evidence Ledger   │
-                    │ & Reconciled Workspace Output   │
+                    │ & Reconciled Workspace Outputs  │
                     └─────────────────────────────────┘
 ```
 
 ---
 
-## 🧪 Running Test Suites
+## 🔌 Supported Worker Adapters & Gateways
+
+| Worker Adapter | Identifier | Description |
+|---|---|---|
+| **Google Antigravity CLI** | `antigravity-cli` | Invokes the official `agy` subagent tool safely |
+| **Claude Code CLI** | `claude-code` | Autonomous task execution via the Claude Code CLI |
+| **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways |
+| **Script Worker** | `script` | Executes local shell/Python automation scripts with env isolation |
+| **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek, or Ollama |
+| **Mock Worker** | `mock` | Deterministic simulation worker for CI and offline integration tests |
+
+---
+
+## 🧪 Testing & Verification
 
 ```bash
-# Run all unit tests (fast logic & state machine)
+# Run all unit tests (362 tests across 65 modules)
 python -m pytest tests -q --ignore=tests/test_integration.py --ignore=tests/test_benchmarks.py
 
 # Run end-to-end integration tests
 python -m pytest tests/test_integration.py -v
 
-# Run performance benchmarks (requires pytest-benchmark)
-python -m pytest tests/test_benchmarks.py
+# Fast in-process verification runner
+python fast_test_runner.py
 ```
 
 ---
 
 ## 🔒 Security & Privacy
 
-`letitloop` operates under strict security and data protection standards:
+`letitloop` is built with a zero-trust security architecture:
 - **Redaction Firewall**: Automatic masking of PATs, OAuth keys, AWS credentials, GCP tokens, and PEM private keys.
-- **Sandbox Scoping**: Deny-by-default file paths and containment enforcement.
-- **Safe Subprocess Spawning**: Sandboxed temporary prompt isolation with explicit 0o600 permissions.
+- **Sandbox Scoping**: Deny-by-default path scoping preventing directory traversal or unauthorized file modifications.
+- **Safe Subprocess Spawning**: Isolated execution environments with explicit permission boundaries.
 
 ---
 

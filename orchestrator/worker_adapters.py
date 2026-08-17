@@ -119,11 +119,79 @@ class ClaudeCodeWorkerAdapter(BaseWorkerAdapter):
             }
 
 
+class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the official Google Antigravity CLI (`agy`)."""
+
+    def __init__(self, name: str = "antigravity-cli", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "agy")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "exec", "--prompt", prompt, "--dir", workspace_root]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "antigravity_cli_exec",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Antigravity CLI execution error: {e}",
+                "approach": "error",
+            }
+
+
+class OmnirouteWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks through the Omniroute routing gateway."""
+
+    def __init__(self, name: str = "omniroute", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.endpoint = self.config.get("base_url", "http://localhost:8000/v1")
+        self.model = self.config.get("model", "omniroute:auto")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 300) -> Dict[str, Any]:
+        from .llm import call_llm
+
+        try:
+            response = call_llm(
+                prompt=prompt,
+                model=self.model,
+                timeout_s=timeout,
+                system_prompt="You are an autonomous software engineering agent tasked with completing a scoped unit task.",
+            )
+            return {
+                "exit_code": 0,
+                "stdout": response,
+                "stderr": "",
+                "approach": "omniroute_gateway",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Omniroute gateway execution error: {e}",
+                "approach": "error",
+            }
+
+
 class WorkerRegistry:
     """Registry to register and resolve custom worker adapters dynamically."""
 
     _adapters: Dict[str, BaseWorkerAdapter] = {
         "mock": MockWorkerAdapter("mock"),
+        "claude-code": ClaudeCodeWorkerAdapter("claude-code"),
+        "antigravity-cli": AntigravityCliWorkerAdapter("antigravity-cli"),
+        "omniroute": OmnirouteWorkerAdapter("omniroute"),
     }
 
     @classmethod

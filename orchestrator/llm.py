@@ -57,6 +57,26 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "base_url": "https://api.deepseek.com/v1",
         "schema": "openai",
     },
+    "omniroute": {
+        "env_key": "OMNIROUTE_API_KEY",
+        "base_url": "http://localhost:8000/v1",
+        "schema": "openai",
+    },
+    "openrouter": {
+        "env_key": "OPENROUTER_API_KEY",
+        "base_url": "https://openrouter.ai/api/v1",
+        "schema": "openai",
+    },
+    "groq": {
+        "env_key": "GROQ_API_KEY",
+        "base_url": "https://api.groq.com/openai/v1",
+        "schema": "openai",
+    },
+    "ollama": {
+        "env_key": "OLLAMA_API_KEY",
+        "base_url": "http://localhost:11434/v1",
+        "schema": "openai",
+    },
     "any": {
         "env_key": "LLM_API_KEY",
         "base_url": "https://api.openai.com/v1",

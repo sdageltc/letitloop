@@ -25,8 +25,15 @@ HYBRID_ROLES = ("Implementer", "Critic", "Verifier")
 # orchestrator routing layer, not the transport.
 PAID_MODELS = {
     "kimi-k2",
-    "claude-opus",
-    "gpt-5",
+    "kimi-k3",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-fable-5",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.6-cyber",
+    "deepseek-v4-pro",
     "deepseek-reasoner",
 }
 
