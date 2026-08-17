@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LIL (let it loop) — Brand Icon Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090B10;
+      --card-bg: #121520;
+      --border: #1E2333;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      --pink: #FF3366;
+      --cyan: #00E5FF;
+      --purple: #8A2BE2;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+      max-width: 700px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 51, 102, 0.12);
+      border: 1px solid rgba(255, 51, 102, 0.3);
+      color: #FF5E8A;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #CBD5E1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.sub {
+      color: var(--text-muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 32px;
+      width: 100%;
+      max-width: 1100px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 229, 255, 0.4);
+    }
+    .preview-box {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0B0D14;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .preview-box img, .preview-box svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      align-self: flex-start;
+      margin-bottom: 18px;
+    }
+    .tag-row {
+      display: flex;
+      gap: 8px;
+      align-self: flex-start;
+      margin-bottom: 20px;
+    }
+    .tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      color: #94A3B8;
+    }
+    .btn-row {
+      width: 100%;
+      display: flex;
+      gap: 12px;
+      margin-top: auto;
+    }
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      text-align: center;
+      transition: opacity 0.15s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #FF3366 0%, #D946EF 100%);
+      color: white;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="badge">Brand Identity Refinement</div>
+    <h1>LIL (let it loop) — Vector Icons</h1>
+    <p class="sub">Precision vector icons engineered with zero hallucinations: crisp, unmistakable <strong>L</strong> and <strong>i</strong> letterforms, cute-yet-modern colorways, and clean untangled loop geometry.</p>
+  </header>
+
+  <div class="grid">
+    <!-- Option 3 Refined -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="lil_logo_option3_refined.svg" alt="Option 3 Refined">
+      </div>
+      <div class="card-title">Option 3: Pop-Art Neon Circuit ⭐</div>
+      <div class="card-desc">Two bold capital 'L' pillars in Strawberry Pink & Electric Violet framing <strong>exactly ONE glowing cyan dot 'i'</strong> on an infinity circuit track.</div>
+      <div class="tag-row">
+        <span class="tag">#FF3366</span>
+        <span class="tag">#00E5FF</span>
+        <span class="tag">#8A2BE2</span>
+      </div>
+      <div class="btn-row">
+        <a href="lil_logo_option3_refined.svg" download class="btn btn-primary">Download SVG</a>
+        <a href="lil_logo_option3_refined.svg" target="_blank" class="btn btn-secondary">Open Vector</a>
+      </div>
+    </div>
+
+    <!-- Option 3 Alt Block Cut -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="lil_logo_option3_alt.svg" alt="Option 3 Alt">
+      </div>
+      <div class="card-title">Option 3B: Solid Block Loop</div>
+      <div class="card-desc">Clean geometric block-cut typography with sharp rectangular 'L' arms and a bold central pillar with a single cyan dot.</div>
+      <div class="tag-row">
+        <span class="tag">#FF2A7A</span>
+        <span class="tag">#00F5D4</span>
+        <span class="tag">#7B2CBF</span>
+      </div>
+      <div class="btn-row">
+        <a href="lil_logo_option3_alt.svg" download class="btn btn-primary">Download SVG</a>
+        <a href="lil_logo_option3_alt.svg" target="_blank" class="btn btn-secondary">Open Vector</a>
+      </div>
+    </div>
+
+    <!-- Option 1 Simplified -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="lil_logo_option1_simplified.svg" alt="Option 1 Simplified">
+      </div>
+      <div class="card-title">Option 1: Untangled Sakura Ribbon</div>
+      <div class="card-desc">Simplified, uncluttered infinity ribbon with zero tangled rings. Sakura Pink, Electric Lavender, and Cyan with bold 'L' accents and a single dot.</div>
+      <div class="tag-row">
+        <span class="tag">#FF5388</span>
+        <span class="tag">#D946EF</span>
+        <span class="tag">#00F2FE</span>
+      </div>
+      <div class="btn-row">
+        <a href="lil_logo_option1_simplified.svg" download class="btn btn-primary">Download SVG</a>
+        <a href="lil_logo_option1_simplified.svg" target="_blank" class="btn btn-secondary">Open Vector</a>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
