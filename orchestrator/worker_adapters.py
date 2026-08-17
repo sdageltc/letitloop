@@ -1,7 +1,8 @@
 """Pluggable Worker Adapter Framework for letitloop.
 
 Provides unified execution interfaces for various backend agents and CLIs:
-Claude Code, OpenCode, Aider, Script executors, and Direct LLM APIs.
+Claude Code, Google Antigravity, OpenCode, Hermes Agent, Cline, Aider, Omniroute,
+Script executors, and Direct LLM APIs.
 """
 
 import os
@@ -120,7 +121,7 @@ class ClaudeCodeWorkerAdapter(BaseWorkerAdapter):
 
 
 class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
-    """Executes tasks via the official Google Antigravity CLI (`agy`)."""
+    """Executes tasks via the Google Antigravity CLI (`agy`)."""
 
     def __init__(self, name: str = "antigravity-cli", config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
@@ -147,6 +148,134 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
                 "exit_code": 1,
                 "stdout": "",
                 "stderr": f"Antigravity CLI execution error: {e}",
+                "approach": "error",
+            }
+
+
+class OpenCodeWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the OpenCode CLI."""
+
+    def __init__(self, name: str = "opencode", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "opencode")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "run", "--prompt", prompt, "--workspace", workspace_root]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "opencode_run",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"OpenCode execution error: {e}",
+                "approach": "error",
+            }
+
+
+class HermesWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the Nous Research Hermes Agent CLI."""
+
+    def __init__(self, name: str = "hermes", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "hermes")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "exec", "--prompt", prompt, "--path", workspace_root]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "hermes_agent_exec",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Hermes Agent execution error: {e}",
+                "approach": "error",
+            }
+
+
+class ClineWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the Cline CLI / headless runner."""
+
+    def __init__(self, name: str = "cline", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "cline")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "--prompt", prompt, "--cwd", workspace_root, "--yes"]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "cline_autonomous",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Cline execution error: {e}",
+                "approach": "error",
+            }
+
+
+class AiderWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the Aider CLI pair programmer."""
+
+    def __init__(self, name: str = "aider", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "aider")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "--message", prompt, "--no-git", "--yes-always"]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "aider_pair_programmer",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Aider execution error: {e}",
                 "approach": "error",
             }
 
@@ -191,6 +320,10 @@ class WorkerRegistry:
         "mock": MockWorkerAdapter("mock"),
         "claude-code": ClaudeCodeWorkerAdapter("claude-code"),
         "antigravity-cli": AntigravityCliWorkerAdapter("antigravity-cli"),
+        "opencode": OpenCodeWorkerAdapter("opencode"),
+        "hermes": HermesWorkerAdapter("hermes"),
+        "cline": ClineWorkerAdapter("cline"),
+        "aider": AiderWorkerAdapter("aider"),
         "omniroute": OmnirouteWorkerAdapter("omniroute"),
     }
 

@@ -1,13 +1,40 @@
 # Model Context Protocol (MCP) & Agent Integration Guide
 
-The `letitloop` Model Context Protocol (MCP) server allows AI assistants and coding agents (**Claude Code**, **Cursor**, **Google Antigravity**, **OpenCode**, and custom MCP clients) to autonomously orchestrate macro-tasks, manage contracts, run verification suites, and conduct multi-lens quality reviews.
+The `letitloop` Model Context Protocol (MCP) server (`letitloop-mcp`) allows AI assistants and coding agents across the entire 2026 agent ecosystem (**Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**) to autonomously orchestrate macro-tasks, manage contracts, run verification suites, and conduct multi-lens quality reviews.
 
 ---
 
 ## 🚀 Quick Setup by Environment
 
-### 1. Google Antigravity Integration
-Add to your Antigravity MCP configuration (`~/.gemini/antigravity/mcp/` or project `mcp.json`):
+### 1. Claude Code
+Add the MCP server directly via CLI:
+```bash
+claude mcp add letitloop -- python -m orchestrator.mcp_server
+```
+Or in `~/.claude.json` / `.claude/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "letitloop": {
+      "command": "python",
+      "args": ["-m", "orchestrator.mcp_server"]
+    }
+  }
+}
+```
+
+---
+
+### 2. Cursor IDE Integration
+In Cursor Settings -> **Features** -> **MCP Servers** -> **Add New MCP Server**:
+- **Name**: `letitloop`
+- **Type**: `command`
+- **Command**: `letitloop-mcp` (or `python -m orchestrator.mcp_server`)
+
+---
+
+### 3. Google Antigravity Integration
+Add to your Antigravity MCP configuration (`~/.gemini/antigravity/mcp/letitloop/` or project `mcp.json`):
 ```json
 {
   "mcpServers": {
@@ -23,21 +50,42 @@ Add to your Antigravity MCP configuration (`~/.gemini/antigravity/mcp/` or proje
 }
 ```
 
-### 2. Cursor IDE Integration
-In Cursor Settings -> **Features** -> **MCP Servers** -> **Add New MCP Server**:
-- **Name**: `letitloop`
-- **Type**: `command`
-- **Command**: `letitloop-mcp` (or `python -m orchestrator.mcp_server`)
+---
 
-### 3. Claude Code Integration
-Add the MCP server to Claude Code via CLI or configuration:
-
-#### Option A: 1-Line CLI Command
-```bash
-claude mcp add letitloop -- python -m orchestrator.mcp_server
+### 4. OpenCode Integration
+In `~/.config/opencode/config.json` or `.opencode/mcp.json`:
+```json
+{
+  "mcp": {
+    "letitloop": {
+      "command": "letitloop-mcp",
+      "env": {
+        "WORKER_MODEL": "openai:gpt-5.6-luna",
+        "QC_MODEL": "openai:gpt-5.6-sol"
+      }
+    }
+  }
+}
 ```
 
-#### Option B: Configuration File (`~/.claude.json` or project `.claude/mcp.json`):
+---
+
+### 5. Hermes Agent (Nous Research)
+In `~/.hermes/config.json` or `.hermes/mcp.json`:
+```json
+{
+  "mcp_servers": {
+    "letitloop": {
+      "command": "letitloop-mcp"
+    }
+  }
+}
+```
+
+---
+
+### 6. Cline & Windsurf
+Add to Cline MCP settings or `.cline/mcp.json` / `.windsurf/mcp.json`:
 ```json
 {
   "mcpServers": {
@@ -49,8 +97,10 @@ claude mcp add letitloop -- python -m orchestrator.mcp_server
 }
 ```
 
-### 4. OpenCode / Omniroute Gateway Integration
-If using OpenCode or a multi-provider proxy like Omniroute:
+---
+
+### 7. Omniroute Gateway Integration
+If using Omniroute or a local OpenAI-compatible proxy:
 ```json
 {
   "mcpServers": {
@@ -67,13 +117,13 @@ If using OpenCode or a multi-provider proxy like Omniroute:
 
 ---
 
-## 🛠️ Exposed MCP Tools
+## 🛠️ Exposed MCP Tools (8 Native Capabilities)
 
 | Tool Name | Parameters | Description |
 |---|---|---|
 | `create_goal` | `goal_id`, `title`, `description` | Initialize a new autonomous macro-goal with isolated tracking |
 | `load_contract_file` | `contract_path` | Load, parse, and validate a contract JSON specification |
-| `run_contract_verification` | `contract_path`, `task_id` | Execute deterministic acceptance checks (syntax, regex, unit tests) |
+| `run_contract_verification` | `contract_path`, `task_id` | Execute deterministic acceptance checks (AST syntax, regex, unit tests) |
 | `run_quality_review` | `contract_path`, `lens` | Run multi-lens quality review (*code_correctness*, *security*, *tests*) |
 | `execute_supervisor_plan` | `goal_id`, `contracts`, `parallel` | Execute DAG plan using Supervisor with automated retries and WAL logging |
 | `inspect_task_state` | `task_id`, `run_dir` | Inspect state journal, attempt history, and evidence artifacts |

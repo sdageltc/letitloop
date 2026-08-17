@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""1-Click Skill Installer for letitloop.
+"""Universal 1-Click Skill Installer for letitloop.
 
-Installs the `letitloop` agent skill into supported AI environments:
+Installs the `letitloop` agent skill into supported 2026 AI coding environments:
 - Claude Code (~/.claude/skills/letitloop/)
 - Google Antigravity (~/.gemini/antigravity/builtin/skills/letitloop/ or .agents/skills/letitloop/)
-- Cursor (.cursor/skills/letitloop/)
+- Hermes Agent (~/.hermes/skills/letitloop/ or .hermes/skills/letitloop/)
 - OpenCode (.opencode/skills/letitloop/)
+- Cursor IDE (.cursor/skills/letitloop/)
+- Cline (.cline/skills/letitloop/ or ~/.cline/skills/letitloop/)
+- Windsurf (.windsurf/skills/letitloop/)
 """
 
 import argparse
@@ -41,8 +44,12 @@ def install_for_antigravity(src_dir: Path, target_workspace: Path | None = None)
     return dest
 
 
-def install_for_cursor(src_dir: Path, target_workspace: Path) -> Path:
-    dest = target_workspace / ".cursor" / "skills" / "letitloop"
+def install_for_hermes(src_dir: Path, target_workspace: Path | None = None) -> Path:
+    if target_workspace and (target_workspace / ".hermes").exists():
+        dest = target_workspace / ".hermes" / "skills" / "letitloop"
+    else:
+        home = Path.home()
+        dest = home / ".hermes" / "skills" / "letitloop"
     dest.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src_dir / "SKILL.md", dest / "SKILL.md")
     return dest
@@ -55,11 +62,32 @@ def install_for_opencode(src_dir: Path, target_workspace: Path) -> Path:
     return dest
 
 
+def install_for_cursor(src_dir: Path, target_workspace: Path) -> Path:
+    dest = target_workspace / ".cursor" / "skills" / "letitloop"
+    dest.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_dir / "SKILL.md", dest / "SKILL.md")
+    return dest
+
+
+def install_for_cline(src_dir: Path, target_workspace: Path) -> Path:
+    dest = target_workspace / ".cline" / "skills" / "letitloop"
+    dest.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_dir / "SKILL.md", dest / "SKILL.md")
+    return dest
+
+
+def install_for_windsurf(src_dir: Path, target_workspace: Path) -> Path:
+    dest = target_workspace / ".windsurf" / "skills" / "letitloop"
+    dest.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_dir / "SKILL.md", dest / "SKILL.md")
+    return dest
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install letitloop skill for AI assistants.")
     parser.add_argument(
         "--target",
-        choices=["all", "claude", "antigravity", "cursor", "opencode"],
+        choices=["all", "claude", "antigravity", "hermes", "opencode", "cursor", "cline", "windsurf"],
         default="all",
         help="Target AI assistant environment (default: all)",
     )
@@ -90,12 +118,12 @@ def main():
         except Exception as e:
             print(f"[-] Google Antigravity install skipped: {e}", file=sys.stderr)
 
-    if args.target in ("all", "cursor"):
+    if args.target in ("all", "hermes"):
         try:
-            dest = install_for_cursor(src, ws)
-            installed.append(("Cursor IDE", dest))
+            dest = install_for_hermes(src, ws)
+            installed.append(("Hermes Agent", dest))
         except Exception as e:
-            print(f"[-] Cursor install skipped: {e}", file=sys.stderr)
+            print(f"[-] Hermes Agent install skipped: {e}", file=sys.stderr)
 
     if args.target in ("all", "opencode"):
         try:
@@ -104,11 +132,32 @@ def main():
         except Exception as e:
             print(f"[-] OpenCode install skipped: {e}", file=sys.stderr)
 
+    if args.target in ("all", "cursor"):
+        try:
+            dest = install_for_cursor(src, ws)
+            installed.append(("Cursor IDE", dest))
+        except Exception as e:
+            print(f"[-] Cursor install skipped: {e}", file=sys.stderr)
+
+    if args.target in ("all", "cline"):
+        try:
+            dest = install_for_cline(src, ws)
+            installed.append(("Cline", dest))
+        except Exception as e:
+            print(f"[-] Cline install skipped: {e}", file=sys.stderr)
+
+    if args.target in ("all", "windsurf"):
+        try:
+            dest = install_for_windsurf(src, ws)
+            installed.append(("Windsurf", dest))
+        except Exception as e:
+            print(f"[-] Windsurf install skipped: {e}", file=sys.stderr)
+
     print("\n========================================================")
-    print("✨ letitloop SKILL INSTALLATION SUMMARY")
+    print("✨ letitloop MULTI-PLATFORM SKILL INSTALLATION SUMMARY")
     print("========================================================")
     for name, path in installed:
-        print(f"✅ {name:<20} -> {path}")
+        print(f"✅ {name:<22} -> {path}")
     print("========================================================\n")
 
 

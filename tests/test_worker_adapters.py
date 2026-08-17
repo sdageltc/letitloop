@@ -5,9 +5,13 @@ import tempfile
 from unittest.mock import patch
 
 from orchestrator.worker_adapters import (
+    AiderWorkerAdapter,
     AntigravityCliWorkerAdapter,
+    ClineWorkerAdapter,
+    HermesWorkerAdapter,
     MockWorkerAdapter,
     OmnirouteWorkerAdapter,
+    OpenCodeWorkerAdapter,
     ScriptWorkerAdapter,
     WorkerRegistry,
 )
@@ -32,8 +36,39 @@ def test_script_worker_adapter():
 def test_antigravity_cli_worker_adapter():
     with tempfile.TemporaryDirectory() as td:
         adapter = AntigravityCliWorkerAdapter(config={"binary": sys.executable})
-        # Executing python with agy args will return nonzero without agy, handled gracefully
         resp = adapter.execute("do work", td, "task_03")
+        assert "exit_code" in resp
+        assert "approach" in resp
+
+
+def test_opencode_worker_adapter():
+    with tempfile.TemporaryDirectory() as td:
+        adapter = OpenCodeWorkerAdapter(config={"binary": sys.executable})
+        resp = adapter.execute("do work", td, "task_04")
+        assert "exit_code" in resp
+        assert "approach" in resp
+
+
+def test_hermes_worker_adapter():
+    with tempfile.TemporaryDirectory() as td:
+        adapter = HermesWorkerAdapter(config={"binary": sys.executable})
+        resp = adapter.execute("do work", td, "task_05")
+        assert "exit_code" in resp
+        assert "approach" in resp
+
+
+def test_cline_worker_adapter():
+    with tempfile.TemporaryDirectory() as td:
+        adapter = ClineWorkerAdapter(config={"binary": sys.executable})
+        resp = adapter.execute("do work", td, "task_06")
+        assert "exit_code" in resp
+        assert "approach" in resp
+
+
+def test_aider_worker_adapter():
+    with tempfile.TemporaryDirectory() as td:
+        adapter = AiderWorkerAdapter(config={"binary": sys.executable})
+        resp = adapter.execute("do work", td, "task_07")
         assert "exit_code" in resp
         assert "approach" in resp
 
@@ -41,16 +76,22 @@ def test_antigravity_cli_worker_adapter():
 def test_omniroute_worker_adapter():
     adapter = OmnirouteWorkerAdapter(config={"model": "omniroute:mock"})
     with patch("orchestrator.llm.call_llm", return_value="Generated code response"):
-        resp = adapter.execute("Generate code", "/tmp", "task_04")
+        resp = adapter.execute("Generate code", "/tmp", "task_08")
         assert resp["exit_code"] == 0
         assert resp["stdout"] == "Generated code response"
         assert resp["approach"] == "omniroute_gateway"
 
 
 def test_worker_registry():
-    assert "mock" in WorkerRegistry.list_available()
-    assert "antigravity-cli" in WorkerRegistry.list_available()
-    assert "omniroute" in WorkerRegistry.list_available()
+    available = WorkerRegistry.list_available()
+    assert "mock" in available
+    assert "antigravity-cli" in available
+    assert "opencode" in available
+    assert "hermes" in available
+    assert "cline" in available
+    assert "aider" in available
+    assert "omniroute" in available
+
     custom = MockWorkerAdapter("custom_mock")
     WorkerRegistry.register("custom", custom)
     assert WorkerRegistry.get("custom") == custom

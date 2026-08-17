@@ -1,12 +1,13 @@
-# Agent Skill Integration Guide for `letitloop`
+# Universal Agent Skill Integration Guide for `letitloop`
 
-You can use `letitloop` as a **Universal Agent Skill** across **Claude Code**, **Google Antigravity**, **Cursor**, and **OpenCode**.
+You can use `letitloop` as a **Universal Agent Skill** across the entire 2026 AI coding ecosystem:
+**Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**.
 
-When installed as a skill, the Lead Model (e.g. **Claude Opus 5** in Claude Code or **Gemini 3.1 Pro** in Antigravity) acts as the high-level architect while `letitloop` acts as the underlying deterministic engine.
+When installed as a skill, the Lead Model (e.g. **Claude Opus 5**, **Gemini 3.1 Pro**, **GPT-5.6 Sol**, or **DeepSeek-V4 Pro**) acts as the high-level architect while `letitloop` acts as the underlying deterministic engine.
 
 ---
 
-## ⚡ 1-Click Skill Installation
+## ⚡ 1-Click Skill Installation Across Platforms
 
 From the `letitloop` repository directory, run:
 
@@ -15,21 +16,24 @@ From the `letitloop` repository directory, run:
 python skill/install_skill.py
 
 # Or install for a specific assistant:
-python skill/install_skill.py --target claude        # Claude Code (~/.claude/skills/)
-python skill/install_skill.py --target antigravity   # Google Antigravity (~/.gemini/antigravity/builtin/skills/)
-python skill/install_skill.py --target cursor        # Cursor IDE (.cursor/skills/)
-python skill/install_skill.py --target opencode      # OpenCode (.opencode/skills/)
+python skill/install_skill.py --target claude        # Claude Code (~/.claude/skills/letitloop/)
+python skill/install_skill.py --target antigravity   # Google Antigravity (~/.gemini/antigravity/builtin/skills/letitloop/)
+python skill/install_skill.py --target hermes        # Hermes Agent (~/.hermes/skills/letitloop/)
+python skill/install_skill.py --target opencode      # OpenCode (.opencode/skills/letitloop/)
+python skill/install_skill.py --target cursor        # Cursor IDE (.cursor/skills/letitloop/)
+python skill/install_skill.py --target cline         # Cline (.cline/skills/letitloop/)
+python skill/install_skill.py --target windsurf      # Windsurf (.windsurf/skills/letitloop/)
 ```
 
 ---
 
-## 🤖 How Claude Code (Opus 5) Uses `letitloop`
+## 🤖 How Coding Agents Use `letitloop`
 
-In Claude Code, you can simply instruct the agent:
+In your AI coding agent of choice, simply prompt:
 
-> **User**: "Use the letitloop skill to build a multi-tenant billing service with stripe integration and unit tests."
+> **User Prompt**: "Use the letitloop skill to implement a multi-tenant billing service with stripe integration and unit tests."
 
-### What Claude Code (Opus 5) Does:
+### What the Agent Does:
 1. **Reads [`SKILL.md`](../skill/SKILL.md)**: Adopts the Orchestrator Architect role.
 2. **Generates Contract DAG**: Breaks down the objective into modular task contracts (`contracts/stripe_client.json`, `contracts/billing_models.json`, `contracts/webhook_handler.json`).
 3. **Executes & Verifies**:
@@ -49,21 +53,3 @@ In Claude Code, you can simply instruct the agent:
 | **Verification** | Assumed correctness / eyeball checks | Machine-verifiable AST syntax and exit-code assertions |
 | **Retries** | Infinite hallucination loops | Bounded 3-strike policy with automated escalation |
 | **Observability** | Scrolling chat terminal | Live ASCII status dashboard matrix (`lil dashboard`) |
-
----
-
-## 📦 Manual Skill Installation (Optional)
-
-If you prefer to copy the skill manually:
-
-### Claude Code
-```bash
-mkdir -p ~/.claude/skills/letitloop
-cp skill/SKILL.md ~/.claude/skills/letitloop/SKILL.md
-```
-
-### Google Antigravity
-```bash
-mkdir -p ~/.gemini/antigravity/builtin/skills/letitloop
-cp skill/SKILL.md ~/.gemini/antigravity/builtin/skills/letitloop/SKILL.md
-```

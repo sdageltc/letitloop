@@ -8,8 +8,11 @@ import yaml
 from skill.install_skill import (
     get_skill_src,
     install_for_antigravity,
+    install_for_cline,
     install_for_cursor,
+    install_for_hermes,
     install_for_opencode,
+    install_for_windsurf,
 )
 
 
@@ -44,6 +47,19 @@ def test_skill_installers():
         # OpenCode installer
         o_dest = install_for_opencode(src, ws)
         assert (o_dest / "SKILL.md").exists()
+
+        # Hermes installer
+        (ws / ".hermes").mkdir()
+        h_dest = install_for_hermes(src, ws)
+        assert (h_dest / "SKILL.md").exists()
+
+        # Cline installer
+        cl_dest = install_for_cline(src, ws)
+        assert (cl_dest / "SKILL.md").exists()
+
+        # Windsurf installer
+        w_dest = install_for_windsurf(src, ws)
+        assert (w_dest / "SKILL.md").exists()
 
         # Antigravity project-local installer
         (ws / ".agents").mkdir()
