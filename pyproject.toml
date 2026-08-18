@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.1.0"
+version = "0.1.1"
 description = "Autonomous Macro-Task Control Loop & Verification Engine. DAG Contract Planning, Crash-Proof Supervisor (WAL), Deterministic Verifiers, Multi-Lens QC, and Universal MCP / Skill Support."
 readme = "README.md"
 license = { text = "MIT" }
