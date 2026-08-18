@@ -164,7 +164,7 @@ def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeo
             from .qc_review import _redact_secrets
 
             detail = _redact_secrets(detail)
-        except Exception:
+        except (OSError, ImportError, ValueError, AttributeError):
             pass
         raise LLMError(
             f"HTTP {e.code} from provider: {detail or e.reason}",

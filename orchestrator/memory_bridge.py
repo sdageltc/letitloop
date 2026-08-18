@@ -2,6 +2,7 @@
 
 import json
 import os
+import threading
 import time
 from typing import List, Optional
 
@@ -36,20 +37,12 @@ def _pid_alive(pid):
 
 
 class MemoryBridge:
-    """Durable JSONL memory staging facility with cross-process locking.
-
-    Concurrency (QC 2026-08-02, P1-4): the lock is a sibling file holding
-    {pid, created_at}. A lock is stolen ONLY when its owner pid is verifiably
-    dead (or the file is corrupt/older than STALE_TTL) — never while the owner
-    lives, even if mtime is old. _release_lock() removes the lock only if the
-    stored pid is still ours, so a slow writer can never delete another
-    writer's lock. append() raises TimeoutError if the lock cannot be acquired
-    within LOCK_TTL_SEC.
-    """
+    """Durable JSONL memory staging facility with cross-process locking."""
 
     def __init__(self, path: str):
         self.path = os.path.abspath(path)
         self.lock_path = f"{self.path}.lock"
+        self._thread_lock = threading.Lock()
 
     def _read_lock(self):
         try:
@@ -131,64 +124,57 @@ class MemoryBridge:
             return None
 
     def append(self, entry: dict) -> int:
-        """Append one JSON line atomically with cross-process locking and fsync.
+        """Append one JSON line atomically with cross-process locking and fsync."""
+        with self._thread_lock:
+            self._acquire_lock()
+            try:
+                line_count = 0
+                if os.path.exists(self.path):
+                    with open(self.path, "r", encoding="utf-8", errors="replace") as f:
+                        line_count = sum(1 for _ in f)
 
-        Returns 1-based line number of the appended entry. Raises TimeoutError
-        if the lock is held by a live process for longer than LOCK_TTL_SEC.
-        """
-        self._acquire_lock()
-        try:
-            line_count = 0
-            if os.path.exists(self.path):
-                with open(self.path, "r", encoding="utf-8", errors="replace") as f:
-                    line_count = sum(1 for _ in f)
+                parent_dir = os.path.dirname(self.path)
+                if parent_dir:
+                    os.makedirs(parent_dir, exist_ok=True)
 
-            parent_dir = os.path.dirname(self.path)
-            if parent_dir:
-                os.makedirs(parent_dir, exist_ok=True)
+                with open(self.path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry) + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())
 
-            with open(self.path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry) + "\n")
-                f.flush()
-                os.fsync(f.fileno())
-
-            return line_count + 1
-        finally:
-            self._release_lock()
+                return line_count + 1
+            finally:
+                self._release_lock()
 
     def read(self, scope: Optional[str] = None, limit: Optional[int] = None) -> List[dict]:
-        """Read entries from JSONL file in chronological order (newest last).
+        """Read entries from JSONL file in chronological order (newest last)."""
+        with self._thread_lock:
+            if not os.path.exists(self.path):
+                return []
 
-        Ignores torn or malformed lines. If scope is specified, filters by scope.
-        If limit is specified, returns only the most recent N entries.
-        """
-        if not os.path.exists(self.path):
-            return []
+            entries: List[dict] = []
+            with open(self.path, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    try:
+                        data = json.loads(line_str)
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        continue
 
-        entries: List[dict] = []
-        with open(self.path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line_str = line.strip()
-                if not line_str:
-                    continue
-                try:
-                    data = json.loads(line_str)
-                except (json.JSONDecodeError, ValueError, TypeError):
-                    continue
+                    if not isinstance(data, dict):
+                        continue
 
-                if not isinstance(data, dict):
-                    continue
+                    if scope is not None:
+                        if data.get("scope") != scope:
+                            continue
 
-                if scope is not None:
-                    if data.get("scope") == scope:
-                        entries.append(data)
-                else:
                     entries.append(data)
 
-        if limit is not None and limit > 0:
-            entries = entries[-limit:]
-
-        return entries
+            if limit is not None and limit > 0:
+                return entries[-limit:]
+            return entries
 
     def read_last(self, scope: Optional[str] = None) -> Optional[dict]:
         """Return the most recent matching entry or None."""

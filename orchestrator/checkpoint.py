@@ -181,3 +181,52 @@ def clear_checkpoints(run_dir: str) -> int:
         except OSError:
             pass
     return len(files)
+
+
+def apply_checkpoint(
+    run_dir: str,
+    workspace_root: str = "",
+) -> Dict[str, Any]:
+    """Apply the latest checkpoint by rehydrating plan.json and task state files.
+
+    Returns the recovery summary dict or raises FileNotFoundError if no checkpoint.
+    """
+    recovery = recover_from_checkpoint(run_dir)
+    if not recovery.get("recovered"):
+        raise FileNotFoundError("No valid checkpoint found to apply")
+
+    plan_contracts = recovery.get("plan_contracts", [])
+    if plan_contracts:
+        plan_file = os.path.join(run_dir, "plan.json")
+        plan_data = {
+            "goal_id": os.path.basename(run_dir),
+            "contracts": plan_contracts,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with open(plan_file, "w", encoding="utf-8") as f:
+            json.dump(plan_data, f, indent=2, ensure_ascii=False)
+
+    graph_statuses = recovery.get("graph_statuses", {})
+    from .exceptions import IllegalTransitionError, StateError
+    from .state import create_initial_state, load_state, save_state
+
+    for task_id, status in graph_statuses.items():
+        task_dir = os.path.join(run_dir, task_id)
+        os.makedirs(task_dir, exist_ok=True)
+        state_file = os.path.join(task_dir, "state.json")
+        if os.path.isfile(state_file):
+            try:
+                state = load_state(state_file, journal_dir=task_dir)
+            except (StateError, json.JSONDecodeError, OSError, ValueError):
+                state = create_initial_state(task_id, journal_dir=task_dir)
+        else:
+            state = create_initial_state(task_id, journal_dir=task_dir)
+
+        if state.status != status:
+            try:
+                state.transition(status, reason="rehydrated from checkpoint")
+            except (IllegalTransitionError, StateError):
+                state.status = status
+        save_state(state, state_file)
+
+    return recovery

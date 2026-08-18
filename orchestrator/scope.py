@@ -185,11 +185,14 @@ class FileBackedScopeRegistry:
     LOCK_TTL_SEC = 30
 
     def __init__(self, workspace_root: str, ttl_sec: int = LEASE_TTL_SEC):
+        import threading
+
         self.workspace_root = os.path.abspath(workspace_root)
         self.ttl_sec = ttl_sec
         self.lock_dir = os.path.join(self.workspace_root, ".opencode", "locks")
         self.path = os.path.join(self.lock_dir, "scope_leases.json")
         self.lock_path = f"{self.path}.lock"
+        self._thread_lock = threading.Lock()
 
     def _acquire(self) -> None:
         os.makedirs(self.lock_dir, exist_ok=True)
@@ -200,7 +203,7 @@ class FileBackedScopeRegistry:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump({"pid": os.getpid(), "created_at": time.time()}, f)
                 return
-            except FileExistsError:
+            except (FileExistsError, PermissionError):
                 try:
                     if time.time() - os.path.getmtime(self.lock_path) > self.LOCK_TTL_SEC:
                         os.remove(self.lock_path)
@@ -252,50 +255,53 @@ class FileBackedScopeRegistry:
                 pass
 
     def register(self, task_id: str, declared_outputs: List[str]) -> None:
-        self._acquire()
-        try:
-            leases = [lease for lease in self._load_unlocked() if lease.get("task_id") != task_id]
-            leases.append(
-                {
-                    "task_id": task_id,
-                    "pid": os.getpid(),
-                    "created_at": time.time(),
-                    "declared_outputs": list(declared_outputs),
-                }
-            )
-            self._write_unlocked(leases)
-        finally:
-            self._release()
+        with self._thread_lock:
+            self._acquire()
+            try:
+                leases = [lease for lease in self._load_unlocked() if lease.get("task_id") != task_id]
+                leases.append(
+                    {
+                        "task_id": task_id,
+                        "pid": os.getpid(),
+                        "created_at": time.time(),
+                        "declared_outputs": list(declared_outputs),
+                    }
+                )
+                self._write_unlocked(leases)
+            finally:
+                self._release()
 
     def unregister(self, task_id: str) -> None:
-        try:
-            self._acquire()
-        except TimeoutError:
-            return
-        try:
-            leases = [lease for lease in self._load_unlocked() if lease.get("task_id") != task_id]
-            self._write_unlocked(leases)
-        finally:
-            self._release()
+        with self._thread_lock:
+            try:
+                self._acquire()
+            except TimeoutError:
+                return
+            try:
+                leases = [lease for lease in self._load_unlocked() if lease.get("task_id") != task_id]
+                self._write_unlocked(leases)
+            finally:
+                self._release()
 
     def sibling_declared_outputs(self, task_id: Optional[str] = None) -> List[str]:
-        try:
-            self._acquire()
-        except TimeoutError:
-            return []
-        try:
-            leases = self._load_unlocked()
-            self._write_unlocked(leases)
-            outputs: List[str] = []
-            for lease in leases:
-                if task_id is not None and lease.get("task_id") == task_id:
-                    continue
-                declared = lease.get("declared_outputs", [])
-                if isinstance(declared, list):
-                    outputs.extend(str(p) for p in declared if p)
-            return outputs
-        finally:
-            self._release()
+        with self._thread_lock:
+            try:
+                self._acquire()
+            except TimeoutError:
+                return []
+            try:
+                leases = self._load_unlocked()
+                self._write_unlocked(leases)
+                outputs: List[str] = []
+                for lease in leases:
+                    if task_id is not None and lease.get("task_id") == task_id:
+                        continue
+                    declared = lease.get("declared_outputs", [])
+                    if isinstance(declared, list):
+                        outputs.extend(str(p) for p in declared if p)
+                return outputs
+            finally:
+                self._release()
 
 
 def check_scope(
@@ -317,9 +323,11 @@ def check_scope(
     (they may be writing their own declared outputs concurrently).
     """
     cache_key = f"{workspace_root}|{run_dir}"
-    before = _snapshot_cache.get(cache_key) or load_snapshot(run_dir)
+    before = _snapshot_cache.get(cache_key)
+    if before is None:
+        before = load_snapshot(run_dir)
     snapshot_path = os.path.join(run_dir, SCOPE_SNAPSHOT_FILE)
-    if not before:
+    if before is None or (not before and not os.path.isfile(snapshot_path)):
         missing_snapshot = not os.path.isfile(snapshot_path)
         if missing_snapshot:
             return ScopeCheckResult(
@@ -333,7 +341,7 @@ def check_scope(
                 ],
                 snapshot_path=snapshot_path,
             )
-        return ScopeCheckResult(passed=True, violations=[], snapshot_path=snapshot_path)
+        before = {}
 
     allowed = contract.workspace_scope.get("allow", [])
     denied = contract.workspace_scope.get("deny", [])
@@ -346,7 +354,7 @@ def check_scope(
     if task_id:
         try:
             sibling_outputs = FileBackedScopeRegistry(workspace_root).sibling_declared_outputs(task_id=task_id)
-        except Exception:
+        except (TimeoutError, OSError, json.JSONDecodeError, KeyError):
             sibling_outputs = []
     violations: List[ScopeViolation] = []
 

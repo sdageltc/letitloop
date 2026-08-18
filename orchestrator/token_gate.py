@@ -84,7 +84,7 @@ def record_violation(
     try:
         DEFAULT_LEDGER.parent.mkdir(parents=True, exist_ok=True)
         lock = DEFAULT_LEDGER.with_suffix(".lock")
-        handle = open(lock, "a+")
+        handle = open(lock, "a+", encoding="utf-8")
         try:
             _lock_file().lockf(handle, _lock_file().LOCK_EX)
             with open(DEFAULT_LEDGER, "a", encoding="utf-8") as f:
