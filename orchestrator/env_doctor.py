@@ -38,6 +38,14 @@ def _probe_endpoint(url: str, timeout: float = 1.5) -> bool:
         return False
 
 
+def _has_module(name: str) -> bool:
+    """Safely check if a module is available without raising on missing namespace roots."""
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ModuleNotFoundError, ValueError, AttributeError, ImportError):
+        return False
+
+
 def run_env_doctor(run_dir: Optional[str] = None, check_connectivity: bool = False) -> int:
     fatal = False
 
@@ -52,15 +60,12 @@ def run_env_doctor(run_dir: Optional[str] = None, check_connectivity: bool = Fal
         fatal = True
 
     # Check optional packages aligned with pyproject.toml extras
-    has_pytest = importlib.util.find_spec("pytest") is not None
-    has_ruff = shutil.which("ruff") is not None or importlib.util.find_spec("ruff") is not None
-    has_bandit = importlib.util.find_spec("bandit") is not None
-    has_openai = importlib.util.find_spec("openai") is not None
-    has_anthropic = importlib.util.find_spec("anthropic") is not None
-    has_google = (
-        importlib.util.find_spec("google.genai") is not None
-        or importlib.util.find_spec("google.generativeai") is not None
-    )
+    has_pytest = _has_module("pytest")
+    has_ruff = shutil.which("ruff") is not None or _has_module("ruff")
+    has_bandit = _has_module("bandit")
+    has_openai = _has_module("openai")
+    has_anthropic = _has_module("anthropic")
+    has_google = _has_module("google.genai") or _has_module("google.generativeai")
 
     installed_extras = []
     if has_pytest and has_ruff:
