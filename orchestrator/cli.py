@@ -324,7 +324,7 @@ def cmd_doctor(args):
     if not args.task_id:
         from .env_doctor import run_env_doctor
 
-        sys.exit(run_env_doctor())
+        sys.exit(run_env_doctor(check_connectivity=getattr(args, "probe", False)))
 
     sp = _state_path(args.task_id)
     if not os.path.isfile(sp):
@@ -1379,6 +1379,9 @@ def main():
         "doctor", help="Diagnose task health and next actions, or system environment if no task_id given"
     )
     p_doctor.add_argument("task_id", nargs="?", default=None, help="task ID")
+    p_doctor.add_argument(
+        "--probe", action="store_true", help="Perform lightweight network reachability probe on configured endpoints"
+    )
 
     p_propose = sub.add_parser("propose", help="Propose a plan: intake → plan → preview → approval check")
     p_propose.add_argument("--goal-id", help="Goal ID (auto-generated from prompt if not given)")
