@@ -21,7 +21,7 @@ class TestConfigDefaults:
 
     def test_default_worker(self):
         cfg = OrchestratorConfig()
-        assert cfg.worker.model == ModelRegistry.WORKER_PREFIXED
+        assert cfg.worker.model == ModelRegistry.default_worker()
         assert cfg.worker.max_attempts == 3
         assert cfg.worker.timeout_sec == 300
 
@@ -40,7 +40,7 @@ class TestConfigRoundtrip:
     def test_to_dict(self):
         cfg = OrchestratorConfig()
         d = cfg.to_dict()
-        assert d["worker"]["model"] == ModelRegistry.WORKER_PREFIXED
+        assert d["worker"]["model"] == ModelRegistry.default_worker()
 
     def test_from_dict(self):
         cfg = OrchestratorConfig.from_dict(
@@ -56,7 +56,7 @@ class TestConfigRoundtrip:
 
     def test_from_dict_empty(self):
         cfg = OrchestratorConfig.from_dict({})
-        assert cfg.worker.model == ModelRegistry.WORKER_PREFIXED
+        assert cfg.worker.model == ModelRegistry.default_worker()
 
     def test_load_from_json_file(self, tmp_path):
         config_path = os.path.join(str(tmp_path), "config.json")
@@ -73,14 +73,14 @@ class TestConfigRoundtrip:
 
     def test_load_from_nonexistent_file(self):
         cfg = OrchestratorConfig.load("/nonexistent/config.json")
-        assert cfg.worker.model == ModelRegistry.WORKER_PREFIXED
+        assert cfg.worker.model == ModelRegistry.default_worker()
 
     def test_load_from_bad_json(self, tmp_path):
         config_path = os.path.join(str(tmp_path), "bad.json")
         with open(config_path, "w", encoding="utf-8") as f:
             f.write("{invalid")
         cfg = OrchestratorConfig.load(config_path)
-        assert cfg.worker.model == ModelRegistry.WORKER_PREFIXED
+        assert cfg.worker.model == ModelRegistry.default_worker()
 
 
 class TestConfigEnvOverride:

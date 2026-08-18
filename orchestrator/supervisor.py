@@ -851,7 +851,12 @@ class Supervisor:
                             "allowed_paths": allowed,
                         }
                     )
-                contract.acceptance_checks = list(contract.acceptance_checks) + injected_checks
+                base_checks = [
+                    c
+                    for c in contract.acceptance_checks
+                    if isinstance(c, dict) and c.get("id") not in ("undeclared_outputs", "required_sections")
+                ]
+                contract.acceptance_checks = base_checks + injected_checks
 
                 all_passed, v_results, evidence_path = run_verification(contract, self.workspace_root, task_dir)
 
