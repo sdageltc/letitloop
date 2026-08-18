@@ -321,6 +321,10 @@ def cmd_status(args):
 
 
 def cmd_doctor(args):
+    if not args.task_id:
+        from .env_doctor import run_env_doctor
+        sys.exit(run_env_doctor())
+
     sp = _state_path(args.task_id)
     if not os.path.isfile(sp):
         print(f"error: no state found for task {args.task_id} at {sp}", file=sys.stderr)
@@ -1370,8 +1374,8 @@ def main():
     p_status = sub.add_parser("status", help="Show full task state")
     p_status.add_argument("task_id", help="task ID")
 
-    p_doctor = sub.add_parser("doctor", help="Diagnose task health and next actions")
-    p_doctor.add_argument("task_id", help="task ID")
+    p_doctor = sub.add_parser("doctor", help="Diagnose task health and next actions, or system environment if no task_id given")
+    p_doctor.add_argument("task_id", nargs="?", default=None, help="task ID")
 
     p_propose = sub.add_parser("propose", help="Propose a plan: intake → plan → preview → approval check")
     p_propose.add_argument("--goal-id", help="Goal ID (auto-generated from prompt if not given)")
