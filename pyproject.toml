@@ -78,6 +78,9 @@ where = ["."]
 include = ["orchestrator*"]
 exclude = ["scratch*", "tests*", ".git*", "__pycache__*"]
 
+[tool.setuptools.package-data]
+orchestrator = ["*.md"]
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra --strict-markers --tb=short"
