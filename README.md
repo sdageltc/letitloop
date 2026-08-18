@@ -215,27 +215,65 @@ lil reconcile <goal_id>
 
 ---
 
-## Testing & Verification
+## Quick Safe Demo (Zero Cloud Keys)
+
+You can run a complete, deterministic macro-task loop completely offline without any API keys using the built-in `mock` worker:
 
 ```bash
-# Run all unit tests (1,121 tests across 69 modules)
-python -m pytest tests -p no:benchmark -q --ignore=tests/test_integration.py
+# 1. Propose a plan
+lil propose "Build a mathematical utility module" --worker mock
 
-# Run end-to-end integration tests
-python -m pytest tests/test_integration.py -v
+# 2. Inspect and approve the generated Contract DAG
+lil approve <goal_id>
 
-# Fast in-process verification runner
-python fast_test_runner.py
+# 3. Execute under supervisor oversight
+lil run-approved <goal_id>
+
+# 4. View execution ledger and metrics
+lil status <goal_id>
 ```
 
 ---
 
-## Security & Privacy
+## Fast Developer Loop & Testing
 
-`letitloop` is built with a zero-trust security architecture:
+`letitloop` includes a high-performance in-process test runner designed to bypass slow pytest plugin autoloads during development:
+
+```bash
+# 1. Fast in-process test runner (1,122 tests in ~75s)
+python fast_test_runner.py
+
+# 2. Run targeted unit test suite
+pytest tests/test_supervisor.py -v
+
+# 3. Run hostile security & fuzzing suites
+pytest tests/test_wal_corruption_recovery.py tests/test_verifier_ast_fuzz.py tests/test_worker_escaping.py -v
+
+# 4. Run full integration test suite
+pytest tests/test_integration.py -v
+```
+
+---
+
+## Operational Environment & Storage
+
+By default, task execution state, WAL journals, and checkpoints are stored in `scratch/orchestrator_runs` (which is excluded from Git via `.gitignore`).
+
+To store runs in an external directory (e.g. for CI isolation or persistent daemon usage), set the `LIL_RUN_DIR` environment variable:
+
+```bash
+export LIL_RUN_DIR=~/.letitloop/runs
+```
+
+---
+
+## Security & Sandboxing Architecture
+
+`letitloop` operates under a zero-trust execution model:
 - **Redaction Firewall**: Automatic masking of PATs, OAuth keys, AWS credentials, GCP tokens, and PEM private keys.
-- **Sandbox Scoping**: Deny-by-default path scoping preventing directory traversal or unauthorized file modifications.
-- **Safe Subprocess Spawning**: Isolated execution environments with explicit permission boundaries.
+- **Environment Scrubbing**: Sensitive parent environment variables are stripped prior to worker execution.
+- **Scope Checking**: Userland filesystem snapshot diffing (`scope.py`) enforcing directory bounds and declared output paths.
+- **Sandboxing Recommendation**: For untrusted or autonomous workloads, running `letitloop` within a container runtime (Docker/Podman/Firecracker) with network isolation is strongly recommended.
 
 ---
 

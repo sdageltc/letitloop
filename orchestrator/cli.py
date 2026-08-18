@@ -35,7 +35,7 @@ from .verifier import run_verification
 from .worker import run_worker
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DEFAULT_RUN_DIR = os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs")
+DEFAULT_RUN_DIR = os.environ.get("LIL_RUN_DIR", os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs"))
 IMPOSSIBILITY_LOG = os.path.join(WORKSPACE_ROOT, "scratch", "impossibility_theorems.log")
 
 
