@@ -2,7 +2,7 @@
 name: worker-adapter-development
 description: Guide for developing, testing, and hardening worker execution adapters (Claude Code, Agy, OpenCode, Hermes, Cline, Aider, Docker) in letitloop.
 metadata:
-  author: letitloop-maintainers
+  author: Oguzhan Kayan (@sdageltc)
   version: "1.0.0"
 compatibility: Cross-platform (Subprocess & Worker API)
 ---

@@ -24,18 +24,20 @@ except ImportError:
     pytest_benchmark = None
 
 
-@pytest.fixture
-def benchmark():
-    """Fallback benchmark fixture when pytest-benchmark is not installed."""
+if pytest_benchmark is None:
 
-    def _bench(fn, *args, **kwargs):
-        t0 = time.perf_counter()
-        res = fn(*args, **kwargs)
-        dur = time.perf_counter() - t0
-        assert dur < 5.0
-        return res
+    @pytest.fixture
+    def benchmark():
+        """Fallback benchmark fixture when pytest-benchmark is not installed."""
 
-    return _bench
+        def _bench(fn, *args, **kwargs):
+            t0 = time.perf_counter()
+            res = fn(*args, **kwargs)
+            dur = time.perf_counter() - t0
+            assert dur < 5.0
+            return res
+
+        return _bench
 
 
 SAMPLE_CONTRACT = {

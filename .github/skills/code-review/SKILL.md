@@ -2,7 +2,7 @@
 name: code-review
 description: Comprehensive code review agent skill for letitloop pull requests and diffs. Enforces deterministic contract contracts, typed exceptions, zero blind except Exception blocks, Bandit SAST security checks, and triple-OS test verification.
 metadata:
-  author: letitloop-maintainers
+  author: Oguzhan Kayan (@sdageltc)
   version: "1.0.0"
 compatibility: Cross-platform (Python 3.11+, pytest, ruff, bandit)
 ---
