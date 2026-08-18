@@ -146,6 +146,18 @@ def run_env_doctor(run_dir: Optional[str] = None, check_connectivity: bool = Fal
             is_warning=True,
         )
 
+    # 5. Architecture & Living ADR Registry
+    adr_dir = os.path.join(os.getcwd(), "docs", "adr")
+    if os.path.isdir(adr_dir):
+        adrs = [f for f in os.listdir(adr_dir) if f.endswith(".md") and f not in ("README.md", "template.md")]
+        print_status(True, f"Architecture Decisions: {len(adrs)} living ADRs found in docs/adr/ (OK)")
+    else:
+        print_status(
+            True,
+            "Architecture Decisions: docs/adr/ not present in current workspace (optional)",
+            is_warning=True,
+        )
+
     if fatal:
         print("\nPrerequisites failed. Please fix the errors above.")
         return 1
