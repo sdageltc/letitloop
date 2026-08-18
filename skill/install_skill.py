@@ -4,6 +4,7 @@
 Installs the `letitloop` agent skill into supported 2026 AI coding environments:
 - Claude Code (~/.claude/skills/letitloop/)
 - Google Antigravity (~/.gemini/antigravity/builtin/skills/letitloop/ or .agents/skills/letitloop/)
+- OpenAI Codex (~/.codex/skills/letitloop/ or .codex/skills/letitloop/)
 - Hermes Agent (~/.hermes/skills/letitloop/ or .hermes/skills/letitloop/)
 - OpenCode (.opencode/skills/letitloop/)
 - Cursor IDE (.cursor/skills/letitloop/)
@@ -83,11 +84,25 @@ def install_for_windsurf(src_dir: Path, target_workspace: Path) -> Path:
     return dest
 
 
+def install_for_codex(src_dir: Path, target_workspace: Path | None = None) -> Path:
+    """Install letitloop skill for OpenAI Codex (global skills dir or project-local .codex/skills)."""
+    if target_workspace and (target_workspace / ".codex").exists():
+        dest = target_workspace / ".codex" / "skills" / "letitloop"
+    elif target_workspace and (target_workspace / "AGENTS.md").exists():
+        dest = target_workspace / ".codex" / "skills" / "letitloop"
+    else:
+        home = Path.home()
+        dest = home / ".codex" / "skills" / "letitloop"
+    dest.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_dir / "SKILL.md", dest / "SKILL.md")
+    return dest
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install letitloop skill for AI assistants.")
     parser.add_argument(
         "--target",
-        choices=["all", "claude", "antigravity", "hermes", "opencode", "cursor", "cline", "windsurf"],
+        choices=["all", "claude", "antigravity", "hermes", "opencode", "cursor", "cline", "windsurf", "codex"],
         default="all",
         help="Target AI assistant environment (default: all)",
     )
@@ -153,6 +168,13 @@ def main():
         except Exception as e:
             print(f"[-] Windsurf install skipped: {e}", file=sys.stderr)
 
+    if args.target in ("all", "codex"):
+        try:
+            dest = install_for_codex(src, ws)
+            installed.append(("OpenAI Codex", dest))
+        except Exception as e:
+            print(f"[-] OpenAI Codex install skipped: {e}", file=sys.stderr)
+
     print("\n========================================================")
     print("✨ letitloop MULTI-PLATFORM SKILL INSTALLATION SUMMARY")
     print("========================================================")
@@ -163,3 +185,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

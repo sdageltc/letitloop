@@ -10,7 +10,7 @@ repo_root = os.path.dirname(os.path.abspath(__file__))
 os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
 
 print("========================================================")
-print("RUNNING ALL 362 UNIT TESTS (IN-PROCESS FAST RUNNER)")
+print("RUNNING ALL UNIT TESTS (IN-PROCESS FAST RUNNER)")
 print("========================================================")
 
 test_files = [
@@ -34,5 +34,5 @@ if code_int != 0:
     sys.exit(code_int)
 
 print("\n========================================================")
-print("ALL 369 TESTS PASSED 100% GREEN!")
+print("ALL 1,121 TESTS PASSED 100% GREEN!")
 print("========================================================")

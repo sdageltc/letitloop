@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) & Agent Integration Guide
 
-The `letitloop` Model Context Protocol (MCP) server (`letitloop-mcp`) allows AI assistants and coding agents across the entire 2026 agent ecosystem (**Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**) to autonomously orchestrate macro-tasks, manage contracts, run verification suites, and conduct multi-lens quality reviews.
+The `letitloop` Model Context Protocol (MCP) server (`letitloop-mcp`) allows AI assistants and coding agents across the entire 2026 agent ecosystem (**Claude Code**, **OpenAI Codex**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**) to autonomously orchestrate macro-tasks, manage contracts, run verification suites, and conduct multi-lens quality reviews.
 
 ---
 
@@ -25,7 +25,35 @@ Or in `~/.claude.json` / `.claude/mcp.json`:
 
 ---
 
-### 2. Cursor IDE Integration
+### 2. OpenAI Codex Integration
+Add the MCP server via Codex CLI:
+```bash
+codex mcp add letitloop -- letitloop-mcp
+```
+Or in `~/.codex/config.toml` / `.codex/config.toml`:
+```toml
+[mcp_servers.letitloop]
+command = "letitloop-mcp"
+args = []
+```
+Or in `~/.codex/mcp.json` / `.codex/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "letitloop": {
+      "command": "letitloop-mcp",
+      "env": {
+        "WORKER_MODEL": "openai:gpt-5.6-luna",
+        "QC_MODEL": "openai:gpt-5.6-sol"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 3. Cursor IDE Integration
 In Cursor Settings -> **Features** -> **MCP Servers** -> **Add New MCP Server**:
 - **Name**: `letitloop`
 - **Type**: `command`
@@ -33,7 +61,7 @@ In Cursor Settings -> **Features** -> **MCP Servers** -> **Add New MCP Server**:
 
 ---
 
-### 3. Google Antigravity Integration
+### 4. Google Antigravity Integration
 Add to your Antigravity MCP configuration (`~/.gemini/antigravity/mcp/letitloop/` or project `mcp.json`):
 ```json
 {
@@ -52,7 +80,7 @@ Add to your Antigravity MCP configuration (`~/.gemini/antigravity/mcp/letitloop/
 
 ---
 
-### 4. OpenCode Integration
+### 5. OpenCode Integration
 In `~/.config/opencode/config.json` or `.opencode/mcp.json`:
 ```json
 {
@@ -70,7 +98,7 @@ In `~/.config/opencode/config.json` or `.opencode/mcp.json`:
 
 ---
 
-### 5. Hermes Agent (Nous Research)
+### 6. Hermes Agent (Nous Research)
 In `~/.hermes/config.json` or `.hermes/mcp.json`:
 ```json
 {
@@ -84,7 +112,7 @@ In `~/.hermes/config.json` or `.hermes/mcp.json`:
 
 ---
 
-### 6. Cline & Windsurf
+### 7. Cline & Windsurf
 Add to Cline MCP settings or `.cline/mcp.json` / `.windsurf/mcp.json`:
 ```json
 {
@@ -99,7 +127,7 @@ Add to Cline MCP settings or `.cline/mcp.json` / `.windsurf/mcp.json`:
 
 ---
 
-### 7. Omniroute Gateway Integration
+### 8. Omniroute Gateway Integration
 If using Omniroute or a local OpenAI-compatible proxy:
 ```json
 {

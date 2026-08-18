@@ -8,6 +8,7 @@ from orchestrator.worker_adapters import (
     AiderWorkerAdapter,
     AntigravityCliWorkerAdapter,
     ClineWorkerAdapter,
+    CodexWorkerAdapter,
     HermesWorkerAdapter,
     MockWorkerAdapter,
     OmnirouteWorkerAdapter,
@@ -73,6 +74,15 @@ def test_aider_worker_adapter():
         assert "approach" in resp
 
 
+def test_codex_worker_adapter():
+    with tempfile.TemporaryDirectory() as td:
+        adapter = CodexWorkerAdapter(config={"binary": sys.executable})
+        resp = adapter.execute("do work", td, "task_codex")
+        assert "exit_code" in resp
+        assert "approach" in resp
+        assert resp["approach"] == "codex_cli_exec"
+
+
 def test_omniroute_worker_adapter():
     adapter = OmnirouteWorkerAdapter(config={"model": "omniroute:mock"})
     with patch("orchestrator.llm.call_llm", return_value="Generated code response"):
@@ -91,7 +101,9 @@ def test_worker_registry():
     assert "cline" in available
     assert "aider" in available
     assert "omniroute" in available
+    assert "codex" in available
 
     custom = MockWorkerAdapter("custom_mock")
     WorkerRegistry.register("custom", custom)
     assert WorkerRegistry.get("custom") == custom
+

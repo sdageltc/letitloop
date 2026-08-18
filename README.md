@@ -19,8 +19,8 @@
 - **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, Win32/POSIX atomic file-locking, and bounded 3-strike retries with strategy mutation.
 - **Zero-Trust Verification Engine**: 8 distinct deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
 - **Multi-Lens Quality Plane**: Multi-perspective evaluation with 5 specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Completeness*, *Adversarial Architecture Audit*) and formal arbitration.
-- **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, and Windsurf.
-- **9 Pluggable Worker Adapters**: Native execution interfaces for Claude Code, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Omniroute gateways, local scripts, and direct LLMs.
+- **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, OpenAI Codex, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, and Windsurf.
+- **10 Pluggable Worker Adapters**: Native execution interfaces for Claude Code, OpenAI Codex, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Omniroute gateways, local scripts, and direct LLMs.
 - **Zero-Subscription Independence**: Seamlessly run 100% locally via Ollama/vLLM, multi-model gateways (Omniroute, OpenRouter, Groq), or commercial frontier APIs.
 - **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
 - **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
@@ -39,20 +39,20 @@ Unlike conversational agent loops that rely on open-ended text streaming and opt
 | **Retry & Failure Policy** | **Bounded 3-Strike with Strategy Mutation & Impossibility Proof** | Infinite Loop / Timeout | Fixed Retries / Prompt Dump | Infinite Hallucination Loop | Reprompting Loop |
 | **Sandbox Scope Enforcement** | **Strict `allow`/`deny` & Undeclared Output Detection** | Docker Container Isolation | Bash Environment Isolation | None (Unrestricted Host) | None |
 | **Quality Plane & Lenses** | **5 Specialized Lenses + Senior Arbitration & QC Overrule** | Single Review Step | None | None | Simulated Peer Chat |
-| **AI Ecosystem & Skill Support** | **Universal Skill & MCP across 7 Platforms** (Claude Code, Antigravity, Hermes, Cursor, OpenCode, Cline, Windsurf) | Standalone Web UI / Docker | Standalone CLI | Standalone CLI / Web | Standalone Framework |
+| **AI Ecosystem & Skill Support** | **Universal Skill & MCP across 8 Platforms** (Claude Code, Antigravity, OpenAI Codex, Hermes, Cursor, OpenCode, Cline, Windsurf) | Standalone Web UI / Docker | Standalone CLI | Standalone CLI / Web | Standalone Framework |
 | **Zero-Subscription Local Use** | **Native Ollama, vLLM, LM Studio & Omniroute Support** | Local LLMs supported via LiteLLM | Local LLMs supported | Local LLMs (Ollama) | Local LLMs supported |
 
 ---
 
 ## Use letitloop as an AI Agent Skill
 
-`letitloop` can be used both as a **standalone Python CLI / MCP engine** and as a **universal Agent Skill** inside your favorite coding agent (Claude Code, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, Windsurf):
+`letitloop` can be used both as a **standalone Python CLI / MCP engine** and as a **universal Agent Skill** inside your favorite coding agent (Claude Code, OpenAI Codex, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, Windsurf):
 
 ### 1-Click Skill Installation:
 ```bash
 python skill/install_skill.py --all
 ```
-*(Or specify `--claude`, `--cursor`, `--antigravity`, `--hermes`, `--opencode`, `--cline`, `--windsurf`)*
+*(Or specify `--claude`, `--codex`, `--cursor`, `--antigravity`, `--hermes`, `--opencode`, `--cline`, `--windsurf`)*
 
 ### Skill-Only Mode vs. Full Python Engine:
 - **Full Engine Mode (`pip install -e .` + Skill / MCP)**:
@@ -195,6 +195,11 @@ lil reconcile <goal_id>
 |---|---|---|
 | **Google Antigravity CLI** | `antigravity-cli` | Invokes the official `agy` subagent tool safely |
 | **Claude Code CLI** | `claude-code` | Autonomous task execution via the Claude Code CLI |
+| **OpenAI Codex CLI** | `codex` | Autonomous task execution via the OpenAI Codex CLI |
+| **OpenCode CLI** | `opencode` | Autonomous execution via OpenCode agent CLI |
+| **Hermes Agent CLI** | `hermes` | Autonomous execution via Nous Research Hermes agent CLI |
+| **Cline CLI** | `cline` | Headless execution via Cline autonomous coding runner |
+| **Aider Pair Programmer** | `aider` | Pair programming execution via Aider CLI |
 | **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways |
 | **Script Worker** | `script` | Executes local shell/Python automation scripts with env isolation |
 | **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek, or Ollama |
@@ -205,8 +210,8 @@ lil reconcile <goal_id>
 ## Testing & Verification
 
 ```bash
-# Run all unit tests (362 tests across 65 modules)
-python -m pytest tests -q --ignore=tests/test_integration.py --ignore=tests/test_benchmarks.py
+# Run all unit tests (1,121 tests across 69 modules)
+python -m pytest tests -p no:benchmark -q --ignore=tests/test_integration.py
 
 # Run end-to-end integration tests
 python -m pytest tests/test_integration.py -v

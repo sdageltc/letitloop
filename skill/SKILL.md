@@ -13,6 +13,8 @@ tags:
   - local-ollama
   - mcp-tools
   - claude-code-skill
+  - openai-codex
+  - codex
 ---
 
 # `letitloop` (LIL) — Universal Agent Skill Specification
@@ -77,7 +79,7 @@ When this skill is triggered by a user request:
 | **Retry & Failure Policy** | **Bounded 3-Strike with Strategy Mutation & Impossibility Proof** | Infinite Loop / Timeout | Fixed Retries / Prompt Dump | Infinite Hallucination Loop | Reprompting Loop |
 | **Sandbox Scope Enforcement** | **Strict `allow`/`deny` & Undeclared Output Detection** | Docker Container Isolation | Bash Environment Isolation | None (Unrestricted Host) | None |
 | **Quality Plane & Lenses** | **5 Specialized Lenses + Senior Arbitration & QC Overrule** | Single Review Step | None | None | Simulated Peer Chat |
-| **AI Ecosystem & Skill Support** | **Universal Skill & MCP across 7 Platforms** (Claude Code, Antigravity, Hermes, Cursor, OpenCode, Cline, Windsurf) | Standalone Web UI / Docker | Standalone CLI | Standalone CLI / Web | Standalone Framework |
+| **AI Ecosystem & Skill Support** | **Universal Skill & MCP across 8 Platforms** (Claude Code, Antigravity, OpenAI Codex, Hermes, Cursor, OpenCode, Cline, Windsurf) | Standalone Web UI / Docker | Standalone CLI | Standalone CLI / Web | Standalone Framework |
 | **Zero-Subscription Local Use** | **Native Ollama, vLLM, LM Studio & Omniroute Support** | Local LLMs supported via LiteLLM | Local LLMs supported | Local LLMs (Ollama) | Local LLMs supported |
 
 ---
@@ -146,6 +148,7 @@ The Supervisor executes task contracts through specialized worker adapters:
 |---|---|---|
 | **Claude Code Adapter** | `claude-code` | Invokes the Claude Code CLI (`claude -p "<prompt>"`) autonomously |
 | **Antigravity CLI Adapter** | `antigravity-cli` | Invokes Google Antigravity CLI (`agy exec --prompt "<prompt>"`) |
+| **OpenAI Codex Adapter** | `codex` | Invokes the OpenAI Codex CLI (`codex exec --prompt "<prompt>"`) autonomously |
 | **Omniroute Adapter** | `omniroute` | Invokes local/remote multi-provider proxy gateways |
 | **Script Worker Adapter** | `script` | Executes custom local bash/Python scripts with injected environment variables |
 | **Direct API Worker** | `direct` | In-process zero-dependency stdlib HTTP transport |
