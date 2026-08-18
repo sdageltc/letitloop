@@ -11,17 +11,20 @@ import time
 from typing import Any, Dict, List, Optional
 
 from . import audit as audit_mod
+from . import budget as budget_mod
 from . import checkpoint as cp
 from . import evidence as ev
 from . import feedback as fb
 from . import impossibility as imp
 from . import limits as lm
 from . import lock as lk
+from . import memory_bridge as mb_mod
 from . import metrics as metrics_mod
 from . import reconcile as rec
 from . import scope as sc
 from . import worker_pool as wp
 from .contract import load_contract, validate_contract_against_plan
+from .exceptions import IllegalTransitionError, StateError
 from .failure import (
     FAILURE_CLASS_TASK_CRASHED,
     MAX_SAME_CLASS_STRIKES,
@@ -122,6 +125,7 @@ class Supervisor:
         parallel: bool = False,
         max_workers: int = 3,
         dry_run: bool = False,
+        adaptive_replan: bool = False,
     ):
         self.goal = goal
         self.plan = plan
@@ -131,6 +135,7 @@ class Supervisor:
         self.parallel = parallel
         self.max_workers = max_workers
         self.dry_run = dry_run
+        self.adaptive_replan = adaptive_replan
         self.results: Dict[str, Dict[str, Any]] = {}
         self.evidence_store: Dict[str, List[str]] = {}
         self.metrics_coll = metrics_mod.MetricsCollector(goal_id=goal.goal_id)
@@ -143,6 +148,15 @@ class Supervisor:
         # Scope-lease registry: lets parallel tasks exempt each other's declared
         # outputs from scope checks (perpetual-loop round 1).
         self._scope_leases = sc.FileBackedScopeRegistry(self.workspace_root)
+        # Budget guard & usage ledger
+        max_tokens = 500_000
+        max_cost_usd = 2.0
+        if isinstance(self.goal.constraints, dict):
+            max_tokens = int(self.goal.constraints.get("max_tokens", 500_000))
+            max_cost_usd = float(self.goal.constraints.get("max_cost_usd", 2.0))
+        self.budget_guard = budget_mod.BudgetGuard(max_tokens=max_tokens, max_cost_usd=max_cost_usd)
+        # Durable memory bridge
+        self.memory_bridge = mb_mod.MemoryBridge(os.path.join(self.run_dir, "memory_bridge.jsonl"))
 
     def _task_run_dir(self, task_id: str) -> str:
         return os.path.join(self.run_dir, task_id)
@@ -300,12 +314,12 @@ class Supervisor:
                                 "synthetic": True,
                             }
                         )
-            except Exception:
+            except (KeyError, AttributeError, ValueError, TypeError):
                 pass
 
             self._safe_save(state, state_file)
             final_status = state.status
-        except Exception:
+        except (OSError, ValueError, AttributeError, KeyError):
             pass
 
         self.graph.update_status(task_id, final_status)
@@ -583,6 +597,17 @@ class Supervisor:
 
         if state.status in ("COMPLETE", "FORCE_COMPLETE", "ESCALATED", "BLOCKED", "CANCELLED"):
             return state.status
+
+        # Enforce budget guard before dispatching task
+        try:
+            self.budget_guard.check_before_call()
+        except budget_mod.BudgetExhaustedError as be:
+            print(f"[supervisor] BUDGET EXHAUSTED for task {task_id}: {be}", file=sys.stderr)
+            state.force_block(reason=f"budget exhausted: {be}")
+            state.patch_data({"budget_error": str(be)})
+            self._safe_save(state, state_file)
+            self.graph.update_status(task_id, "BLOCKED")
+            return "BLOCKED"
 
         max_attempts = contract.worker.get("max_attempts", 3)
 
@@ -1001,7 +1026,7 @@ class Supervisor:
         if state.status in ("COMPLETE", "complete", "FORCE_COMPLETE", "DEGRADED_PASS"):
             try:
                 sc.cleanup_scratch_dir(self.workspace_root, contract)
-            except Exception:
+            except (OSError, ValueError):
                 pass
 
         # Post-loop: handle COMPLETE evidence store
@@ -1024,6 +1049,17 @@ class Supervisor:
                 completed_outs = completed_contract.outputs if completed_contract else []
                 for out in completed_outs:
                     ev.append_output(self.run_dir, task_id, out["path"], self.workspace_root)
+                try:
+                    self.memory_bridge.append(
+                        {
+                            "task_id": task_id,
+                            "event": "CONTRACT_COMPLETED",
+                            "outputs": [o.get("path") if isinstance(o, dict) else str(o) for o in completed_outs],
+                            "status": state.status,
+                        }
+                    )
+                except (TimeoutError, OSError, json.JSONDecodeError, ValueError):
+                    pass
 
         if state.status in ("PREFLIGHT_FAILED", "BLOCKED", "VERIFICATION_FAILED", "ESCALATED"):
             fclass = classify_failure(state, contract)
@@ -1068,7 +1104,7 @@ class Supervisor:
         for task_id in ready_tasks:
             try:
                 self._scope_leases.register(task_id, self._declared_output_paths(task_id))
-            except Exception:
+            except (KeyError, ValueError, OSError, AttributeError):
                 pass
 
         def run_leased(task_id: str) -> str:
@@ -1077,7 +1113,7 @@ class Supervisor:
             finally:
                 try:
                     self._scope_leases.unregister(task_id)
-                except Exception:
+                except (KeyError, ValueError, OSError, AttributeError):
                     pass
 
         def on_result(tid: str, status: str):
@@ -1094,7 +1130,7 @@ class Supervisor:
             for task_id in ready_tasks:
                 try:
                     self._scope_leases.unregister(task_id)
-                except Exception:
+                except (KeyError, ValueError, OSError, AttributeError):
                     pass
         return True
 
@@ -1139,8 +1175,29 @@ class Supervisor:
                             self._safe_save(state, state_path)
                             actual_status = "CRASHED"
                     self.graph.update_status(task_id, actual_status)
-                except Exception:
-                    pass
+                    self.results[task_id] = {"status": actual_status}
+                except (OSError, json.JSONDecodeError, ValueError, KeyError, StateError, AttributeError, RuntimeError) as e:
+                    print(f"[supervisor] State load failed during graph recovery for {task_id}: {e}", file=sys.stderr)
+                    self.graph.update_status(task_id, "CRASHED")
+                    self.results[task_id] = {"status": "CRASHED"}
+
+    def _get_contract_for_task(self, task_id: str) -> Optional[Any]:
+        """Retrieve the Contract object for a task_id."""
+        c_info = next((c for c in self.plan.contracts if c.get("task_id") == task_id), None)
+        if not c_info:
+            return None
+        contract_path, _ = self._get_contract_path_and_dict(c_info)
+        if not contract_path or not os.path.isfile(contract_path):
+            c_dict = c_info.get("contract") or c_info
+            from .contract import Contract
+
+            try:
+                return Contract.from_dict(c_dict, workspace_root=self.workspace_root)
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
+                print(f"[supervisor] Contract parsing error for {task_id}: {e}", file=sys.stderr)
+                return None
+        contract, _ = load_contract(contract_path, workspace_root=self.workspace_root)
+        return contract
 
     def _escalate_stalled_nodes(self):
         """ESCALATE non-terminal nodes after a no-progress iteration and write
@@ -1167,22 +1224,29 @@ class Supervisor:
                 continue
             try:
                 state = load_state(state_file, journal_dir=self._task_run_dir(task_id))
-            except Exception:
+            except (OSError, json.JSONDecodeError, ValueError, KeyError):
                 continue
             reason = "stall: no progress in supervision loop"
             try:
                 state.transition("ESCALATED", reason=reason)
-            except Exception:
+            except IllegalTransitionError:
                 try:
                     state.transition("CRASHED", reason=reason)
-                except Exception:
+                except IllegalTransitionError:
                     # Legal-transition dead end (e.g. READY/DRAFTED) — privileged
                     # escalation so the run still ends in a terminal, auditable state.
                     state.force_escalate(reason=reason)
-            try:
-                imp.write_impossibility(state=state, goal_id=self.goal.goal_id, workspace_root=self.workspace_root)
-            except Exception:
-                pass
+            contract = self._get_contract_for_task(task_id)
+            if contract is not None:
+                try:
+                    imp.write_impossibility(
+                        contract=contract,
+                        state=state,
+                        goal_id=self.goal.goal_id,
+                        workspace_root=self.workspace_root,
+                    )
+                except (OSError, ValueError, KeyError, AttributeError):
+                    pass
             self._safe_save(state, state_file)
             self.graph.update_status(task_id, "ESCALATED")
             with self._shared_lock:
@@ -1435,15 +1499,45 @@ class Supervisor:
                     status = self._execute_single_contract(task_id)
                     res[task_id] = status
 
+            if self.adaptive_replan:
+                new_plan = self.adaptively_replan()
+                if new_plan:
+                    print(
+                        f"[supervisor] Adaptively replanned into {len(new_plan.contracts)} contracts",
+                        file=sys.stderr,
+                    )
+                    res = self._execute_plan()
+
             all_completed = all(
                 status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE") for status in res.values()
             )
             self.goal.status = "COMPLETE" if all_completed else "FAILED"
-            ev.write_run_manifest(self.run_dir, self.goal.goal_id, self.plan, self.results, self.workspace_root)
+            self._print_run_summary()
             return res
         finally:
             lk.release_lock(self.run_dir)
             print(f"[supervisor] lock released for {self.goal.goal_id}", file=sys.stderr)
+
+    def adaptively_replan(self) -> Optional[Plan]:
+        """Invoke evidence-aware replanner to split or adjust failed tasks."""
+        from . import replanner as rep_mod
+
+        try:
+            results = dict(self.results)
+            for c in self.plan.contracts:
+                tid = c.get("task_id")
+                if tid and tid not in results:
+                    results[tid] = {"status": self.graph.nodes.get(tid, {}).get("status", "DRAFTED")}
+
+            new_plan = rep_mod.replan(self.goal, results, self.run_dir)
+            if new_plan and len(new_plan.contracts) != len(self.plan.contracts):
+                self.plan = new_plan
+                self.graph = ContractGraph(new_plan)
+                self._save_plan()
+                return new_plan
+        except (ValueError, KeyError, OSError, json.JSONDecodeError, TypeError) as e:
+            print(f"[supervisor] Replanning error: {e}", file=sys.stderr)
+        return None
 
     def resume_plan(self) -> Dict[str, str]:
         """Resume a partially executed plan from persistent state.
@@ -1634,7 +1728,7 @@ class Supervisor:
                             with open(vp, "r", encoding="utf-8") as _f:
                                 vd = json.load(_f)
                             qc_verdict = vd.get("status", "MISSING")
-                except Exception:
+                except (OSError, json.JSONDecodeError, KeyError, AttributeError, ValueError, RuntimeError):
                     pass
             print(
                 f"  [{icon}] {tid}: {res.get('status', '?'):20s}  QC(req={qc_requested} exec={qc_executed} v={qc_verdict})",

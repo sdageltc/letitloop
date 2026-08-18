@@ -682,7 +682,7 @@ def _load_goal(goal_id_or_path):
                 with open(cand, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 return Goal.from_dict(data)
-            except Exception:
+            except (OSError, json.JSONDecodeError, KeyError):
                 pass
 
     print(f"error: goal file not found for {goal_id_or_path}", file=sys.stderr)
@@ -1188,8 +1188,10 @@ def cmd_checkpoint_recover(args):
     print(f"  Contracts: {len(recovery['plan_contracts'])}")
     print(f"  Results: {len(recovery['results'])} tasks")
     if args.apply:
-        print("Applying recovery is not yet implemented (requires supervisor rebuild)")
-        sys.exit(1)
+        applied = cp_mod.apply_checkpoint(run_dir, WORKSPACE_ROOT)
+        print(f"Successfully applied checkpoint (iteration {applied['iteration']}) to goal {args.goal_id}.")
+        print(f"Restored {len(applied['plan_contracts'])} contracts and {len(applied['graph_statuses'])} task states.")
+        print(f"You can now resume execution via: lil resume {args.goal_id}")
 
 
 def cmd_checkpoint_clear(args):

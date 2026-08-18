@@ -157,10 +157,10 @@ def _kill_process_tree(proc):
                 capture_output=True,
                 timeout=10,
             )
-        except Exception:
+        except (ProcessLookupError, PermissionError, OSError, subprocess.SubprocessError):
             try:
                 proc.kill()
-            except Exception:
+            except (ProcessLookupError, OSError):
                 pass
     else:
         try:
@@ -168,14 +168,14 @@ def _kill_process_tree(proc):
 
             pgid = os.getpgid(proc.pid)
             os.killpg(pgid, signal.SIGKILL)
-        except Exception:
+        except (ProcessLookupError, PermissionError, OSError, AttributeError):
             try:
                 proc.kill()
-            except Exception:
+            except (ProcessLookupError, OSError):
                 pass
     try:
         proc.wait(timeout=5)
-    except Exception:
+    except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
         pass
 
 

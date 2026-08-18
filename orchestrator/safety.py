@@ -168,7 +168,7 @@ def check_workspace_health(workspace_root: str) -> List[SafetyIssue]:
 
     test_path = os.path.join(workspace_root, ".safety_test")
     try:
-        with open(test_path, "w") as f:
+        with open(test_path, "w", encoding="utf-8") as f:
             f.write("ok")
         os.remove(test_path)
     except OSError as e:
