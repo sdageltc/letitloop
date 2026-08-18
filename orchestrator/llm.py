@@ -269,7 +269,35 @@ def call_llm(
             payload["messages"].insert(0, {"role": "system", "content": system})
         if temperature is not None:
             payload["temperature"] = temperature
-        data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
+        try:
+            data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
+        except LLMError as e:
+            if e.status in (401, 403):
+                configured = [p for p in PROVIDERS if api_key(p) and p != provider and p != "any"]
+                if configured:
+                    fallback_provider = configured[0]
+                    fallback_model = {
+                        "openai": "openai:gpt-4o-mini",
+                        "deepseek": "deepseek:deepseek-chat",
+                        "anthropic": "anthropic:claude-3-5-sonnet-latest",
+                        "groq": "groq:llama-3.3-70b-versatile",
+                    }.get(fallback_provider, f"{fallback_provider}:default")
+                    import sys
+
+                    print(
+                        f"[llm] Warning: Provider '{provider}' auth failed (HTTP {e.status}). "
+                        f"Auto-falling back to configured '{fallback_provider}' ({fallback_model}).",
+                        file=sys.stderr,
+                    )
+                    return call_llm(
+                        prompt,
+                        fallback_model,
+                        system=system,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        timeout_s=timeout_s,
+                    )
+            raise
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError):
