@@ -273,21 +273,37 @@ lil status <goal_id>
 
 ---
 
-## Fast Developer Loop & Testing
+## Living Architecture Decision Records (ADRs)
 
-`letitloop` includes a high-performance in-process test runner designed to bypass slow pytest plugin autoloads during development:
+Following the [Michael Nygard ADR convention](docs/adr/README.md), all core design invariants, trade-offs, and failure recoveries are permanently codified:
+
+| ADR | Focus | Status |
+|---|---|---|
+| [**ADR-0001**](docs/adr/0001-write-ahead-logging.md) | **Write-Ahead Logging (WAL) & Zero-State Recovery** | `accepted` |
+| [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md) | **Deterministic AST, Regex & Exit-Code Verification Gates** | `accepted` |
+| [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md) | **Zero-API-Key Headless Agent CLI Wrapper Failovers** | `accepted` |
+| [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md) | **Format-Aware Acceptance Check & Markdown Injection** | `accepted` |
+
+---
+
+## Fast Developer Loop & Standalone Smoke Testing
+
+`letitloop` includes sub-second standalone smoke testing and an in-process fast test runner designed to bypass slow pytest plugin autoloads:
 
 ```bash
-# 1. Fast in-process test runner (1,122 tests in ~75s)
+# 1. Sub-second standalone smoke test (<400ms)
+python scripts/smoke_quick.py
+
+# 2. Fast in-process test runner (1,122 tests in ~75s)
 python fast_test_runner.py
 
-# 2. Run targeted unit test suite
+# 3. Run targeted unit test suite
 pytest tests/test_supervisor.py -v
 
-# 3. Run hostile security & fuzzing suites
+# 4. Run hostile security & fuzzing suites
 pytest tests/test_wal_corruption_recovery.py tests/test_verifier_ast_fuzz.py tests/test_worker_escaping.py -v
 
-# 4. Run full integration test suite
+# 5. Run full integration test suite
 pytest tests/test_integration.py -v
 ```
 
