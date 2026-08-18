@@ -1176,7 +1176,15 @@ class Supervisor:
                             actual_status = "CRASHED"
                     self.graph.update_status(task_id, actual_status)
                     self.results[task_id] = {"status": actual_status}
-                except (OSError, json.JSONDecodeError, ValueError, KeyError, StateError, AttributeError, RuntimeError) as e:
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    KeyError,
+                    StateError,
+                    AttributeError,
+                    RuntimeError,
+                ) as e:
                     print(f"[supervisor] State load failed during graph recovery for {task_id}: {e}", file=sys.stderr)
                     self.graph.update_status(task_id, "CRASHED")
                     self.results[task_id] = {"status": "CRASHED"}
