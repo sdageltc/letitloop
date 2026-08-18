@@ -138,17 +138,23 @@ def configured_providers() -> list[str]:
 
 def default_model() -> str:
     """Worker default model, overridable via WORKER_MODEL."""
-    return os.environ.get("WORKER_MODEL", "gemini:gemini-3.6-flash")
+    from .models import ModelRegistry
+
+    return ModelRegistry.default_worker()
 
 
 def qc_model() -> str:
     """QC default model, overridable via QC_MODEL."""
-    return os.environ.get("QC_MODEL", "gemini:gemini-3.1-pro")
+    from .models import ModelRegistry
+
+    return ModelRegistry.default_qc()
 
 
 def planner_model() -> str:
     """Planner default model, overridable via PLANNER_MODEL."""
-    return os.environ.get("PLANNER_MODEL", default_model())
+    if "PLANNER_MODEL" in os.environ:
+        return os.environ["PLANNER_MODEL"]
+    return default_model()
 
 
 def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout_s: int) -> Dict[str, Any]:
@@ -199,6 +205,30 @@ def call_llm(
     provider = provider_of(model)
     key = api_key(provider)
     if not key:
+        configured = [p for p in PROVIDERS if api_key(p) and p != "any"]
+        if configured:
+            fallback_provider = configured[0]
+            fallback_model = {
+                "openai": "openai:gpt-4o-mini",
+                "deepseek": "deepseek:deepseek-chat",
+                "anthropic": "anthropic:claude-3-5-sonnet-latest",
+                "groq": "groq:llama-3.3-70b-versatile",
+            }.get(fallback_provider, f"{fallback_provider}:default")
+            import sys
+
+            print(
+                f"[llm] Warning: Provider '{provider}' not configured ({PROVIDERS[provider]['env_key']} missing). "
+                f"Auto-routing to configured '{fallback_provider}' ({fallback_model}).",
+                file=sys.stderr,
+            )
+            return call_llm(
+                prompt,
+                fallback_model,
+                system=system,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout_s=timeout_s,
+            )
         raise LLMError(
             f"provider '{provider}' is not configured: set {PROVIDERS[provider]['env_key']} "
             f"(or LLM_API_KEY/LLM_BASE_URL for any OpenAI-compatible endpoint)",

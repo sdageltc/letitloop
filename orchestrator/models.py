@@ -56,13 +56,33 @@ class ModelRegistry:
 
     @classmethod
     def default_worker(cls) -> str:
-        """Effective worker model (env WORKER_MODEL wins over registry default)."""
-        return os.environ.get("WORKER_MODEL", cls.WORKER_PREFIXED)
+        """Effective worker model (env WORKER_MODEL wins over auto-detected configured provider)."""
+        if "WORKER_MODEL" in os.environ:
+            return os.environ["WORKER_MODEL"]
+        if os.environ.get("GEMINI_API_KEY"):
+            return cls.WORKER_PREFIXED
+        if os.environ.get("OPENAI_API_KEY"):
+            return "openai:gpt-4o-mini"
+        if os.environ.get("DEEPSEEK_API_KEY"):
+            return "deepseek:deepseek-chat"
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            return "anthropic:claude-3-5-sonnet-latest"
+        return cls.WORKER_PREFIXED
 
     @classmethod
     def default_qc(cls) -> str:
-        """Effective QC model (env QC_MODEL wins)."""
-        return os.environ.get("QC_MODEL", cls.QC_PREFIXED)
+        """Effective QC model (env QC_MODEL wins over auto-detected configured provider)."""
+        if "QC_MODEL" in os.environ:
+            return os.environ["QC_MODEL"]
+        if os.environ.get("GEMINI_API_KEY"):
+            return cls.QC_PREFIXED
+        if os.environ.get("OPENAI_API_KEY"):
+            return "openai:gpt-4o"
+        if os.environ.get("DEEPSEEK_API_KEY"):
+            return "deepseek:deepseek-reasoner"
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            return "anthropic:claude-3-5-sonnet-latest"
+        return cls.QC_PREFIXED
 
     @classmethod
     def prefixed(cls, model: str = None) -> str:
