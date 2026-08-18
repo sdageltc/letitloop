@@ -71,4 +71,3 @@ def test_skill_installers():
         (ws / ".codex").mkdir()
         cx_dest = install_for_codex(src, ws)
         assert (cx_dest / "SKILL.md").exists()
-
