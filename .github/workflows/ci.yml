@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -14,8 +18,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.11', '3.12']
     
     steps:
@@ -41,7 +46,7 @@ jobs:
         python -m pytest tests -q --ignore=tests/test_integration.py --ignore=tests/test_benchmarks.py --cov=orchestrator --cov-report=xml
     
     - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11'
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
@@ -105,13 +110,16 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install build tools
+    - name: Install build and packaging tools
       run: |
         python -m pip install --upgrade pip
-        pip install build
+        pip install build twine
     
     - name: Build package
       run: python -m build
+    
+    - name: Validate PyPI package artifacts
+      run: twine check dist/*
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
