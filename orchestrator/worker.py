@@ -217,16 +217,34 @@ def _run_llm_worker(
         stderr = str(e)
         exit_code = 1
     except LLMError as e:
-        elapsed = time.time() - start
-        _safe_stderr(f"[worker] task={task_id} model error: {e}")
-        return {
-            "success": False,
-            "stdout": "",
-            "stderr": str(e),
-            "exit_code": -1,
-            "elapsed_sec": elapsed,
-            "artifact_paths": [brief_path],
-        }
+        from .worker_adapters import WorkerRegistry
+
+        cli_fallback_success = False
+        for cli_name in ("antigravity", "claude", "opencode", "hermes", "cline"):
+            try:
+                adapter = WorkerRegistry.get(cli_name)
+                res = adapter.execute(brief, workspace_root, task_id, timeout=timeout_sec)
+                if res.get("exit_code") == 0 and res.get("stdout"):
+                    stdout = _cap_output(res["stdout"])
+                    stderr = res.get("stderr", "")
+                    exit_code = 0
+                    cli_fallback_success = True
+                    _safe_stderr(f"[worker] task={task_id} seamlessly dispatched via local '{cli_name}' CLI wrapper")
+                    break
+            except Exception:
+                continue
+
+        if not cli_fallback_success:
+            elapsed = time.time() - start
+            _safe_stderr(f"[worker] task={task_id} model error: {e}")
+            return {
+                "success": False,
+                "stdout": "",
+                "stderr": str(e),
+                "exit_code": -1,
+                "elapsed_sec": elapsed,
+                "artifact_paths": [brief_path],
+            }
     except Exception as e:
         elapsed = time.time() - start
         _safe_stderr(f"[worker] task={task_id} error: {e}")
