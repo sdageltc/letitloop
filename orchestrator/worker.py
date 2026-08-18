@@ -322,12 +322,18 @@ def _dispatch_worker(
 
 
 def _default_backup_model(model):
-    """Default provider backup chain: primary <-> FALLBACK, hybrid opt-out."""
+    """Default provider backup chain: primary <-> fallback, hybrid opt-out."""
     if model.startswith("hybrid:"):
         return None
+    if model == ModelRegistry.WORKER_PREFIXED:
+        return ModelRegistry.WORKER_FALLBACK
+    if model == ModelRegistry.QC_PREFIXED:
+        return ModelRegistry.QC_FALLBACK
+    if model == ModelRegistry.WORKER_FALLBACK:
+        return ModelRegistry.WORKER_PREFIXED
     if model == ModelRegistry.FALLBACK:
         return ModelRegistry.WORKER_PREFIXED
-    return ModelRegistry.FALLBACK
+    return ModelRegistry.WORKER_FALLBACK
 
 
 def _merge_fallback_log(run_dir, primary_model, primary_result, backup_model, backup_result):

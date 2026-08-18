@@ -127,7 +127,7 @@ class TestProviderFallback:
     """Provider fallback: primary LLM fails -> backup provider, and vice versa."""
 
     def test_primary_failure_falls_back_to_backup(self):
-        contract = _make_contract()
+        contract = _make_contract({"worker": {"model": ModelRegistry.WORKER_FALLBACK, "max_attempts": 3}})
         calls = []
 
         def side_effect(prompt, model, **kwargs):
@@ -142,7 +142,7 @@ class TestProviderFallback:
 
         assert result["success"] is True
         assert result["fallback_used"] is True
-        assert result["fallback_from"] == ModelRegistry.FALLBACK
+        assert result["fallback_from"] == ModelRegistry.WORKER_FALLBACK
         assert result["fallback_to"] == ModelRegistry.WORKER_PREFIXED
         assert result["provider"] == ModelRegistry.WORKER_PREFIXED
         assert "backup output" in result["stdout"]
@@ -154,7 +154,7 @@ class TestProviderFallback:
 
         def side_effect(prompt, model, **kwargs):
             calls.append(model)
-            if calls[-1] == ModelRegistry.FALLBACK:
+            if calls[-1] == ModelRegistry.WORKER_FALLBACK:
                 return _ok_response("default fallback output")
             raise LLMError("provider down")
 
@@ -165,7 +165,7 @@ class TestProviderFallback:
         assert result["success"] is True
         assert result["fallback_used"] is True
         assert result["fallback_from"] == ModelRegistry.WORKER_PREFIXED
-        assert result["fallback_to"] == ModelRegistry.FALLBACK
+        assert result["fallback_to"] == ModelRegistry.WORKER_FALLBACK
         assert "default fallback output" in result["stdout"]
         assert len(calls) == 2
 
@@ -179,7 +179,7 @@ class TestProviderFallback:
         assert llm_mock.call_count == 1
 
     def test_no_fallback_when_backup_also_fails(self):
-        contract = _make_contract()
+        contract = _make_contract({"worker": {"model": ModelRegistry.WORKER_FALLBACK, "max_attempts": 3}})
         with tempfile.TemporaryDirectory() as td:
             with patch("orchestrator.worker.call_llm", side_effect=LLMError("both down")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
