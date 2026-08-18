@@ -379,4 +379,3 @@ class WorkerRegistry:
     @classmethod
     def list_available(cls) -> List[str]:
         return list(cls._adapters.keys())
-

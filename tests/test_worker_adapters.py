@@ -106,4 +106,3 @@ def test_worker_registry():
     custom = MockWorkerAdapter("custom_mock")
     WorkerRegistry.register("custom", custom)
     assert WorkerRegistry.get("custom") == custom
-
