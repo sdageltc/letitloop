@@ -152,10 +152,12 @@ def planner_model() -> str:
 
 
 def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout_s: int) -> Dict[str, Any]:
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise LLMError(f"Unsupported URL scheme in endpoint: {url}")
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # nosec B310
             raw = resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         detail = ""

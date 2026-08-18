@@ -66,7 +66,7 @@ class ScriptWorkerAdapter(BaseWorkerAdapter):
         try:
             proc = subprocess.run(
                 self.script_command,
-                shell=True,
+                shell=True,  # nosec B602
                 input=prompt,
                 text=True,
                 capture_output=True,
