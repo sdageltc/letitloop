@@ -11,6 +11,44 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![MCP Supported](https://img.shields.io/badge/MCP-Supported-purple.svg)](docs/MCP_GUIDE.md)
 
+```bash
+# 1. Propose & Decompose into Strongly-Typed DAG Contracts
+$ lil propose "Build zero-downtime distributed rate limiter with Redis backend"
+
+[lil] Decomposing objective into contract DAG (3 nodes, 0 cycles)...
+[lil] Generated 3 strongly-typed execution contracts:
+  ├─ [01_rate_limiter_core]  Scope: src/limiter.py (allowed: src/limiter.py)
+  ├─ [02_redis_storage_wire] Scope: src/storage.py (allowed: src/storage.py) [depends on: 01]
+  └─ [03_integration_tests]  Scope: tests/test_limiter.py (allowed: tests/*) [depends on: 01, 02]
+
+# 2. Execute with Write-Ahead Logging & Deterministic Zero-Trust Verifiers
+$ lil run --doctor --strict
+
+[doctor] Checking Python 3.12, Git, Pytest, AST parsers... [PASS]
+[supervisor] Active worker adapter: claude-code (auto-fallback: ollama/qwen2.5-coder)
+[wal] Journal initialized at .letitloop/runs/run_20260818_2145/state.wal.jsonl
+
+▶ Executing Contract 01/03: 01_rate_limiter_core
+  ├─ [worker] claude-code generating token-bucket implementation... done (4.2s)
+  ├─ [verifier] AST Syntax Validation ................................ [PASS]
+  ├─ [verifier] File Existence (src/limiter.py) ...................... [PASS]
+  └─ [verifier] Scope Fence (0 undeclared files mutated) ............. [PASS]
+
+▶ Executing Contract 02/03: 02_redis_storage_wire
+  ├─ [worker] claude-code wiring async Redis pipeline... done (3.8s)
+  ├─ [verifier] Command Check (`pytest tests/test_storage.py`) ...... [PASS] (exit: 0)
+  └─ [verifier] Regex Check (`class RedisTokenBucket`) ............... [PASS]
+
+▶ Executing Contract 03/03: 03_integration_tests
+  ├─ [worker] claude-code generating 40 adversarial concurrency tests... done (6.1s)
+  ├─ [verifier] Command Check (`pytest tests/ -v`) .................. [PASS] (40 passed in 1.1s)
+  └─ [quality-plane] 5-Lens Review (Correctness, Security, Docs, Tests, Arch) ... [PASS (5/5)]
+
+================================================================================
+✨ MACRO-TASK COMPLETE: 3/3 Contracts Verified | 0 Retries | 100% Deterministic
+================================================================================
+```
+
 ---
 
 ## Key Capabilities

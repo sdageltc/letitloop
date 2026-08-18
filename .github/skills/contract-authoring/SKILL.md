@@ -2,7 +2,7 @@
 name: contract-authoring
 description: Guide and validator for authoring deterministic contract JSON specifications, invariant test commands, workspace scope boundaries, and risk tiers in letitloop.
 metadata:
-  author: letitloop-maintainers
+  author: Oguzhan Kayan (@sdageltc)
   version: "1.0.0"
 compatibility: Cross-platform (JSON schema v1)
 ---
