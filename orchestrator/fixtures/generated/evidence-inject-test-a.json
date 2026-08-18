@@ -11,9 +11,9 @@
   },
   "objective": "Create",
   "worker": {
-    "model": "hybrid:gemini:gemini-3.6-flash",
+    "model": "hybrid:gemini:gemini-3.7-flash",
     "max_attempts": 3,
-    "hybrid_critic_model": "gemini:gemini-3.6-flash",
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
     "hybrid_max_repair_turns": 3,
     "hybrid_max_tokens": 32000,
     "hybrid_max_cost_usd": 0.3,

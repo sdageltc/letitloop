@@ -7,6 +7,7 @@ from orchestrator.contract import validate_contract
 from orchestrator.exceptions import PlannerError
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal
+from orchestrator.models import ModelRegistry
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -58,7 +59,7 @@ def test_generate_contracts_subtasks_in_constraints(tmp_path):
     assert len(plan.contracts) == 2
     assert plan.contracts[0]["task_id"] == "g-subtasks-1"
     assert plan.contracts[1]["depends_on"] == ["g-subtasks-1"]
-    assert plan.contracts[0]["contract"]["worker"]["model"] == "gemini:gemini-3.6-flash"
+    assert plan.contracts[0]["contract"]["worker"]["model"] == ModelRegistry.WORKER_PREFIXED
 
 
 def test_generate_contracts_two_step_keyword_detection(tmp_path):
