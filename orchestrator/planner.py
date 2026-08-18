@@ -346,12 +346,13 @@ def _call_llm_planner(prompt: str, workspace_root: str, timeout_sec: int = 120) 
     except LLMError as e:
         from .worker_adapters import WorkerRegistry
 
-        for cli_name in ("antigravity", "claude", "opencode", "hermes", "cline"):
+        for cli_name in ("agy", "antigravity", "claude", "opencode", "hermes", "cline"):
             try:
                 adapter = WorkerRegistry.get(cli_name)
-                res = adapter.execute(prompt, workspace_root, "planner_decomposition", timeout=timeout_sec)
-                if res.get("exit_code") == 0 and res.get("stdout"):
-                    return res["stdout"]
+                if adapter:
+                    res = adapter.execute(prompt, workspace_root, "planner_decomposition", timeout=timeout_sec)
+                    if res.get("exit_code") == 0 and res.get("stdout"):
+                        return res["stdout"]
             except Exception:
                 continue
         raise PlannerError(f"Planner LLM call failed: {e}")

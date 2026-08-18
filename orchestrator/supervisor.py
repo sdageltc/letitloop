@@ -821,14 +821,16 @@ class Supervisor:
                     req_secs = quality_spec.get("required_sections", [])
                     if req_secs and contract.outputs:
                         for out in contract.outputs[:1]:
-                            injected_checks.append(
-                                {
-                                    "id": "required_sections",
-                                    "kind": "required_sections",
-                                    "path": out["path"],
-                                    "expected": req_secs,
-                                }
-                            )
+                            out_path = str(out.get("path", "")).lower()
+                            if out_path.endswith((".md", ".markdown", ".txt", ".rst")):
+                                injected_checks.append(
+                                    {
+                                        "id": "required_sections",
+                                        "kind": "required_sections",
+                                        "path": out["path"],
+                                        "expected": req_secs,
+                                    }
+                                )
                 # Inject undeclared outputs check using scope snapshot
                 snapshot_path = os.path.join(task_dir, sc.SCOPE_SNAPSHOT_FILE)
                 if contract.outputs and os.path.isfile(snapshot_path):

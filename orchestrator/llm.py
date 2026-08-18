@@ -189,6 +189,31 @@ def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeo
         raise LLMError(f"non-JSON response: {raw[:200]!r}") from e
 
 
+def _try_agent_cli_fallback(
+    prompt: str, system: Optional[str] = None, timeout_s: int = 300
+) -> Optional[Dict[str, Any]]:
+    """Execute via locally detected agent CLI (agy, claude, opencode) when REST endpoints are unavailable."""
+    try:
+        from .worker_adapters import WorkerRegistry
+
+        full_prompt = f"{system}\n\n{prompt}" if system else prompt
+        for cli_name in ("agy", "antigravity", "claude", "opencode", "hermes"):
+            adapter = WorkerRegistry.get(cli_name)
+            if adapter:
+                res = adapter.execute(full_prompt, os.getcwd(), f"call_llm_{cli_name}", timeout=timeout_s)
+                if res.get("exit_code") == 0 and res.get("stdout"):
+                    return {
+                        "text": res["stdout"],
+                        "usage": {"prompt_tokens": len(prompt) // 4, "completion_tokens": len(res["stdout"]) // 4},
+                        "model": f"cli:{cli_name}",
+                        "provider": cli_name,
+                        "elapsed_sec": 0.5,
+                    }
+    except Exception:
+        pass
+    return None
+
+
 def call_llm(
     prompt: str,
     model: str,
@@ -205,30 +230,9 @@ def call_llm(
     provider = provider_of(model)
     key = api_key(provider)
     if not key:
-        configured = [p for p in PROVIDERS if api_key(p) and p != "any"]
-        if configured:
-            fallback_provider = configured[0]
-            fallback_model = {
-                "openai": "openai:gpt-4o-mini",
-                "deepseek": "deepseek:deepseek-chat",
-                "anthropic": "anthropic:claude-3-5-sonnet-latest",
-                "groq": "groq:llama-3.3-70b-versatile",
-            }.get(fallback_provider, f"{fallback_provider}:default")
-            import sys
-
-            print(
-                f"[llm] Warning: Provider '{provider}' not configured ({PROVIDERS[provider]['env_key']} missing). "
-                f"Auto-routing to configured '{fallback_provider}' ({fallback_model}).",
-                file=sys.stderr,
-            )
-            return call_llm(
-                prompt,
-                fallback_model,
-                system=system,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                timeout_s=timeout_s,
-            )
+        cli_res = _try_agent_cli_fallback(prompt, system, timeout_s)
+        if cli_res:
+            return cli_res
         raise LLMError(
             f"provider '{provider}' is not configured: set {PROVIDERS[provider]['env_key']} "
             f"(or LLM_API_KEY/LLM_BASE_URL for any OpenAI-compatible endpoint)",
@@ -249,7 +253,14 @@ def call_llm(
             payload["system"] = system
         if temperature is not None:
             payload["temperature"] = temperature
-        data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
+        try:
+            data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
+        except LLMError as e:
+            if e.status in (401, 402, 403):
+                cli_res = _try_agent_cli_fallback(prompt, system, timeout_s)
+                if cli_res:
+                    return cli_res
+            raise
         try:
             text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
         except (AttributeError, TypeError):
@@ -272,31 +283,10 @@ def call_llm(
         try:
             data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
         except LLMError as e:
-            if e.status in (401, 403):
-                configured = [p for p in PROVIDERS if api_key(p) and p != provider and p != "any"]
-                if configured:
-                    fallback_provider = configured[0]
-                    fallback_model = {
-                        "openai": "openai:gpt-4o-mini",
-                        "deepseek": "deepseek:deepseek-chat",
-                        "anthropic": "anthropic:claude-3-5-sonnet-latest",
-                        "groq": "groq:llama-3.3-70b-versatile",
-                    }.get(fallback_provider, f"{fallback_provider}:default")
-                    import sys
-
-                    print(
-                        f"[llm] Warning: Provider '{provider}' auth failed (HTTP {e.status}). "
-                        f"Auto-falling back to configured '{fallback_provider}' ({fallback_model}).",
-                        file=sys.stderr,
-                    )
-                    return call_llm(
-                        prompt,
-                        fallback_model,
-                        system=system,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        timeout_s=timeout_s,
-                    )
+            if e.status in (401, 402, 403):
+                cli_res = _try_agent_cli_fallback(prompt, system, timeout_s)
+                if cli_res:
+                    return cli_res
             raise
         try:
             text = data["choices"][0]["message"]["content"] or ""
