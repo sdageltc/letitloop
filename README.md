@@ -44,45 +44,53 @@ Unlike conversational agent loops that rely on open-ended text streaming and opt
 
 ---
 
-## Use letitloop as an AI Agent Skill
+## Installation & Getting Started
 
-`letitloop` can be used both as a **standalone Python CLI / MCP engine** and as a **universal Agent Skill** inside your favorite coding agent (Claude Code, OpenAI Codex, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, Windsurf):
+### Option A: Zero-Install AI Agent Skill (1-Second Setup)
+Enhance your existing AI coding agent without installing Python or cloning this repository:
 
-### 1-Click Skill Installation:
 ```bash
-python skill/install_skill.py --all
+# Universal AI agent skill package manager
+npx skills add sdageltc/letitloop
 ```
-*(Or specify `--claude`, `--codex`, `--cursor`, `--antigravity`, `--hermes`, `--opencode`, `--cline`, `--windsurf`)*
+*Or copy [`SKILL.md`](https://raw.githubusercontent.com/sdageltc/letitloop/main/skill/SKILL.md) directly into your agent's skills directory.*
 
-### Skill-Only Mode vs. Full Python Engine:
-- **Full Engine Mode (`pip install -e .` + Skill / MCP)**:
-  - **Full Capabilities**: Host agents invoke the `lil` CLI or `letitloop-mcp` tools directly.
-  - **Machine-Enforced Proof**: Real AST syntax parsers (Python, TypeScript, JS, Go, Rust), true command exit-code assertions (`exit_code == 0`), OS process-tree timeout killing, and atomic Write-Ahead Log (WAL) journal locks.
-- **Skill-Only / Zero-Install Mode (`skill/SKILL.md` prompt only)**:
-  - **Self-Governed Protocol**: If you copy `SKILL.md` into your agent environment without installing Python, the agent follows the structured DAG contract lifecycle, 3-strike escalation rules, and multi-lens quality gates directly inside chat.
-  - *Note*: Machine-verified AST parsing, rogue file detection, and OS-level crash recovery require the Python package runtime.
+---
+
+### Option B: Full Python Engine & CLI (`lil`)
+For autonomous execution loops with machine-verified proofs, AST syntax checks, and crash resilience:
+
+```bash
+# Install via pip
+pip install letitloop
+
+# (Or directly from GitHub)
+pip install git+https://github.com/sdageltc/letitloop.git
+
+# 1-Click Skill Installation across all detected AI agents
+lil install-skill --all
+```
+
+---
+
+### Skill-Only Protocol vs. Full Python Engine
+
+| Capability | Zero-Install Skill (`SKILL.md`) | Full Engine (`pip install letitloop`) |
+|---|:---:|:---:|
+| **Installation Requirement** | Zero (Pure Markdown Prompt) | Python 3.11+ Runtime |
+| **Orchestration Lifecycle** | In-Chat Self-Governed DAG | Machine Supervisor Daemon |
+| **Retry Discipline** | 3-Strike Behavioral Protocol | 3-Strike State Machine with WAL |
+| **AST Syntax Parsers** | Prompt-Instructed | Native Machine-Verified (AST) |
+| **Exit-Code Test Proofs** | Agent-Reported | Subprocess Exit Code (`exit_code == 0`) |
+| **Crash Resilient State** | Ephemeral Chat Session | Atomic Write-Ahead Log (`state.wal.jsonl`) |
+| **Terminal Dashboard** | None | Live ASCII Matrix (`lil dashboard`) |
+| **MCP Server Integration** | None | 8-Platform stdio JSON-RPC Server |
 
 ---
 
 ## Quick Start
 
-### 1. Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/sdageltc/letitloop.git
-cd letitloop
-
-# Install package in editable mode
-pip install -e .
-
-# Verify CLI installation
-lil --help
-```
-
----
-
-### 2. Model & Provider Configuration
+### 1. Model & Provider Configuration
 
 Configure your environment variables in `.env` (see [`.env.example`](.env.example)):
 

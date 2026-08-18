@@ -7,23 +7,39 @@ When installed as a skill, the Lead Model (e.g. **Claude Opus 5**, **GPT-5.6 Lun
 
 ---
 
-## ⚡ 1-Click Skill Installation Across Platforms
+## 1-Click Skill Installation Across Platforms
 
-From the `letitloop` repository directory, run:
+### Method 1: Zero-Install (Universal Skill Package Manager)
+```bash
+# Add letitloop to your active agent environment instantly
+npx skills add sdageltc/letitloop
+```
+
+---
+
+### Method 2: Via Python CLI (`lil install-skill`)
+If you installed the `letitloop` package via `pip install letitloop`:
 
 ```bash
 # Install into all detected AI assistant environments
-python skill/install_skill.py
+lil install-skill --all
 
 # Or install for a specific assistant:
-python skill/install_skill.py --target claude        # Claude Code (~/.claude/skills/letitloop/)
-python skill/install_skill.py --target codex         # OpenAI Codex (~/.codex/skills/letitloop/ or .codex/skills/letitloop/)
-python skill/install_skill.py --target antigravity   # Google Antigravity (~/.gemini/antigravity/builtin/skills/letitloop/)
-python skill/install_skill.py --target hermes        # Hermes Agent (~/.hermes/skills/letitloop/)
-python skill/install_skill.py --target opencode      # OpenCode (.opencode/skills/letitloop/)
-python skill/install_skill.py --target cursor        # Cursor IDE (.cursor/skills/letitloop/)
-python skill/install_skill.py --target cline         # Cline (.cline/skills/letitloop/)
-python skill/install_skill.py --target windsurf      # Windsurf (.windsurf/skills/letitloop/)
+lil install-skill --target claude        # Claude Code (~/.claude/skills/letitloop/)
+lil install-skill --target codex         # OpenAI Codex (~/.codex/skills/letitloop/ or .codex/skills/letitloop/)
+lil install-skill --target antigravity   # Google Antigravity (~/.gemini/antigravity/builtin/skills/letitloop/)
+lil install-skill --target hermes        # Hermes Agent (~/.hermes/skills/letitloop/)
+lil install-skill --target opencode      # OpenCode (.opencode/skills/letitloop/)
+lil install-skill --target cursor        # Cursor IDE (.cursor/skills/letitloop/)
+lil install-skill --target cline         # Cline (.cline/skills/letitloop/)
+lil install-skill --target windsurf      # Windsurf (.windsurf/skills/letitloop/)
+```
+
+---
+
+### Method 3: From Source Repository
+```bash
+python skill/install_skill.py --all
 ```
 
 ### 📝 OpenAI Codex & `AGENTS.md` Integration

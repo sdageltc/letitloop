@@ -555,8 +555,13 @@ class TestFakeWorker:
         c2_state = _read_state(tmp_path, f"{gid}/{gid}-step-2")
         if not c1_state:
             c1_state = _read_state(tmp_path, f"{gid}-step-1")
-        if not c2_state:
-            c2_state = _read_state(tmp_path, f"{gid}-step-2")
-
         assert c1_state is not None and c1_state["status"] in ("COMPLETE", "complete")
         assert c2_state is not None and c2_state["status"] in ("COMPLETE", "complete")
+
+    @pytest.mark.fast
+    def test_cli_install_skill(self, tmp_path):
+        res = _run_cli(tmp_path, "install-skill", "--target", "cursor", "--workspace", str(tmp_path))
+        assert res.returncode == 0
+        assert "Cursor IDE" in res.stdout
+        dest_file = tmp_path / ".cursor" / "skills" / "letitloop" / "SKILL.md"
+        assert dest_file.is_file()

@@ -1313,6 +1313,22 @@ def cmd_dashboard(args):
     print_dashboard(run_dir)
 
 
+def cmd_install_skill(args):
+    """Install letitloop skill across supported AI agent environments."""
+    from pathlib import Path
+
+    from .skill_installer import run_skill_install
+
+    ws = Path(args.workspace).resolve() if args.workspace else None
+    installed = run_skill_install(target=args.target, workspace=ws)
+    print("\n========================================================")
+    print("letitloop Multi-Platform Skill Installation Summary")
+    print("========================================================")
+    for name, path in installed:
+        print(f"[OK] {name:<22} -> {path}")
+    print("========================================================\n")
+
+
 def main():
     global DEFAULT_RUN_DIR
     parser = argparse.ArgumentParser(
@@ -1479,6 +1495,20 @@ def main():
 
     sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
 
+    p_skill = sub.add_parser("install-skill", help="Install letitloop skill across AI coding assistant environments")
+    p_skill.add_argument(
+        "--target",
+        choices=["all", "claude", "antigravity", "hermes", "opencode", "cursor", "cline", "windsurf", "codex"],
+        default="all",
+        help="Target AI assistant environment (default: all)",
+    )
+    p_skill.add_argument(
+        "--workspace",
+        type=str,
+        default=".",
+        help="Target workspace path for project-local skill installation (default: current directory)",
+    )
+
     cmds = {
         "create": cmd_create,
         "preflight": cmd_preflight,
@@ -1491,6 +1521,8 @@ def main():
         "status": cmd_status,
         "doctor": cmd_doctor,
         "dashboard": cmd_dashboard,
+        "install-skill": cmd_install_skill,
+        "install_skill": cmd_install_skill,
         "goal-create": cmd_goal_create,
         "propose": cmd_propose,
         "approve": cmd_approve,
