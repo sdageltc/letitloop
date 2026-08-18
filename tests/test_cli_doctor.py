@@ -98,3 +98,10 @@ def test_env_doctor_with_connectivity_check(capsys, monkeypatch):
         assert result == 0
         captured = capsys.readouterr()
         assert "OPENAI_API_KEY (configured, reachable)" in captured.out
+
+
+def test_has_module_handles_missing_namespace():
+    from orchestrator.env_doctor import _has_module
+
+    with mock.patch("importlib.util.find_spec", side_effect=ModuleNotFoundError("No module named 'google'")):
+        assert _has_module("google.genai") is False
