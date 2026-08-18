@@ -337,13 +337,23 @@ def _parse_llm_json(stdout: str) -> Dict[str, Any]:
 
 
 def _call_llm_planner(prompt: str, workspace_root: str, timeout_sec: int = 120) -> str:
-    """Call the generic LLM transport with the planner prompt."""
+    """Call the generic LLM transport with the planner prompt, with automatic agent CLI fallback."""
     if os.environ.get("FAKE_WORKER", ""):
         timeout_sec = 1
     try:
         response = call_llm(prompt, ModelRegistry.default_worker(), timeout_s=timeout_sec)
         return response["text"] or ""
     except LLMError as e:
+        from .worker_adapters import WorkerRegistry
+
+        for cli_name in ("antigravity", "claude", "opencode", "hermes", "cline"):
+            try:
+                adapter = WorkerRegistry.get(cli_name)
+                res = adapter.execute(prompt, workspace_root, "planner_decomposition", timeout=timeout_sec)
+                if res.get("exit_code") == 0 and res.get("stdout"):
+                    return res["stdout"]
+            except Exception:
+                continue
         raise PlannerError(f"Planner LLM call failed: {e}")
 
 
