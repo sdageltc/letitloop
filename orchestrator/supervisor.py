@@ -1267,10 +1267,11 @@ class Supervisor:
             with self._shared_lock:
                 self.results[task_id] = {"status": "ESCALATED"}
 
-    def execute_plan(self) -> Dict[str, str]:
+    def execute_plan(self, force: Optional[bool] = None) -> Dict[str, str]:
         """Execute plan under the goal lock (safe for direct CLI entry)."""
+        force_lock = force if force is not None else getattr(self, "force", False)
         try:
-            lk.acquire_lock(self.goal.goal_id, self.run_dir)
+            lk.acquire_lock(self.goal.goal_id, self.run_dir, force=force_lock)
         except lk.LockHeldError as e:
             print(f"[supervisor] LOCK HELD: {e}", file=sys.stderr)
             self.goal.status = "FAILED"

@@ -507,10 +507,10 @@ def cmd_propose(args):
         _execute_approved_plan(goal, plan, run_dir)
 
 
-def _execute_approved_plan(goal, plan, run_dir):
+def _execute_approved_plan(goal, plan, run_dir, force: bool = False):
     """Execute an approved plan via the supervisor."""
     supervisor = Supervisor(goal, plan, workspace_root=WORKSPACE_ROOT, run_dir=run_dir)
-    result = supervisor.execute_plan()
+    result = supervisor.execute_plan(force=force)
     print(f"Execution complete for goal {goal.goal_id}")
     _print_json(result)
 
@@ -617,7 +617,7 @@ def cmd_run_approved(args):
             )
             sys.exit(1)
 
-    _execute_approved_plan(goal, plan, run_dir)
+    _execute_approved_plan(goal, plan, run_dir, force=getattr(args, "force", False))
 
 
 def cmd_plan_preview(args):
@@ -1383,7 +1383,7 @@ def main():
         "--probe", action="store_true", help="Perform lightweight network reachability probe on configured endpoints"
     )
 
-    p_propose = sub.add_parser("propose", help="Propose a plan: intake → plan → preview → approval check")
+    p_propose = sub.add_parser("propose", help="Propose a plan: intake -> plan -> preview -> approval check")
     p_propose.add_argument("--goal-id", help="Goal ID (auto-generated from prompt if not given)")
     p_propose.add_argument("--title", default="", help="Goal title (defaults to prompt)")
     p_propose.add_argument("--description", default="", help="Goal description (defaults to prompt)")
@@ -1396,6 +1396,7 @@ def main():
 
     p_run_approved = sub.add_parser("run-approved", help="Execute an approved plan")
     p_run_approved.add_argument("goal_id", help="Goal ID")
+    p_run_approved.add_argument("--force", action="store_true", help="Force acquire lock if stale")
 
     p_plan_preview = sub.add_parser("plan-preview", help="Show plan preview for a goal")
     p_plan_preview.add_argument("goal_id", help="Goal ID")
