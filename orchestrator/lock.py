@@ -122,6 +122,21 @@ def _process_start_token(pid: int) -> Optional[str]:
         except (AttributeError, OSError, TypeError, ValueError):
             return None
 
+    if sys.platform == "darwin":
+        try:
+            import subprocess
+
+            out = subprocess.check_output(
+                ["ps", "-p", str(pid), "-o", "lstart="],
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=1,
+            ).strip()
+            if out:
+                return f"mac:{out}"
+        except (subprocess.SubprocessError, OSError, ValueError):
+            pass
+
     proc_stat = f"/proc/{pid}/stat"
     try:
         with open(proc_stat, "r", encoding="utf-8") as f:
