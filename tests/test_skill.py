@@ -9,6 +9,7 @@ from skill.install_skill import (
     get_skill_src,
     install_for_antigravity,
     install_for_cline,
+    install_for_codex,
     install_for_cursor,
     install_for_hermes,
     install_for_opencode,
@@ -65,3 +66,9 @@ def test_skill_installers():
         (ws / ".agents").mkdir()
         a_dest = install_for_antigravity(src, ws)
         assert (a_dest / "SKILL.md").exists()
+
+        # OpenAI Codex installer (project-local with .codex directory)
+        (ws / ".codex").mkdir()
+        cx_dest = install_for_codex(src, ws)
+        assert (cx_dest / "SKILL.md").exists()
+

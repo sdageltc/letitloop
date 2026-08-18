@@ -321,6 +321,38 @@ class OmnirouteWorkerAdapter(BaseWorkerAdapter):
             }
 
 
+class CodexWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the OpenAI Codex CLI."""
+
+    def __init__(self, name: str = "codex", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "codex")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "exec", "--prompt", prompt, "--path", workspace_root]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "codex_cli_exec",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Codex CLI execution error: {e}",
+                "approach": "error",
+            }
+
+
 class WorkerRegistry:
     """Registry to register and resolve custom worker adapters dynamically."""
 
@@ -333,6 +365,7 @@ class WorkerRegistry:
         "cline": ClineWorkerAdapter("cline"),
         "aider": AiderWorkerAdapter("aider"),
         "omniroute": OmnirouteWorkerAdapter("omniroute"),
+        "codex": CodexWorkerAdapter("codex"),
     }
 
     @classmethod
@@ -346,3 +379,4 @@ class WorkerRegistry:
     @classmethod
     def list_available(cls) -> List[str]:
         return list(cls._adapters.keys())
+

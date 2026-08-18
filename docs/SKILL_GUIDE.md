@@ -1,9 +1,9 @@
 # Universal Agent Skill Integration Guide for `letitloop`
 
 You can use `letitloop` as a **Universal Agent Skill** across the entire 2026 AI coding ecosystem:
-**Claude Code**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**.
+**Claude Code**, **OpenAI Codex**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**.
 
-When installed as a skill, the Lead Model (e.g. **Claude Opus 5**, **Gemini 3.1 Pro**, **GPT-5.6 Sol**, or **DeepSeek-V4 Pro**) acts as the high-level architect while `letitloop` acts as the underlying deterministic engine.
+When installed as a skill, the Lead Model (e.g. **Claude Opus 5**, **GPT-5.6 Luna / Sol**, **Gemini 3.1 Pro**, or **DeepSeek-V4 Pro**) acts as the high-level architect while `letitloop` acts as the underlying deterministic engine.
 
 ---
 
@@ -17,12 +17,22 @@ python skill/install_skill.py
 
 # Or install for a specific assistant:
 python skill/install_skill.py --target claude        # Claude Code (~/.claude/skills/letitloop/)
+python skill/install_skill.py --target codex         # OpenAI Codex (~/.codex/skills/letitloop/ or .codex/skills/letitloop/)
 python skill/install_skill.py --target antigravity   # Google Antigravity (~/.gemini/antigravity/builtin/skills/letitloop/)
 python skill/install_skill.py --target hermes        # Hermes Agent (~/.hermes/skills/letitloop/)
 python skill/install_skill.py --target opencode      # OpenCode (.opencode/skills/letitloop/)
 python skill/install_skill.py --target cursor        # Cursor IDE (.cursor/skills/letitloop/)
 python skill/install_skill.py --target cline         # Cline (.cline/skills/letitloop/)
 python skill/install_skill.py --target windsurf      # Windsurf (.windsurf/skills/letitloop/)
+```
+
+### 📝 OpenAI Codex & `AGENTS.md` Integration
+For OpenAI Codex, `letitloop` works seamlessly through both the skill system and `AGENTS.md`. You can reference the skill directly in your project root `AGENTS.md`:
+```markdown
+# Agent Directives
+- When executing complex multi-step features or refactors, always adopt the `letitloop` DAG contract planning methodology.
+- Enforce strict 3-strike bounded retry limits with strategy mutation on failures.
+- Verify all changes with deterministic exit-code checks (`pytest`, syntax verification) before reporting complete.
 ```
 
 ---
