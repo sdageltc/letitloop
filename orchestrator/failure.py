@@ -197,7 +197,7 @@ def compute_strategy_fingerprint(state: State) -> str:
         raw = state.changed_approaches[-1]
     else:
         raw = f"default_attempt_{state.attempt}"
-    return hashlib.md5(raw.encode()).hexdigest()[:12]
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
 
 
 def is_divergent(state: State, new_approach: str) -> bool:
@@ -209,9 +209,9 @@ def is_divergent(state: State, new_approach: str) -> bool:
     """
     import hashlib
 
-    new_hash = hashlib.md5(new_approach.encode()).hexdigest()[:12]
+    new_hash = hashlib.sha256(new_approach.encode()).hexdigest()[:12]
     for old_approach in state.changed_approaches[:-1]:
-        old_hash = hashlib.md5(old_approach.encode()).hexdigest()[:12]
+        old_hash = hashlib.sha256(old_approach.encode()).hexdigest()[:12]
         if old_hash == new_hash and old_approach == new_approach:
             return False
     return True
