@@ -1,0 +1,61 @@
+{
+  "task_id": "token-bucket-verify",
+  "title": "Execute test suite and generate verification proof",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Execute the unittest test suite to empirically verify correctness and thread safety of the TokenBucket rate limiter, capturing the test execution output.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/verification_results.txt"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-all-tests-passed",
+      "kind": "content_regex",
+      "path": "scratch/verification_results.txt",
+      "expected": "(OK|Ran [0-9]+ tests in)"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "test_execution_log",
+      "status"
+    ],
+    "quality_dimensions": {
+      "empirical_proof": 0.6,
+      "correctness": 0.4
+    },
+    "hard_failures": [
+      "test_failures",
+      "race_condition_detected"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

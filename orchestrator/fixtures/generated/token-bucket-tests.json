@@ -1,0 +1,70 @@
+{
+  "task_id": "token-bucket-tests",
+  "title": "Implement unit and concurrency tests for TokenBucket",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Write comprehensive unit tests using unittest covering basic token consumption, refill timing, boundary limits, and multi-threaded concurrent access.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/test_token_bucket.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-test-class",
+      "kind": "content_regex",
+      "path": "scratch/test_token_bucket.py",
+      "expected": "class TestTokenBucket"
+    },
+    {
+      "id": "check-concurrency-test",
+      "kind": "content_regex",
+      "path": "scratch/test_token_bucket.py",
+      "expected": "threading\\.Thread"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "TestTokenBucket",
+      "test_consumption",
+      "test_refill",
+      "test_concurrent_consumption"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.3,
+      "test_coverage": 0.4,
+      "concurrency_validation": 0.3
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_concurrency_tests"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

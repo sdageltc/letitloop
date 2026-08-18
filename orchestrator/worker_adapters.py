@@ -136,7 +136,9 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
         self.cli_binary = self.config.get("binary", "agy")
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
-        cmd = [self.cli_binary, "exec", "--prompt", prompt, "--dir", workspace_root]
+        cmd = [self.cli_binary, "-p", prompt, "--dangerously-skip-permissions"]
+        if workspace_root and os.path.isdir(workspace_root):
+            cmd.extend(["--add-dir", workspace_root])
         try:
             proc = subprocess.run(
                 cmd,
@@ -144,6 +146,8 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
                 text=True,
                 cwd=workspace_root,
                 timeout=timeout,
+                encoding="utf-8",
+                errors="replace",
             )
             return {
                 "exit_code": proc.returncode,
@@ -359,7 +363,10 @@ class WorkerRegistry:
     _adapters: Dict[str, BaseWorkerAdapter] = {
         "mock": MockWorkerAdapter("mock"),
         "claude-code": ClaudeCodeWorkerAdapter("claude-code"),
+        "claude": ClaudeCodeWorkerAdapter("claude"),
         "antigravity-cli": AntigravityCliWorkerAdapter("antigravity-cli"),
+        "antigravity": AntigravityCliWorkerAdapter("antigravity"),
+        "agy": AntigravityCliWorkerAdapter("agy"),
         "opencode": OpenCodeWorkerAdapter("opencode"),
         "hermes": HermesWorkerAdapter("hermes"),
         "cline": ClineWorkerAdapter("cline"),
