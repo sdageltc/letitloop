@@ -163,21 +163,22 @@ def store_global_feedback(records: List[FeedbackRecord], scratch_dir: Optional[s
         return
     import re
 
-    base_dir = scratch_dir or os.path.join(os.getcwd(), "scratch")
-    global_dir = os.path.join(base_dir, "orchestrator_feedback")
-    os.makedirs(global_dir, exist_ok=True)
-    global_file = os.path.join(global_dir, "global_feedback.jsonl")
-
-    secret_pat = re.compile(r"(?i)(key|secret|token|password|auth)=['\"]?\S+['\"]?")
-
-    lines_to_write = []
-    for r in records:
-        d = r.to_dict()
-        if d.get("stderr_snippet"):
-            d["stderr_snippet"] = secret_pat.sub(r"\1=<redacted>", d["stderr_snippet"])
-        lines_to_write.append(json.dumps(d, ensure_ascii=False) + "\n")
-
     try:
+        workspace_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+        base_dir = scratch_dir or os.environ.get("LIL_SCRATCH_DIR") or os.path.join(workspace_root, "scratch")
+        global_dir = os.path.join(base_dir, "orchestrator_feedback")
+        os.makedirs(global_dir, exist_ok=True)
+        global_file = os.path.join(global_dir, "global_feedback.jsonl")
+
+        secret_pat = re.compile(r"(?i)(key|secret|token|password|auth)=['\"]?\S+['\"]?")
+
+        lines_to_write = []
+        for r in records:
+            d = r.to_dict()
+            if d.get("stderr_snippet"):
+                d["stderr_snippet"] = secret_pat.sub(r"\1=<redacted>", d["stderr_snippet"])
+            lines_to_write.append(json.dumps(d, ensure_ascii=False) + "\n")
+
         with open(global_file, "a", encoding="utf-8") as f:
             for line in lines_to_write:
                 f.write(line)
@@ -188,7 +189,7 @@ def store_global_feedback(records: List[FeedbackRecord], scratch_dir: Optional[s
             if len(all_lines) > 1000:
                 with open(global_file, "w", encoding="utf-8") as f:
                     f.writelines(all_lines[-500:])
-    except OSError:
+    except (OSError, PermissionError):
         pass
 
 
