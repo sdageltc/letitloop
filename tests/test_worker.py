@@ -136,7 +136,7 @@ class TestProviderFallback:
                 return _ok_response("backup output")
             raise LLMError("provider down")
 
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.worker.call_llm", side_effect=side_effect):
                 result = run_worker(contract, td, td, timeout_sec=5)
 
@@ -158,7 +158,7 @@ class TestProviderFallback:
                 return _ok_response("default fallback output")
             raise LLMError("provider down")
 
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.worker.call_llm", side_effect=side_effect):
                 result = run_worker(contract, td, td, timeout_sec=5)
 
@@ -171,7 +171,7 @@ class TestProviderFallback:
 
     def test_no_fallback_on_success(self):
         contract = _make_contract()
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.worker.call_llm", return_value=_ok_response("ok")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is True
@@ -180,7 +180,7 @@ class TestProviderFallback:
 
     def test_no_fallback_when_backup_also_fails(self):
         contract = _make_contract({"worker": {"model": ModelRegistry.WORKER_FALLBACK, "max_attempts": 3}})
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.worker.call_llm", side_effect=LLMError("both down")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is False
@@ -204,7 +204,7 @@ class TestProviderFallback:
                 return _ok_response("custom fallback")
             raise LLMError("primary down")
 
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.worker.call_llm", side_effect=side_effect):
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is True
@@ -213,7 +213,7 @@ class TestProviderFallback:
     def test_no_fallback_env_kill_switch(self, monkeypatch):
         monkeypatch.setenv("WORKER_NO_FALLBACK", "1")
         contract = _make_contract()
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.worker.call_llm", side_effect=LLMError("down")) as llm_mock:
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is False
@@ -222,7 +222,7 @@ class TestProviderFallback:
 
     def test_hybrid_worker_no_auto_fallback(self):
         contract = _make_contract({"worker": {"model": "hybrid:gemini:gemini-3.6-flash", "max_attempts": 3}})
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             with patch("orchestrator.hybrid_worker.run_hybrid_worker") as hybrid_mock:
                 hybrid_mock.return_value = {
                     "success": False,
