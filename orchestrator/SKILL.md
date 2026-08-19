@@ -108,7 +108,7 @@ export WORKER_MODEL="omniroute:auto"
 
 # OpenRouter
 export OPENROUTER_API_KEY="your-openrouter-key"
-export WORKER_MODEL="openrouter:anthropic/claude-sonnet-5"
+export WORKER_MODEL="openrouter:anthropic/claude-3.5-sonnet"
 
 # Groq (Ultra-Fast LPU Inference)
 export GROQ_API_KEY="your-groq-key"
@@ -117,25 +117,25 @@ export WORKER_MODEL="groq:llama-3.3-70b-versatile"
 
 ### 3. Frontier Commercial APIs (Gemini, Anthropic, OpenAI, DeepSeek)
 ```bash
-# Google Gemini 3 Generation
+# Google Gemini
 export GEMINI_API_KEY="your-gemini-key"
-export WORKER_MODEL="gemini:gemini-3.7-flash"
-export QC_MODEL="gemini:gemini-3.1-pro"
+export WORKER_MODEL="gemini:gemini-2.5-flash"
+export QC_MODEL="gemini:gemini-2.5-pro"
 
-# OpenAI GPT-5.6 Generation
+# OpenAI
 export OPENAI_API_KEY="your-openai-key"
-export WORKER_MODEL="openai:gpt-5.6-luna"
-export QC_MODEL="openai:gpt-5.6-sol"
+export WORKER_MODEL="openai:gpt-4o-mini"
+export QC_MODEL="openai:gpt-4o"
 
-# Anthropic Claude 5 Generation
+# Anthropic Claude
 export ANTHROPIC_API_KEY="your-anthropic-key"
-export WORKER_MODEL="anthropic:claude-sonnet-5"
-export QC_MODEL="anthropic:claude-opus-5"
+export WORKER_MODEL="anthropic:claude-3-5-sonnet-latest"
+export QC_MODEL="anthropic:claude-3-7-sonnet-latest"
 
-# DeepSeek V4 Generation
+# DeepSeek
 export DEEPSEEK_API_KEY="your-deepseek-key"
-export WORKER_MODEL="deepseek:deepseek-v4-flash"
-export QC_MODEL="deepseek:deepseek-v4-pro"
+export WORKER_MODEL="deepseek:deepseek-chat"
+export QC_MODEL="deepseek:deepseek-reasoner"
 ```
 
 ---
@@ -210,8 +210,8 @@ Every step in an autonomous plan is defined by a strictly validated contract:
   },
   "objective": "Build token decode, expiration validation, and signature verification with unit tests.",
   "worker": {
-    "model": "gemini:gemini-3.7-flash",
-    "fallback_model": "openai:gpt-5.6-luna",
+    "model": "gemini:gemini-2.5-flash",
+    "fallback_model": "openai:gpt-4o-mini",
     "max_attempts": 3,
     "adapter": "direct"
   },

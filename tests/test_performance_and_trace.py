@@ -64,7 +64,7 @@ class TestPerformanceAndTrace(unittest.TestCase):
     def test_model_thinking_config_gemini_thinking_budget(self):
         """Verify Gemini thinking_budget payload configuration."""
         payload = {"max_tokens": 4096}
-        ModelThinkingConfig.apply_thinking_config("gemini-3.7-flash", "gemini", payload, thinking_budget=0)
+        ModelThinkingConfig.apply_thinking_config("gemini-2.5-flash", "gemini", payload, thinking_budget=0)
         self.assertIn("extra_body", payload)
         self.assertEqual(payload["extra_body"]["google"]["thinking_config"]["thinking_budget"], 0)
 
@@ -94,7 +94,7 @@ class TestPerformanceAndTrace(unittest.TestCase):
             "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            res = call_llm("Generate code", "gemini:gemini-3.7-flash", thinking_budget=0)
+            res = call_llm("Generate code", "gemini:gemini-2.5-flash", thinking_budget=0)
             self.assertEqual(res["text"], "def test(): pass")
             call_args = mock_http.call_args[0]
             payload = call_args[2]
