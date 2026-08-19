@@ -126,35 +126,35 @@ class TestModelsCoverageExpansion:
         assert ModelRegistry.default_qc() == ModelRegistry.QC_PREFIXED
 
     def test_prefix_helpers(self):
-        assert ModelRegistry.prefixed() == "gemini:gemini-3.7-flash"
-        assert ModelRegistry.prefixed("gemini-3.1-pro") == "gemini:gemini-3.1-pro"
-        assert ModelRegistry.hybrid() == "hybrid:gemini:gemini-3.7-flash"
-        assert ModelRegistry.hybrid("gemini-3.1-pro") == "hybrid:gemini:gemini-3.1-pro"
-        assert ModelRegistry.is_hybrid("hybrid:gemini:gemini-3.7-flash") is True
-        assert ModelRegistry.is_hybrid("gemini:gemini-3.7-flash") is False
-        assert ModelRegistry.strip_hybrid_prefix("hybrid:gemini:gemini-3.7-flash") == "gemini:gemini-3.7-flash"
-        assert ModelRegistry.strip_hybrid_prefix("gemini:gemini-3.7-flash") == "gemini:gemini-3.7-flash"
+        assert ModelRegistry.prefixed() == ModelRegistry.WORKER_PREFIXED
+        assert ModelRegistry.prefixed("gemini-2.5-pro") == "gemini:gemini-2.5-pro"
+        assert ModelRegistry.hybrid() == f"hybrid:{ModelRegistry.WORKER_PREFIXED}"
+        assert ModelRegistry.hybrid("gemini-2.5-pro") == "hybrid:gemini:gemini-2.5-pro"
+        assert ModelRegistry.is_hybrid(f"hybrid:{ModelRegistry.WORKER_PREFIXED}") is True
+        assert ModelRegistry.is_hybrid(ModelRegistry.WORKER_PREFIXED) is False
+        assert ModelRegistry.strip_hybrid_prefix(f"hybrid:{ModelRegistry.WORKER_PREFIXED}") == ModelRegistry.WORKER_PREFIXED
+        assert ModelRegistry.strip_hybrid_prefix(ModelRegistry.WORKER_PREFIXED) == ModelRegistry.WORKER_PREFIXED
 
     def test_constants_definitions(self):
-        assert ModelRegistry.GPT_SOL == "openai:gpt-5.6-sol"
-        assert ModelRegistry.GPT_TERRA == "openai:gpt-5.6-terra"
-        assert ModelRegistry.GPT_LUNA == "openai:gpt-5.6-luna"
-        assert ModelRegistry.GPT_CYBER == "openai:gpt-5.6-cyber"
-        assert ModelRegistry.CLAUDE_OPUS_5 == "anthropic:claude-opus-5"
-        assert ModelRegistry.CLAUDE_SONNET_5 == "anthropic:claude-sonnet-5"
-        assert ModelRegistry.CLAUDE_FABLE_5 == "anthropic:claude-fable-5"
-        assert ModelRegistry.CLAUDE_HAIKU_4_5 == "anthropic:claude-haiku-4-5"
+        assert ModelRegistry.GPT_4O == "openai:gpt-4o"
+        assert ModelRegistry.GPT_4O_MINI == "openai:gpt-4o-mini"
+        assert ModelRegistry.O1 == "openai:o1"
+        assert ModelRegistry.O1_MINI == "openai:o1-mini"
+        assert ModelRegistry.O3_MINI == "openai:o3-mini"
+        assert ModelRegistry.GPT_4_TURBO == "openai:gpt-4-turbo"
+        assert ModelRegistry.CLAUDE_3_7_SONNET == "anthropic:claude-3-7-sonnet-latest"
+        assert ModelRegistry.CLAUDE_3_5_SONNET == "anthropic:claude-3-5-sonnet-latest"
+        assert ModelRegistry.CLAUDE_3_5_HAIKU == "anthropic:claude-3-5-haiku-latest"
+        assert ModelRegistry.CLAUDE_3_OPUS == "anthropic:claude-3-opus-latest"
         assert ModelRegistry.GEMINI_3_7_FLASH == "gemini:gemini-3.7-flash"
-        assert ModelRegistry.GEMINI_3_6_FLASH == "gemini:gemini-3.6-flash"
-        assert ModelRegistry.GEMINI_3_5_FLASH_LITE == "gemini:gemini-3.5-flash-lite"
-        assert ModelRegistry.GEMINI_3_1_PRO == "gemini:gemini-3.1-pro"
         assert ModelRegistry.GEMINI_2_5_PRO == "gemini:gemini-2.5-pro"
-        assert ModelRegistry.DEEPSEEK_V4_PRO == "deepseek:deepseek-v4-pro"
-        assert ModelRegistry.DEEPSEEK_V4_FLASH == "deepseek:deepseek-v4-flash"
+        assert ModelRegistry.GEMINI_2_5_FLASH == "gemini:gemini-2.5-flash"
+        assert ModelRegistry.GEMINI_2_0_FLASH == "gemini:gemini-2.0-flash"
+        assert ModelRegistry.GEMINI_2_0_FLASH_LITE == "gemini:gemini-2.0-flash-lite"
+        assert ModelRegistry.GEMINI_1_5_PRO == "gemini:gemini-1.5-pro"
+        assert ModelRegistry.GEMINI_1_5_FLASH == "gemini:gemini-1.5-flash"
         assert ModelRegistry.DEEPSEEK_CHAT == "deepseek:deepseek-chat"
         assert ModelRegistry.DEEPSEEK_REASONER == "deepseek:deepseek-reasoner"
-        assert ModelRegistry.KIMI_K3 == "kimi:kimi-k3"
-        assert ModelRegistry.KIMI_K2 == "kimi:kimi-k2"
         assert ModelRegistry.OMNIROUTE_AUTO == "omniroute:auto"
 
 
