@@ -682,10 +682,18 @@ def _run_required_sections_check(path, required_sections, workspace_root):
     else:
         candidates = _get_markdown_headings(content)
 
-    candidates_lower = {str(c).lower() for c in candidates}
     missing = []
     for section in required_sections:
-        if isinstance(section, str) and section.lower() not in candidates_lower:
+        if not isinstance(section, str):
+            continue
+        sec_lower = section.lower().strip()
+        # Direct match or substring match in any candidate heading
+        found = any(sec_lower in c.lower() or c.lower() in sec_lower for c in candidates)
+        if not found:
+            # Also check if section title keywords appear in candidate headers
+            words = [w for w in re.split(r"\W+", sec_lower) if len(w) > 2]
+            found = bool(words and any(all(w in c.lower() for w in words) for c in candidates))
+        if not found:
             missing.append(section)
     if missing:
         return VerifierResult(

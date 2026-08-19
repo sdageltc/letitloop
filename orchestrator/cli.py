@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import sys
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .approval import format_approval_reasons, requires_approval
 from .contract import load_contract
@@ -1348,6 +1349,102 @@ def cmd_impossibility(args):
         print()
 
 
+def cmd_trace(args):
+    """Render comprehensive step-by-step reasoning, verification and QC trace for a goal."""
+    goal_id = getattr(args, "goal_id", None) or _latest_goal_id()
+    if not goal_id:
+        print("error: no goal_id specified and no existing goals found in run directory.", file=sys.stderr)
+        sys.exit(1)
+
+    run_dir = _run_dir(goal_id)
+    goal_path = os.path.join(run_dir, "goal.json")
+    if not os.path.isfile(goal_path):
+        print(f"error: goal {goal_id} not found at {run_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        with open(goal_path, "r", encoding="utf-8") as f:
+            goal_data = json.load(f)
+    except Exception:
+        goal_data = {}
+
+    print("\n" + "=" * 78)
+    print(f"  LETITLOOP TRACE TIMELINE: {goal_id}")
+    print(f"  Title:  {goal_data.get('title', 'Untitled')}")
+    print(f"  Status: {goal_data.get('status', 'UNKNOWN')}")
+    print("=" * 78)
+
+    subdirs = sorted([d for d in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir, d)) and d not in ("state_backups", "checkpoints")])
+    if not subdirs:
+        print("  (No step executions recorded for this goal)\n")
+        return
+
+    for idx, sdir in enumerate(subdirs, 1):
+        step_dir = os.path.join(run_dir, sdir)
+        state_file = os.path.join(step_dir, "state.json")
+        qc_file = os.path.join(step_dir, "qc_verdict.json")
+        v_file = os.path.join(step_dir, "verification_evidence.json")
+        c_file = os.path.join(step_dir, "contract.json")
+
+        st_name = "UNKNOWN"
+        att = 1
+        if os.path.isfile(state_file):
+            try:
+                with open(state_file, "r", encoding="utf-8") as sf:
+                    s_data = json.load(sf)
+                st_name = s_data.get("status", "UNKNOWN")
+                att = s_data.get("attempt", 1)
+            except Exception:
+                pass
+
+        print(f"\n  [{idx:02d}] Step: {sdir}")
+        print(f"       * Final Status: {st_name} (Attempts: {att})")
+
+        # Contract info
+        if os.path.isfile(c_file):
+            try:
+                with open(c_file, "r", encoding="utf-8") as cf:
+                    c_data = json.load(cf)
+                worker_m = c_data.get("worker", {}).get("model", "default")
+                outs = [o.get("path", "") for o in c_data.get("outputs", []) if isinstance(o, dict)]
+                print(f"       * Worker Model: {worker_m}")
+                if outs:
+                    print(f"       * Target Outputs: {', '.join(outs)}")
+            except Exception:
+                pass
+
+        # Verification Evidence
+        if os.path.isfile(v_file):
+            try:
+                with open(v_file, "r", encoding="utf-8") as vf:
+                    v_data = json.load(vf)
+                v_res = v_data.get("verification_results", [])
+                all_p = v_data.get("all_passed", False)
+                print(f"       * Verification Checks: {'[ALL PASS]' if all_p else '[FAIL]'} ({len(v_res)} checks)")
+                for chk in v_res[:3]:
+                    c_kind = chk.get("kind", chk.get("check_id", "check"))
+                    c_pass = "[PASS]" if chk.get("passed") else "[FAIL]"
+                    print(f"           - {c_pass} {c_kind}")
+            except Exception:
+                pass
+
+        # QC Verdict
+        if os.path.isfile(qc_file):
+            try:
+                with open(qc_file, "r", encoding="utf-8") as qf:
+                    q_data = json.load(qf)
+                q_stat = q_data.get("status", "UNKNOWN")
+                q_score = q_data.get("score", 0.0)
+                q_reason = q_data.get("reason", "")
+                print(f"       * Multi-Lens QC: [{q_stat}] (Score: {q_score:.2f})")
+                if q_reason:
+                    print(f"           - {q_reason[:75]}...")
+            except Exception:
+                pass
+
+    print("\n" + "=" * 78 + "\n")
+
+
 def cmd_dashboard(args):
     """Render rich terminal UI dashboard for active run directory."""
     from .tui import print_dashboard
@@ -1544,6 +1641,9 @@ def main():
 
     sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
 
+    p_trace = sub.add_parser("trace", help="Render step-by-step reasoning and verification trace for a goal")
+    p_trace.add_argument("goal_id", nargs="?", default=None, help="Goal ID (defaults to latest)")
+
     p_skill = sub.add_parser("install-skill", help="Install letitloop skill across AI coding assistant environments")
     p_skill.add_argument(
         "--target",
@@ -1570,6 +1670,7 @@ def main():
         "status": cmd_status,
         "doctor": cmd_doctor,
         "dashboard": cmd_dashboard,
+        "trace": cmd_trace,
         "install-skill": cmd_install_skill,
         "install_skill": cmd_install_skill,
         "goal-create": cmd_goal_create,
