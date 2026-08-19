@@ -31,11 +31,11 @@ class TestPerformanceAndTrace(unittest.TestCase):
 
         self.assertEqual(ThinkingBudget.budget_for("complex_refactor"), 1024)
 
-    def test_model_thinking_config_anthropic_claude_opus(self):
-        """Verify Claude Opus thinking parameters comply with Anthropic requirements."""
+    def test_model_thinking_config_anthropic_claude(self):
+        """Verify Claude thinking parameters comply with Anthropic requirements."""
         payload = {"max_tokens": 4096, "temperature": 0.7}
         # Planning phase with thinking enabled (budget >= 1024)
-        ModelThinkingConfig.apply_thinking_config("claude-opus-5", "anthropic", payload, thinking_budget=4096)
+        ModelThinkingConfig.apply_thinking_config("claude-3-7-sonnet", "anthropic", payload, thinking_budget=4096)
         self.assertIn("thinking", payload)
         self.assertEqual(payload["thinking"]["type"], "enabled")
         self.assertEqual(payload["thinking"]["budget_tokens"], 4096)
@@ -46,14 +46,14 @@ class TestPerformanceAndTrace(unittest.TestCase):
 
         # Worker standard phase: thinking should be omitted for instant execution
         worker_payload = {"max_tokens": 4096, "temperature": 0.2}
-        ModelThinkingConfig.apply_thinking_config("claude-opus-5", "anthropic", worker_payload, thinking_budget=0)
+        ModelThinkingConfig.apply_thinking_config("claude-3-7-sonnet", "anthropic", worker_payload, thinking_budget=0)
         self.assertNotIn("thinking", worker_payload)
 
     def test_model_thinking_config_openai_reasoning_vs_standard(self):
         """Verify OpenAI only receives reasoning_effort on reasoning models, not gpt-4o."""
-        # Reasoning model (gpt-5.6 / o1)
+        # Reasoning model (o1 / o3-mini)
         reasoning_payload = {"max_tokens": 4096}
-        ModelThinkingConfig.apply_thinking_config("gpt-5.6-sol", "openai", reasoning_payload, thinking_budget=4096)
+        ModelThinkingConfig.apply_thinking_config("o1", "openai", reasoning_payload, thinking_budget=4096)
         self.assertEqual(reasoning_payload.get("reasoning_effort"), "high")
 
         # Standard model (gpt-4o-mini) must never receive reasoning_effort (prevents 400 error)
@@ -117,11 +117,11 @@ class TestPerformanceAndTrace(unittest.TestCase):
             self.assertEqual(payload["thinking"]["budget_tokens"], 4096)
 
     def test_model_registry_frontier_defaults(self):
-        """Verify ModelRegistry defaults to Gemini 3.7 Flash and 3.1 Pro."""
-        self.assertEqual(ModelRegistry.WORKER, "gemini-3.7-flash")
-        self.assertEqual(ModelRegistry.QC, "gemini-3.1-pro")
-        self.assertTrue(ModelRegistry.is_hybrid("hybrid:gemini:gemini-3.7-flash"))
-        self.assertEqual(ModelRegistry.strip_hybrid_prefix("hybrid:gemini:gemini-3.7-flash"), "gemini:gemini-3.7-flash")
+        """Verify ModelRegistry defaults to official verified models."""
+        self.assertEqual(ModelRegistry.WORKER, "gemini-2.5-flash")
+        self.assertEqual(ModelRegistry.QC, "gemini-2.5-pro")
+        self.assertTrue(ModelRegistry.is_hybrid("hybrid:gemini:gemini-2.5-flash"))
+        self.assertEqual(ModelRegistry.strip_hybrid_prefix("hybrid:gemini:gemini-2.5-flash"), "gemini:gemini-2.5-flash")
 
     def test_cmd_trace_execution(self):
         """Verify cmd_trace runs without error for existing runs."""
