@@ -1,0 +1,60 @@
+{
+  "task_id": "token-bucket-step-3",
+  "title": "Step 3: Execute tests and verify empirical proof",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Execute the unittest suite in scratch/test_token_bucket.py, log test results to scratch/test_results.log, and verify all test assertions pass cleanly with exit code 0.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/test_results.log"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-tests-passed",
+      "kind": "content_regex",
+      "path": "scratch/test_results.log",
+      "expected": "OK"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "OK"
+    ],
+    "quality_dimensions": {
+      "pass_rate": 0.7,
+      "test_execution_cleanliness": 0.3
+    },
+    "hard_failures": [
+      "test_failure",
+      "nonzero_exit_code"
+    ],
+    "minimum_score": 1.0
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

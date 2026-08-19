@@ -1,0 +1,62 @@
+{
+  "task_id": "trace-ux-tests-step-3",
+  "title": "Step 3: Execute tests and verify empirical test proof",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Run the test suite against the implemented unit tests, verify all assertions pass without regression, and generate an empirical verification report.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/trace_ux_tests/verification_report.md"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-test-report",
+      "kind": "content_regex",
+      "path": "scratch/trace_ux_tests/verification_report.md",
+      "expected": "(?s).*Test Execution Results.*PASSED.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "Test Execution Command",
+      "Test Execution Results",
+      "Coverage and Assertion Summary"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.4,
+      "correctness": 0.6
+    },
+    "hard_failures": [
+      "failing test cases",
+      "missing execution output"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

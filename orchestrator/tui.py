@@ -15,31 +15,32 @@ from typing import Any, Dict, List, Optional
 class TerminalDashboard:
     """Zero-dependency rich terminal dashboard for letitloop runs."""
 
+    # Unicode icons with clean ASCII fallback
     STATUS_ICONS = {
-        "DRAFTED": "📝",
-        "PLANNED": "📋",
-        "PLANNING": "📐",
-        "RUNNING": "🔄",
-        "WORKING": "⚙️ ",
-        "EXECUTING": "⚡",
-        "VERIFYING": "🔍",
-        "VERIFIED": "✅",
-        "QC_PENDING": "⚖️ ",
-        "QC_PASS": "🌟",
-        "QC_PASSED": "🌟",
-        "COMPLETE": "🎉",
-        "FAILED": "❌",
-        "CRASHED": "💥",
-        "ESCALATED": "🚨",
-        "RETRY_PENDING": "🔁",
-        "DEGRADED_PASS": "⚠️ ",
-        "PAUSED": "⏸️ ",
-        "CANCELLED": "🛑",
+        "DRAFTED": "[DRAFT]",
+        "PLANNED": "[PLAN]",
+        "PLANNING": "[PLAN]",
+        "RUNNING": "[RUN]",
+        "WORKING": "[WORK]",
+        "EXECUTING": "[EXEC]",
+        "VERIFYING": "[VERIFY]",
+        "VERIFIED": "[VERIFIED]",
+        "QC_PENDING": "[QC]",
+        "QC_PASS": "[QC_PASS]",
+        "QC_PASSED": "[QC_PASS]",
+        "COMPLETE": "[COMPLETE]",
+        "FAILED": "[FAIL]",
+        "CRASHED": "[CRASH]",
+        "ESCALATED": "[ESCALATE]",
+        "RETRY_PENDING": "[RETRY]",
+        "DEGRADED_PASS": "[DEGRADED]",
+        "PAUSED": "[PAUSED]",
+        "CANCELLED": "[CANCELLED]",
     }
 
     @classmethod
     def render_header(cls, title: str = "letitloop (LIL) — Autonomous Macro-Task Orchestrator") -> str:
-        bar = "═" * 78
+        bar = "=" * 78
         return f"\n{bar}\n  {title}\n{bar}\n"
 
     @classmethod
@@ -48,22 +49,22 @@ class TerminalDashboard:
         gid = goal_dict.get("goal_id", "unknown")
         gtitle = goal_dict.get("title", "Untitled Goal")
         gstatus = goal_dict.get("status", "DRAFTED")
-        icon = cls.STATUS_ICONS.get(gstatus, "▫️")
+        icon = cls.STATUS_ICONS.get(gstatus, "[STATUS]")
 
-        lines.append(f"  🎯 Goal: [{gid}] {gtitle}")
-        lines.append(f"  📊 Status: {icon} {gstatus}")
+        lines.append(f"  * Goal: [{gid}] {gtitle}")
+        lines.append(f"  * Status: {icon} {gstatus}")
 
         if plan_dict and "contracts" in plan_dict:
             contracts = plan_dict["contracts"]
-            lines.append(f"  📋 Plan DAG: {len(contracts)} tasks scheduled")
-            lines.append("  " + "─" * 74)
+            lines.append(f"  * Plan DAG: {len(contracts)} tasks scheduled")
+            lines.append("  " + "-" * 74)
             for idx, c in enumerate(contracts, 1):
                 tid = c.get("task_id", f"task_{idx}")
                 obj = c.get("objective", "No objective specified")
                 tier = c.get("risk_tier", "standard")
-                lines.append(f"    [{idx:02d}] 🔹 {tid:<20} | Tier: {tier:<8} | {obj[:35]}")
+                lines.append(f"    [{idx:02d}] - {tid:<20} | Tier: {tier:<8} | {obj[:35]}")
 
-        lines.append("═" * 78 + "\n")
+        lines.append("=" * 78 + "\n")
         return "\n".join(lines)
 
     @classmethod
@@ -95,7 +96,7 @@ class TerminalDashboard:
             lines.append("  (No runs found in directory)")
         else:
             lines.append(f"  {'Goal / Task ID':<32} {'Status':<16} {'Tasks':<12} {'Details':<14}")
-            lines.append("  " + "─" * 74)
+            lines.append("  " + "-" * 74)
 
             for folder in entries:
                 fpath = os.path.join(run_dir, folder)
@@ -110,29 +111,35 @@ class TerminalDashboard:
                         title = g_data.get("title", "")
                         # Count child task folders
                         subfolders = [sf for sf in os.listdir(fpath) if os.path.isdir(os.path.join(fpath, sf)) and sf not in ("state_backups", "checkpoints")]
-                        icon = cls.STATUS_ICONS.get(st, "▫️")
-                        lines.append(f"  {folder:<32} {icon} {st:<13} {len(subfolders):<12} {title[:14]}")
+                        icon = cls.STATUS_ICONS.get(st, "[STATUS]")
+                        lines.append(f"  {folder:<32} {icon:<14} {len(subfolders):<12} {title[:14]}")
                     except Exception:
-                        lines.append(f"  {folder:<32} ⚠️ Corrupt goal.json")
+                        lines.append(f"  {folder:<32} [ERROR] Corrupt goal.json")
                 elif os.path.isfile(s_json):
                     try:
                         with open(s_json, "r", encoding="utf-8") as f:
                             s_data = json.load(f)
                         st = s_data.get("status", "UNKNOWN")
                         att = s_data.get("attempt", 1)
-                        icon = cls.STATUS_ICONS.get(st, "▫️")
-                        lines.append(f"  {folder:<32} {icon} {st:<13} {'attempt ' + str(att):<12} {'single task'}")
+                        icon = cls.STATUS_ICONS.get(st, "[STATUS]")
+                        lines.append(f"  {folder:<32} {icon:<14} {'attempt ' + str(att):<12} {'single task'}")
                     except Exception:
-                        lines.append(f"  {folder:<32} ⚠️ Corrupt state.json")
+                        lines.append(f"  {folder:<32} [ERROR] Corrupt state.json")
                 else:
-                    lines.append(f"  {folder:<32} ▫️ Initializing... (Empty run folder)")
+                    lines.append(f"  {folder:<32} [INIT] Empty run folder")
 
-        lines.append("═" * 78 + "\n")
+        lines.append("=" * 78 + "\n")
         return "\n".join(lines)
 
 
 def print_dashboard(run_dir: str) -> None:
-    """Print terminal dashboard output directly to stdout."""
+    """Print terminal dashboard output safely to stdout."""
     out = TerminalDashboard.render_run_status(run_dir)
-    sys.stdout.write(out)
-    sys.stdout.flush()
+    try:
+        sys.stdout.write(out)
+        sys.stdout.flush()
+    except UnicodeEncodeError:
+        # Fallback for strict Windows charmap encodings
+        safe_out = out.encode("ascii", errors="replace").decode("ascii")
+        sys.stdout.write(safe_out)
+        sys.stdout.flush()

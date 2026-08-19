@@ -1,0 +1,62 @@
+{
+  "task_id": "fuzz-engine-verify",
+  "title": "Step 4: Execute test suite and verify 100% pass rate",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Run pytest against test_experimental_fuzz_engine.py and output empirical verification report confirming all unit tests pass.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/fuzz_engine/verification_report.json"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-verification-report",
+      "kind": "content_regex",
+      "path": "scratch/fuzz_engine/verification_report.json",
+      "expected": "(?s).*\"passed\":\\s*true.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "test_results",
+      "coverage",
+      "passed"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.4,
+      "correctness": 0.6
+    },
+    "hard_failures": [
+      "failing_tests",
+      "unverified_execution"
+    ],
+    "minimum_score": 0.95
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}
