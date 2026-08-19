@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 class TerminalDashboard:
@@ -110,7 +110,11 @@ class TerminalDashboard:
                         st = g_data.get("status", "DRAFTED")
                         title = g_data.get("title", "")
                         # Count child task folders
-                        subfolders = [sf for sf in os.listdir(fpath) if os.path.isdir(os.path.join(fpath, sf)) and sf not in ("state_backups", "checkpoints")]
+                        subfolders = [
+                            sf
+                            for sf in os.listdir(fpath)
+                            if os.path.isdir(os.path.join(fpath, sf)) and sf not in ("state_backups", "checkpoints")
+                        ]
                         icon = cls.STATUS_ICONS.get(st, "[STATUS]")
                         lines.append(f"  {folder:<32} {icon:<14} {len(subfolders):<12} {title[:14]}")
                     except Exception:

@@ -10,7 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
 

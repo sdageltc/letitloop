@@ -6,15 +6,10 @@ Verifies mutant injection behaviors, operator transformations, and syntax preser
 from __future__ import annotations
 
 import ast
-import copy
-import sys
 import unittest
-import pytest
 
 from orchestrator.experimental.mutation_tester import (
     ASTMutantInjector,
-    Mutant,
-    MutationLocation,
     MutationOperator,
     OperatorType,
     apply_mutations,
@@ -23,10 +18,10 @@ from orchestrator.experimental.mutation_tester import (
     mutate_ast,
 )
 
-
 # ============================================================================
 # 1. Required Test Section: test_binary_operator_mutation
 # ============================================================================
+
 
 def test_binary_operator_mutation():
     """Verify binary operator mutation behaviors and operator replacements (AOR)."""
@@ -70,6 +65,7 @@ def test_binary_operator_mutation():
 # 2. Required Test Section: test_comparison_operator_mutation
 # ============================================================================
 
+
 def test_comparison_operator_mutation():
     """Verify comparison operator mutation behaviors and operator replacements (ROR)."""
     source = "def check(x):\n    return x > 0\n"
@@ -106,6 +102,7 @@ def test_comparison_operator_mutation():
 # ============================================================================
 # 3. Required Test Section: test_mutant_execution
 # ============================================================================
+
 
 def test_mutant_execution():
     """Verify mutant execution, evaluation differences, and syntax preservation."""
@@ -147,6 +144,7 @@ def test_mutant_execution():
 # ============================================================================
 # 4. Additional Comprehensive Tests: Logical, Unary, and Constant Mutations
 # ============================================================================
+
 
 def test_boolean_operator_mutation():
     """Verify boolean operator replacement (LOR: and <-> or)."""
@@ -197,14 +195,15 @@ def test_constant_literal_mutation():
     assert repls == {repr(11), repr(9), repr(0)}
 
     # Check string mutation
-    str_mutants = [m for m in mutants if m.location.original_op == repr('antigravity')]
+    str_mutants = [m for m in mutants if m.location.original_op == repr("antigravity")]
     assert len(str_mutants) == 1
-    assert str_mutants[0].location.replacement_op == repr('')
+    assert str_mutants[0].location.replacement_op == repr("")
 
 
 # ============================================================================
 # 5. Class Methods, API Interfaces, and AST Transformations
 # ============================================================================
+
 
 def test_mutation_operator_class_methods():
     """Verify MutationOperator helper methods for operator and constant replacements."""
@@ -230,8 +229,8 @@ def test_mutation_operator_class_methods():
     assert MutationOperator.get_constant_replacements(0) == [1, -1]
     assert MutationOperator.get_constant_replacements(1) == [0, 2]
     assert MutationOperator.get_constant_replacements(5) == [6, 4, 0]
-    assert MutationOperator.get_constant_replacements('text') == ['']
-    assert MutationOperator.get_constant_replacements('') == ['mutated']
+    assert MutationOperator.get_constant_replacements("text") == [""]
+    assert MutationOperator.get_constant_replacements("") == ["mutated"]
     assert MutationOperator.get_constant_replacements([]) == []
 
 

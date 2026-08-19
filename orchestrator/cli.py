@@ -15,7 +15,7 @@ import hashlib
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Optional
 
 from .approval import format_approval_reasons, requires_approval
 from .contract import load_contract
@@ -1374,7 +1374,13 @@ def cmd_trace(args):
     print(f"  Status: {goal_data.get('status', 'UNKNOWN')}")
     print("=" * 78)
 
-    subdirs = sorted([d for d in os.listdir(run_dir) if os.path.isdir(os.path.join(run_dir, d)) and d not in ("state_backups", "checkpoints")])
+    subdirs = sorted(
+        [
+            d
+            for d in os.listdir(run_dir)
+            if os.path.isdir(os.path.join(run_dir, d)) and d not in ("state_backups", "checkpoints")
+        ]
+    )
     if not subdirs:
         print("  (No step executions recorded for this goal)\n")
         return
@@ -1527,7 +1533,9 @@ def main():
     p_approve = sub.add_parser("approve", help="Approve a proposed plan (defaults to latest goal if omitted)")
     p_approve.add_argument("goal_id", nargs="?", default=None, help="Goal ID")
 
-    p_run_approved = sub.add_parser("run-approved", help="Execute an approved plan (defaults to latest goal if omitted)")
+    p_run_approved = sub.add_parser(
+        "run-approved", help="Execute an approved plan (defaults to latest goal if omitted)"
+    )
     p_run_approved.add_argument("goal_id", nargs="?", default=None, help="Goal ID")
     p_run_approved.add_argument("--force", action="store_true", help="Force acquire lock if stale")
 

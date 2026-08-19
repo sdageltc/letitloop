@@ -12,17 +12,12 @@ from orchestrator.models import ModelRegistry
 from orchestrator.state import (
     JOURNAL_FILENAME,
     LEGAL_TRANSITIONS,
-    SNAPSHOT_FILENAME,
-    STATE_SCHEMA_VERSION,
     STATES,
-    TERMINAL_STATES,
     WAL_FILENAME,
-    _DELETE_SENTINEL,
     State,
     _canonical,
     _event_hash,
     _fsync_dir,
-    _migrate_legacy_snapshot,
     _now,
     _sha256_text,
     _validate_jsonable,
@@ -132,7 +127,10 @@ class TestModelsCoverageExpansion:
         assert ModelRegistry.hybrid("gemini-3.1-pro") == "hybrid:gemini:gemini-3.1-pro"
         assert ModelRegistry.is_hybrid(f"hybrid:{ModelRegistry.WORKER_PREFIXED}") is True
         assert ModelRegistry.is_hybrid(ModelRegistry.WORKER_PREFIXED) is False
-        assert ModelRegistry.strip_hybrid_prefix(f"hybrid:{ModelRegistry.WORKER_PREFIXED}") == ModelRegistry.WORKER_PREFIXED
+        assert (
+            ModelRegistry.strip_hybrid_prefix(f"hybrid:{ModelRegistry.WORKER_PREFIXED}")
+            == ModelRegistry.WORKER_PREFIXED
+        )
         assert ModelRegistry.strip_hybrid_prefix(ModelRegistry.WORKER_PREFIXED) == ModelRegistry.WORKER_PREFIXED
 
     def test_constants_definitions(self):
@@ -203,7 +201,11 @@ class TestStateHelpersAndProperties:
             with patch("os.name", "posix"), patch.object(os, "O_DIRECTORY", 0x10000, create=True):
                 with patch("os.open", side_effect=OSError("open failed")):
                     _fsync_dir(file_path)
-                with patch("os.open", return_value=999), patch("os.fsync") as mock_fsync, patch("os.close") as mock_close:
+                with (
+                    patch("os.open", return_value=999),
+                    patch("os.fsync") as mock_fsync,
+                    patch("os.close") as mock_close,
+                ):
                     _fsync_dir(file_path)
                     mock_fsync.assert_called_once_with(999)
                     mock_close.assert_called_once_with(999)
@@ -317,7 +319,9 @@ class TestStateWALIntegrityAndApply:
         with pytest.raises(IllegalTransitionError, match="illegal transition"):
             s._apply_event(event_illegal)
 
-        event_legal = s._build_event("TRANSITION", {"from": "DRAFTED", "to": "PREFLIGHT_RUNNING", "evidence_path": "/ev.json"})
+        event_legal = s._build_event(
+            "TRANSITION", {"from": "DRAFTED", "to": "PREFLIGHT_RUNNING", "evidence_path": "/ev.json"}
+        )
         s._apply_event(event_legal)
         assert s.status == "PREFLIGHT_RUNNING"
         assert s.events[-1]["evidence_path"] == "/ev.json"
@@ -618,11 +622,15 @@ class TestStatePersistenceAndRecovery:
 
             lines = [
                 {"event_type": "INIT", "task_id": "j_task", "payload": {"status": "DRAFTED"}},
-                {"event_type": "TRANSITION", "timestamp": "2026-01-01T00:00:00Z", "payload": {"from": "DRAFTED", "to": "PREFLIGHT_RUNNING", "reason": "init run"}},
+                {
+                    "event_type": "TRANSITION",
+                    "timestamp": "2026-01-01T00:00:00Z",
+                    "payload": {"from": "DRAFTED", "to": "PREFLIGHT_RUNNING", "reason": "init run"},
+                },
             ]
             with open(journal_path, "w") as f:
-                for l in lines:
-                    f.write(json.dumps(l) + "\n")
+                for line in lines:
+                    f.write(json.dumps(line) + "\n")
 
             recovered = recover_from_journal(journal_path, journal_dir=td)
             assert recovered is not None
@@ -635,8 +643,8 @@ class TestStatePersistenceAndRecovery:
                 {"_task_id": "legacy_j_task", "from": "READY", "to": "WORKING", "reason": "legacy worker start"},
             ]
             with open(journal_path, "w") as f:
-                for l in legacy_lines:
-                    f.write(json.dumps(l) + "\n")
+                for leg_line in legacy_lines:
+                    f.write(json.dumps(leg_line) + "\n")
 
             recovered_legacy = recover_from_journal(journal_path, journal_dir=td)
             assert recovered_legacy is not None

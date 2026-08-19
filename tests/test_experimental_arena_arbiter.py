@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from orchestrator.experimental.arena_arbiter import (
+    AgentVote,
     ArenaArbiter,
     ConsensusStrategy,
     Proposal,
-    AgentVote,
-    ArbitrationResult,
 )
 
 
@@ -16,7 +14,7 @@ def test_unanimous_consensus():
     arbiter = ArenaArbiter(default_strategy=ConsensusStrategy.UNANIMOUS)
     p1 = Proposal(proposal_id="p1", agent_id="a1", content="Plan A")
     p2 = Proposal(proposal_id="p2", agent_id="a2", content="Plan A")
-    
+
     res = arbiter.resolve_consensus([p1, p2])
     assert res.consensus_reached is True
     assert res.selected_proposal == p1

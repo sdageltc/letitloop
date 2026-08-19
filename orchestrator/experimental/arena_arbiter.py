@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-import math
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 
 class ConsensusStrategy(str, Enum):
@@ -182,12 +181,20 @@ class ArenaArbiter:
         if votes is not None:
             for v in votes:
                 if v.proposal_id in tally:
-                    w = v.weight if active_strategy != ConsensusStrategy.WEIGHTED_MAJORITY else self.agent_weights.get(v.agent_id, v.weight)
+                    w = (
+                        v.weight
+                        if active_strategy != ConsensusStrategy.WEIGHTED_MAJORITY
+                        else self.agent_weights.get(v.agent_id, v.weight)
+                    )
                     tally[v.proposal_id] += w
                     total_weight += w
         else:
             for p in proposals:
-                w = self.agent_weights.get(p.agent_id, 1.0) if active_strategy == ConsensusStrategy.WEIGHTED_MAJORITY else 1.0
+                w = (
+                    self.agent_weights.get(p.agent_id, 1.0)
+                    if active_strategy == ConsensusStrategy.WEIGHTED_MAJORITY
+                    else 1.0
+                )
                 tally[p.proposal_id] += w
                 total_weight += w
 
@@ -199,7 +206,11 @@ class ArenaArbiter:
         top_ratio = top_score / total_weight
 
         # Check threshold
-        req_threshold = self.supermajority_threshold if active_strategy == ConsensusStrategy.SUPERMAJORITY else self.min_consensus_threshold
+        req_threshold = (
+            self.supermajority_threshold
+            if active_strategy == ConsensusStrategy.SUPERMAJORITY
+            else self.min_consensus_threshold
+        )
         if len(sorted_tally) > 1 and sorted_tally[0][1] == sorted_tally[1][1]:
             # Tie breaking
             if tie_breaker is not None:
