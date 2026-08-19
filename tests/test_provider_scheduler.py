@@ -11,7 +11,7 @@ class TestExtractProvider:
     def test_known_prefixes(self):
         assert _extract_provider("gemini:gemini-3.6-flash") == "gemini"
         assert _extract_provider("openai:gpt-4o-mini") == "openai"
-        assert _extract_provider("anthropic:claude-opus-5") == "anthropic"
+        assert _extract_provider("anthropic:claude-3-opus-latest") == "anthropic"
         assert _extract_provider("deepseek:deepseek-chat") == "deepseek"
 
     def test_any_prefix(self):

@@ -193,14 +193,14 @@ class TestProviderFallback:
             {
                 "worker": {
                     "model": "openai:gpt-4o-mini",
-                    "fallback_model": "anthropic:claude-opus-5",
+                    "fallback_model": "anthropic:claude-3-opus-latest",
                     "max_attempts": 3,
                 },
             }
         )
 
         def side_effect(prompt, model, **kwargs):
-            if model == "anthropic:claude-opus-5":
+            if model == "anthropic:claude-3-opus-latest":
                 return _ok_response("custom fallback")
             raise LLMError("primary down")
 
@@ -208,7 +208,7 @@ class TestProviderFallback:
             with patch("orchestrator.worker.call_llm", side_effect=side_effect):
                 result = run_worker(contract, td, td, timeout_sec=5)
         assert result["success"] is True
-        assert result["fallback_to"] == "anthropic:claude-opus-5"
+        assert result["fallback_to"] == "anthropic:claude-3-opus-latest"
 
     def test_no_fallback_env_kill_switch(self, monkeypatch):
         monkeypatch.setenv("WORKER_NO_FALLBACK", "1")
