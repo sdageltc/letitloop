@@ -1331,7 +1331,9 @@ class Supervisor:
                 if not ready_tasks:
                     break
 
-                progress_made = batch_fn(ready_tasks)
+                # Auto-concurrent DAG execution: use ThreadPool parallel batch if >1 independent tasks ready
+                active_batch_fn = self._execute_batch_parallel if (self.parallel or len(ready_tasks) > 1) else self._execute_batch_serial
+                progress_made = active_batch_fn(ready_tasks)
                 self._save_plan()
 
                 if not progress_made:
