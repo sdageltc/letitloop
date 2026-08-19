@@ -43,6 +43,7 @@ logs/
 orchestrator/**/state.json
 orchestrator/**/worker_brief.txt
 orchestrator/**/scope_snapshot.json
+orchestrator/fixtures/generated/
 
 # Reference copies & local data
 reference/

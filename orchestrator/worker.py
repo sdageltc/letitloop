@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 import time
 
@@ -59,7 +60,13 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
     if quality_spec:
         lines.append("QUALITY SPECIFICATION (you will be judged on these):")
         if quality_spec.get("required_sections"):
-            lines.append(f"  Required sections (exact spelling): {quality_spec['required_sections']}")
+            lines.append(
+                f"  Required sections (must include ALL as markdown headings ##): {quality_spec['required_sections']}"
+            )
+            lines.append(
+                "  - You MUST include a distinct section heading (e.g. ## Section Title) for EVERY required section above."
+            )
+            lines.append("  - Be concise and focused so no required sections are omitted or truncated.")
         if quality_spec.get("quality_dimensions"):
             lines.append(f"  Quality dimensions: {json.dumps(quality_spec['quality_dimensions'])}")
         if quality_spec.get("hard_failures"):
@@ -103,6 +110,8 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
             lines.append(f"    expected: {check['expected']}")
     lines.append("")
     lines.append("CONSTRAINTS:")
+    lines.append("- Output ONLY the raw content of the required output file inside a single ``` fenced code block.")
+    lines.append("- Do NOT output conversational preambles, summaries, or postambles outside the code block.")
     lines.append("- Only modify files under the allowed paths above.")
     lines.append("- Do NOT modify AGENTS.md, memory/, .opencode/, or global configs.")
     lines.append("- Do NOT run git commands, deploy, publish, or access external APIs.")
@@ -149,6 +158,9 @@ def _build_brief(contract, previous_failures=None, changed_approach=None):
         lines.append(f"Changed approach required: {changed_approach}")
         lines.append("The previous approach is not acceptable. Do something different.")
 
+    lines.append("")
+    lines.append("[CONTEXT_COMPLETE]")
+
     return "\n".join(lines)
 
 
@@ -162,10 +174,13 @@ def _cap_output(text, max_size=MAX_OUTPUT_SIZE):
 
 
 def _strip_code_fences(text):
-    """Strip a single markdown code fence block around an artifact."""
+    """Extract code block content or strip surrounding markdown code fences."""
     text = (text or "").strip()
-    if not text.startswith("```"):
+    if not text:
         return text
+    match = re.search(r"```(?:[a-zA-Z0-9_\-]+)?\s*\n(.*?)\n```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
     lines = text.splitlines()
     if lines and lines[0].startswith("```"):
         lines = lines[1:]
@@ -176,15 +191,44 @@ def _strip_code_fences(text):
 
 def _materialize_outputs(contract, workspace_root, stdout):
     """Persist the worker's text response into the contract's declared output
-    paths so chat-completion workers can produce artifacts like CLI workers."""
+    paths so chat-completion workers can produce artifacts like CLI workers.
+
+    Supports both structured multi-file payloads ([{"path": ..., "content": ...}])
+    and single-file fenced code blocks.
+    """
     written = []
-    for out in contract.outputs:
+    expected_paths = [
+        o.get("path", "") for o in getattr(contract, "outputs", []) if isinstance(o, dict) and o.get("path")
+    ]
+    try:
+        from .hybrid_parser import parse_llm_artifacts
+
+        parse_res = parse_llm_artifacts(stdout, expected_paths)
+        if parse_res.ok and parse_res.artifacts:
+            for art in parse_res.artifacts:
+                full_path = os.path.join(workspace_root, art.path) if not os.path.isabs(art.path) else art.path
+                try:
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    with open(full_path, "w", encoding="utf-8") as f:
+                        f.write(art.content)
+                    written.append(full_path)
+                except OSError as e:
+                    _safe_stderr(f"[worker] could not write artifact {art.path}: {e}")
+            if written:
+                return written
+    except Exception:
+        pass
+
+    clean_content = _strip_code_fences(stdout)
+    for out in getattr(contract, "outputs", []):
+        if not isinstance(out, dict) or not out.get("path"):
+            continue
         out_path = out["path"]
         full_path = os.path.join(workspace_root, out_path) if not os.path.isabs(out_path) else out_path
         try:
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             with open(full_path, "w", encoding="utf-8") as f:
-                f.write(_strip_code_fences(stdout))
+                f.write(clean_content)
             written.append(full_path)
         except OSError as e:
             _safe_stderr(f"[worker] could not materialize output {out_path}: {e}")

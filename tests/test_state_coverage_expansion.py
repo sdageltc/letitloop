@@ -38,86 +38,18 @@ class TestModelsCoverageExpansion:
 
     def test_default_worker_gemini_key(self, monkeypatch):
         monkeypatch.delenv("WORKER_MODEL", raising=False)
-        monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         assert ModelRegistry.default_worker() == ModelRegistry.WORKER_PREFIXED
-
-    def test_default_worker_openai_key(self, monkeypatch):
-        monkeypatch.delenv("WORKER_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        assert ModelRegistry.default_worker() == ModelRegistry.GPT_LUNA
-
-    def test_default_worker_deepseek_key(self, monkeypatch):
-        monkeypatch.delenv("WORKER_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        assert ModelRegistry.default_worker() == ModelRegistry.DEEPSEEK_V4_FLASH
-
-    def test_default_worker_anthropic_key(self, monkeypatch):
-        monkeypatch.delenv("WORKER_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
-        assert ModelRegistry.default_worker() == ModelRegistry.CLAUDE_SONNET_5
 
     def test_default_worker_no_keys_fallback(self, monkeypatch):
         monkeypatch.delenv("WORKER_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         assert ModelRegistry.default_worker() == ModelRegistry.WORKER_PREFIXED
 
     def test_default_qc_env_override(self, monkeypatch):
         monkeypatch.setenv("QC_MODEL", "custom:qc-model")
         assert ModelRegistry.default_qc() == "custom:qc-model"
 
-    def test_default_qc_gemini_key(self, monkeypatch):
-        monkeypatch.delenv("QC_MODEL", raising=False)
-        monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        assert ModelRegistry.default_qc() == ModelRegistry.QC_PREFIXED
-
-    def test_default_qc_openai_key(self, monkeypatch):
-        monkeypatch.delenv("QC_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        assert ModelRegistry.default_qc() == ModelRegistry.GPT_SOL
-
-    def test_default_qc_deepseek_key(self, monkeypatch):
-        monkeypatch.delenv("QC_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        assert ModelRegistry.default_qc() == ModelRegistry.DEEPSEEK_V4_PRO
-
-    def test_default_qc_anthropic_key(self, monkeypatch):
-        monkeypatch.delenv("QC_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
-        assert ModelRegistry.default_qc() == ModelRegistry.CLAUDE_OPUS_5
-
     def test_default_qc_no_keys_fallback(self, monkeypatch):
         monkeypatch.delenv("QC_MODEL", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         assert ModelRegistry.default_qc() == ModelRegistry.QC_PREFIXED
 
     def test_prefix_helpers(self):

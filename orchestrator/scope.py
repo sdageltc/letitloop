@@ -78,15 +78,21 @@ class ScopeCheckResult:
         }
 
 
+_IGNORED_DIRS = {".opencode", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", "generated"}
+_IGNORED_EXTS = {".pyc", ".pyo", ".pyd"}
+
+
 def _walk_matching(root: str, prefixes: List[str]) -> Dict[str, str]:
     """Walk files under root matching any prefix via component-safe comparison."""
     files: Dict[str, str] = {}
     root_abs = os.path.abspath(root)
     for dirpath, _dirnames, filenames in os.walk(root_abs):
-        if ".opencode" in dirpath.split(os.sep) or ".git" in dirpath.split(os.sep):
+        if _IGNORED_DIRS & set(dirpath.split(os.sep)):
             _dirnames[:] = []
             continue
         for fn in filenames:
+            if any(fn.endswith(ext) for ext in _IGNORED_EXTS):
+                continue
             abs_path = os.path.join(dirpath, fn)
             rel_path = os.path.relpath(abs_path, root_abs)
             for prefix in prefixes:
@@ -103,11 +109,12 @@ def _walk_all(root: str, exclude_dir: str = None) -> Dict[str, str]:
     root_abs = os.path.abspath(root)
     exclude_abs = os.path.abspath(exclude_dir) if exclude_dir else None
     for dirpath, _dirnames, filenames in os.walk(root_abs):
-        # Skip orchestrator-internal state (.opencode, .git) — not worker output.
-        if ".opencode" in dirpath.split(os.sep) or ".git" in dirpath.split(os.sep):
+        if _IGNORED_DIRS & set(dirpath.split(os.sep)):
             _dirnames[:] = []
             continue
         for fn in filenames:
+            if any(fn.endswith(ext) for ext in _IGNORED_EXTS):
+                continue
             abs_path = os.path.join(dirpath, fn)
             if exclude_abs and _is_under_path(abs_path, exclude_abs):
                 continue
