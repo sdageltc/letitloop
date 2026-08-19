@@ -124,6 +124,8 @@ def build_implementer_prompt(
             "]",
             "",
             "Return ONLY valid JSON in the above format. No markdown. No commentary.",
+            "",
+            "[CONTEXT_COMPLETE]",
         ]
     )
 
@@ -229,6 +231,8 @@ def build_critic_prompt(
             "Return ONLY valid JSON in the above format. No markdown. No commentary.",
             "Cap issues to top 3 severity items. If PASS, issues should be empty.",
             "If you cannot determine quality from evidence, return INSUFFICIENT_EVIDENCE.",
+            "",
+            "[CONTEXT_COMPLETE]",
         ]
     )
 

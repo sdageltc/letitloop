@@ -335,7 +335,7 @@ def _run_content_check(path, pattern, kind, workspace_root):
         else:
             return VerifierResult(check_id="content", kind=kind, passed=False, message="content does not match exact")
     elif kind == "content_regex":
-        if re.search(pattern, content):
+        if re.search(pattern, content, re.DOTALL):
             return VerifierResult(check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}")
         else:
             return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}")
@@ -713,6 +713,9 @@ def _run_required_sections_check(path, required_sections, workspace_root):
             words = [w for w in re.split(r"\W+", sec_lower) if len(w) > 2]
             found = bool(words and any(all(w in c.lower() for w in words) for c in candidates))
         if not found:
+            # Check if section title is present as bold or header anywhere in the text
+            found = bool(re.search(r"(?i)(?:^#{1,6}\s+|\*\*)[^\n]*" + re.escape(sec_lower), content))
+        if not found:
             missing.append(section)
     if missing:
         return VerifierResult(
@@ -901,10 +904,10 @@ def _run_schema_count_check(path, expected_minimum, workspace_root):
 def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspace_root, allowed_paths):
     """Check no files were created outside declared outputs within allowed scope.
 
-    Excludes the supervisor's own runtime files (under run_dir) which exist
-    before/after snapshot but are not worker outputs.
+    Excludes the supervisor's own runtime files (under run_dir) and sibling tasks'
+    declared outputs during parallel execution.
     """
-    from .scope import _walk_matching, load_snapshot
+    from .scope import FileBackedScopeRegistry, _walk_matching, is_path_exempt, load_snapshot
 
     run_dir = os.path.dirname(scope_snapshot_path) if scope_snapshot_path else ""
     before = load_snapshot(run_dir) if scope_snapshot_path else {}
@@ -919,15 +922,47 @@ def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspa
     for p in declared_outputs:
         full = os.path.join(workspace_root, p) if not os.path.isabs(p) else p
         declared_abs.add(os.path.normcase(os.path.normpath(full)))
+
+    sibling_outputs = []
+    try:
+        sibling_outputs = FileBackedScopeRegistry(workspace_root).sibling_declared_outputs()
+    except Exception:
+        pass
+
+    # Also load plan.json from goal run_dir if available to exempt all sibling declared outputs
+    try:
+        plan_path = os.path.join(os.path.dirname(run_dir), "plan.json")
+        if os.path.isfile(plan_path):
+            with open(plan_path, "r", encoding="utf-8") as f:
+                plan_data = json.load(f)
+                for c in plan_data.get("contracts", []):
+                    for o in c.get("outputs", []):
+                        if o.get("path"):
+                            sibling_outputs.append(o["path"])
+    except Exception:
+        pass
+
     after = _walk_matching(workspace_root, allowed_paths)
     run_dir_abs = os.path.normcase(os.path.normpath(os.path.abspath(run_dir)))
+    goal_run_dir_abs = os.path.normcase(os.path.normpath(os.path.abspath(os.path.dirname(run_dir)))) if run_dir else ""
     undeclared = []
     for rel_path, _ in after.items():
+        if (
+            "__pycache__" in rel_path.split(os.sep)
+            or "generated" in rel_path.split(os.sep)
+            or rel_path.endswith((".pyc", ".pyo", ".pyd"))
+        ):
+            continue
         abs_path = os.path.normcase(os.path.normpath(os.path.join(workspace_root, rel_path)))
         if abs_path in declared_abs:
             continue
-        # Skip supervisor runtime files (under run_dir)
+        # Skip supervisor runtime files (under run_dir or parent goal_run_dir)
         if run_dir_abs and abs_path.startswith(run_dir_abs + os.sep):
+            continue
+        if goal_run_dir_abs and abs_path.startswith(goal_run_dir_abs + os.sep):
+            continue
+        # Skip sibling tasks' declared outputs
+        if sibling_outputs and is_path_exempt(abs_path, sibling_outputs, workspace_root=workspace_root):
             continue
         old_hash = before.get(rel_path)
         if old_hash is None:

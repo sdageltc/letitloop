@@ -199,32 +199,16 @@ class ModelRegistry:
 
     @classmethod
     def default_worker(cls) -> str:
-        """Effective worker model (env WORKER_MODEL wins over auto-detected configured provider)."""
+        """Effective worker model (env WORKER_MODEL wins over default)."""
         if "WORKER_MODEL" in os.environ:
             return os.environ["WORKER_MODEL"]
-        if os.environ.get("GEMINI_API_KEY"):
-            return cls.WORKER_PREFIXED
-        if os.environ.get("OPENAI_API_KEY"):
-            return cls.GPT_LUNA
-        if os.environ.get("DEEPSEEK_API_KEY"):
-            return cls.DEEPSEEK_V4_FLASH
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            return cls.CLAUDE_SONNET_5
         return cls.WORKER_PREFIXED
 
     @classmethod
     def default_qc(cls) -> str:
-        """Effective QC model (env QC_MODEL wins over auto-detected configured provider)."""
+        """Effective QC model (env QC_MODEL wins over default)."""
         if "QC_MODEL" in os.environ:
             return os.environ["QC_MODEL"]
-        if os.environ.get("GEMINI_API_KEY"):
-            return cls.QC_PREFIXED
-        if os.environ.get("OPENAI_API_KEY"):
-            return cls.GPT_SOL
-        if os.environ.get("DEEPSEEK_API_KEY"):
-            return cls.DEEPSEEK_V4_PRO
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            return cls.CLAUDE_OPUS_5
         return cls.QC_PREFIXED
 
     @classmethod
