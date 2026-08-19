@@ -65,6 +65,7 @@ def _norm_path(path: str) -> str:
 _REVIEWER_HOOK: Optional[Callable] = None
 
 _PAID_MODEL_MARKERS = (
+    "kimi",
     "claude-3-opus",
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
@@ -112,7 +113,7 @@ def _invoke_reviewer(
     # Paid routes still receive the prepared master-context payload: the
     # complete review context as one payload, no external file reads.
     normalized_model = str(model or "").strip().lower()
-    if any(marker in normalized_model for marker in _PAID_MODEL_MARKERS):
+    if any(marker in normalized_model for marker in _PAID_MODEL_MARKERS) and "gpt-4o-mini" not in normalized_model:
         prompt = (
             "[MASTER_CONTEXT]\n"
             "[CONTEXT_COMPLETE]\n"
