@@ -19,10 +19,10 @@ from typing import Any, Dict, Optional, Set
 class ThinkingBudget:
     """Dynamic thinking budget token targets across execution phases."""
 
-    PLANNING = 4096       # High thinking for deep architectural DAG planning
-    QC = 2048             # Deep verification and multi-lens critique
-    WORKER_STANDARD = 0   # 0 thinking tokens for instantaneous code edits / tests (<3s)
-    WORKER_COMPLEX = 1024 # Targeted reasoning for multi-file refactors
+    PLANNING = 4096  # High thinking for deep architectural DAG planning
+    QC = 2048  # Deep verification and multi-lens critique
+    WORKER_STANDARD = 0  # 0 thinking tokens for instantaneous code edits / tests (<3s)
+    WORKER_COMPLEX = 1024  # Targeted reasoning for multi-file refactors
 
     @classmethod
     def budget_for(cls, phase_or_task_type: str) -> int:
@@ -41,19 +41,39 @@ class ModelThinkingConfig:
     """Model-specific dynamic thinking and reasoning configuration engine."""
 
     REASONING_MODELS_OPENAI: Set[str] = {
-        "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-cyber",
-        "o1", "o1-mini", "o1-preview", "o3", "o3-mini", "o4-mini"
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-5.6-cyber",
+        "o1",
+        "o1-mini",
+        "o1-preview",
+        "o3",
+        "o3-mini",
+        "o4-mini",
     }
 
     THINKING_MODELS_ANTHROPIC: Set[str] = {
-        "claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-4-5",
-        "claude-3-7-sonnet", "claude-3-7-sonnet-20250219", "claude-3-7-sonnet-latest", "claude-3.7-sonnet",
-        "claude-opus-4", "claude-sonnet-4"
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-fable-5",
+        "claude-haiku-4-5",
+        "claude-3-7-sonnet",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-7-sonnet-latest",
+        "claude-3.7-sonnet",
+        "claude-opus-4",
+        "claude-sonnet-4",
     }
 
     THINKING_MODELS_GEMINI: Set[str] = {
-        "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-pro",
-        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.7-flash-latest"
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-pro",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-3.7-flash-latest",
     }
 
     @classmethod

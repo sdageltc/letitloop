@@ -8,17 +8,10 @@ from __future__ import annotations
 
 import ast
 import copy
-from dataclasses import asdict, dataclass, field
-import hashlib
-import json
 import os
 import random
-import subprocess
-import sys
-import tempfile
-import time
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
-
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Set
 
 # ---------------------------------------------------------------------------
 # Default State Machine & Taxonomy Constants (aligned with orchestrator)
@@ -154,6 +147,7 @@ class SwallowExceptionOperator(AstMutationOperator):
 # ---------------------------------------------------------------------------
 # Property Oracles (Clean, Deterministic Invariant Checks)
 # ---------------------------------------------------------------------------
+
 
 class PropertyOracle:
     """Verifies invariant properties on orchestrator states and WAL execution traces."""

@@ -12,11 +12,12 @@ import ast
 import copy
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 
 class OperatorType(Enum):
     """Types of mutation operators."""
+
     AOR = auto()  # Arithmetic Operator Replacement
     ROR = auto()  # Relational / Comparison Operator Replacement
     LOR = auto()  # Logical / Boolean Operator Replacement
@@ -28,6 +29,7 @@ class OperatorType(Enum):
 @dataclass
 class MutationLocation:
     """Location and metadata for a potential mutation."""
+
     lineno: int
     col_offset: int
     node_type: str
@@ -40,6 +42,7 @@ class MutationLocation:
 @dataclass
 class Mutant:
     """Represents an individual mutant created from source code."""
+
     mutant_id: int
     original_code: str
     mutated_code: str
@@ -300,11 +303,11 @@ class ASTMutantInjector(ast.NodeTransformer):
 def mutate_ast(tree: ast.AST, location: MutationLocation) -> ast.AST:
     """
     Apply a specific mutation to an AST at the specified location.
-    
+
     Args:
         tree: The original AST.
         location: The mutation location specification.
-        
+
     Returns:
         A new mutated AST.
     """
@@ -318,11 +321,11 @@ def mutate_ast(tree: ast.AST, location: MutationLocation) -> ast.AST:
 def apply_mutations(source_code: str, locations: Optional[List[MutationLocation]] = None) -> List[Mutant]:
     """
     Parse source code and apply mutations for given or all discovered mutation locations.
-    
+
     Args:
         source_code: The Python source code as string.
         locations: Optional list of mutation locations. If None, all possible locations are used.
-        
+
     Returns:
         A list of Mutant objects.
     """
@@ -338,6 +341,7 @@ def apply_mutations(source_code: str, locations: Optional[List[MutationLocation]
             mutated_code = ast.unparse(mutated_tree)
         except AttributeError:
             import astor  # type: ignore
+
             mutated_code = astor.to_source(mutated_tree)
 
         mutants.append(
@@ -355,10 +359,10 @@ def apply_mutations(source_code: str, locations: Optional[List[MutationLocation]
 def inject_mutants(source_code: str) -> List[Mutant]:
     """
     Alias/wrapper to generate and inject all possible mutants for a source code string.
-    
+
     Args:
         source_code: The Python source code to mutate.
-        
+
     Returns:
         List of generated Mutant instances.
     """
@@ -368,10 +372,10 @@ def inject_mutants(source_code: str) -> List[Mutant]:
 def generate_mutants(source_code: str) -> List[Mutant]:
     """
     Generate all mutants from Python source code.
-    
+
     Args:
         source_code: Python source code string.
-        
+
     Returns:
         List of Mutant objects containing mutated code and ASTs.
     """

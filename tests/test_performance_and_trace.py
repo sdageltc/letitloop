@@ -1,7 +1,6 @@
 """Tests for performance optimizations, dynamic thinking budgets, and explainability trace."""
 
 import os
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
