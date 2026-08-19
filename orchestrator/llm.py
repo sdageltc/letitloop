@@ -242,6 +242,8 @@ def call_llm(
     model_id = strip_provider(model)
     start = time.time()
 
+    from .models import ModelThinkingConfig
+
     if PROVIDERS[provider]["schema"] == "anthropic":
         headers = {
             "x-api-key": key,
@@ -254,8 +256,7 @@ def call_llm(
             payload["system"] = system
         if temperature is not None:
             payload["temperature"] = temperature
-        if thinking_budget is not None and thinking_budget > 0:
-            payload["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        ModelThinkingConfig.apply_thinking_config(model_id, provider, payload, thinking_budget=thinking_budget)
         try:
             data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
         except LLMError as e:
@@ -283,16 +284,7 @@ def call_llm(
             payload["messages"].insert(0, {"role": "system", "content": system})
         if temperature is not None:
             payload["temperature"] = temperature
-        if thinking_budget is not None:
-            if provider == "gemini":
-                payload["extra_body"] = {"google": {"thinking_config": {"thinking_budget": thinking_budget}}}
-            elif provider == "openai":
-                if thinking_budget == 0:
-                    payload["reasoning_effort"] = "low"
-                elif thinking_budget >= 4096:
-                    payload["reasoning_effort"] = "high"
-                else:
-                    payload["reasoning_effort"] = "medium"
+        ModelThinkingConfig.apply_thinking_config(model_id, provider, payload, thinking_budget=thinking_budget)
         try:
             data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
         except LLMError as e:

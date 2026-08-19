@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from orchestrator.cli import cmd_trace
 from orchestrator.llm import call_llm
-from orchestrator.models import ModelRegistry, ThinkingBudget
+from orchestrator.models import ModelRegistry, ModelThinkingConfig, ThinkingBudget
 from orchestrator.verifier import _AST_CACHE, fast_ast_verify
 
 
@@ -30,6 +30,43 @@ class TestPerformanceAndTrace(unittest.TestCase):
         self.assertEqual(ThinkingBudget.budget_for("implementation"), 0)
 
         self.assertEqual(ThinkingBudget.budget_for("complex_refactor"), 1024)
+
+    def test_model_thinking_config_anthropic_claude_opus(self):
+        """Verify Claude Opus thinking parameters comply with Anthropic requirements."""
+        payload = {"max_tokens": 4096, "temperature": 0.7}
+        # Planning phase with thinking enabled (budget >= 1024)
+        ModelThinkingConfig.apply_thinking_config("claude-opus-5", "anthropic", payload, thinking_budget=4096)
+        self.assertIn("thinking", payload)
+        self.assertEqual(payload["thinking"]["type"], "enabled")
+        self.assertEqual(payload["thinking"]["budget_tokens"], 4096)
+        # max_tokens must be greater than budget_tokens
+        self.assertGreater(payload["max_tokens"], 4096)
+        # temperature must be removed or 1.0
+        self.assertNotIn("temperature", payload)
+
+        # Worker standard phase: thinking should be omitted for instant execution
+        worker_payload = {"max_tokens": 4096, "temperature": 0.2}
+        ModelThinkingConfig.apply_thinking_config("claude-opus-5", "anthropic", worker_payload, thinking_budget=0)
+        self.assertNotIn("thinking", worker_payload)
+
+    def test_model_thinking_config_openai_reasoning_vs_standard(self):
+        """Verify OpenAI only receives reasoning_effort on reasoning models, not gpt-4o."""
+        # Reasoning model (gpt-5.6 / o1)
+        reasoning_payload = {"max_tokens": 4096}
+        ModelThinkingConfig.apply_thinking_config("gpt-5.6-sol", "openai", reasoning_payload, thinking_budget=4096)
+        self.assertEqual(reasoning_payload.get("reasoning_effort"), "high")
+
+        # Standard model (gpt-4o-mini) must never receive reasoning_effort (prevents 400 error)
+        standard_payload = {"max_tokens": 4096}
+        ModelThinkingConfig.apply_thinking_config("gpt-4o-mini", "openai", standard_payload, thinking_budget=4096)
+        self.assertNotIn("reasoning_effort", standard_payload)
+
+    def test_model_thinking_config_gemini_thinking_budget(self):
+        """Verify Gemini thinking_budget payload configuration."""
+        payload = {"max_tokens": 4096}
+        ModelThinkingConfig.apply_thinking_config("gemini-3.7-flash", "gemini", payload, thinking_budget=0)
+        self.assertIn("extra_body", payload)
+        self.assertEqual(payload["extra_body"]["google"]["thinking_config"]["thinking_budget"], 0)
 
     def test_fast_ast_verify_speed_and_caching(self):
         """Verify in-memory AST check (<5ms) and sub-millisecond hash cache hits."""
@@ -59,7 +96,6 @@ class TestPerformanceAndTrace(unittest.TestCase):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
             res = call_llm("Generate code", "gemini:gemini-3.7-flash", thinking_budget=0)
             self.assertEqual(res["text"], "def test(): pass")
-            # Verify payload in mock call
             call_args = mock_http.call_args[0]
             payload = call_args[2]
             self.assertIn("extra_body", payload)
@@ -73,7 +109,7 @@ class TestPerformanceAndTrace(unittest.TestCase):
             "usage": {"input_tokens": 20, "output_tokens": 10},
         }
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
-            res = call_llm("Plan architecture", "anthropic:claude-3-5-sonnet-latest", thinking_budget=4096)
+            res = call_llm("Plan architecture", "anthropic:claude-3-7-sonnet", thinking_budget=4096)
             self.assertEqual(res["text"], "Plan output")
             call_args = mock_http.call_args[0]
             payload = call_args[2]
@@ -91,11 +127,10 @@ class TestPerformanceAndTrace(unittest.TestCase):
         """Verify cmd_trace runs without error for existing runs."""
         args = MagicMock()
         args.goal_id = None
-        # Should not crash even if run directory is inspected
         try:
             cmd_trace(args)
         except SystemExit:
-            pass  # Expected if no runs in temporary test dir
+            pass
 
 
 if __name__ == "__main__":

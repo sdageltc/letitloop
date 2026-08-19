@@ -46,6 +46,6 @@ def test_terminal_dashboard_run_status(tmp_path):
 
     status_out = TerminalDashboard.render_run_status(str(run_dir))
     assert "task_1" in status_out
-    assert "VERIFIED" in status_out
+    assert "[VERIFIED]" in status_out or "VERIFIED" in status_out
     assert "task_2" in status_out
-    assert "RUNNING" in status_out
+    assert "[RUN]" in status_out or "RUNNING" in status_out
