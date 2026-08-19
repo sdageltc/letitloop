@@ -1,5 +1,6 @@
-"""Centralized model string registry. Single source of truth for all model IDs.
+"""Centralized model string registry and dynamic thinking budget configuration.
 
+Single source of truth for all model IDs and compute allocation.
 Ground truth updated for 2026 frontier model generations:
 - OpenAI: GPT-5.6 Series (Sol, Terra, Luna, Cyber)
 - Anthropic: Claude 5 Series (Opus 5, Sonnet 5, Fable 5, Haiku 4.5)
@@ -8,7 +9,31 @@ Ground truth updated for 2026 frontier model generations:
 - Gateways: Omniroute, OpenRouter, Groq, Ollama
 """
 
+from __future__ import annotations
+
 import os
+from typing import Optional
+
+
+class ThinkingBudget:
+    """Dynamic thinking budget allocation for 10x latency optimization."""
+
+    PLANNING = 4096      # High thinking for deep architectural DAG planning
+    QC = 2048            # Deep verification and multi-lens critique
+    WORKER_STANDARD = 0  # 0 thinking tokens for instantaneous code edits / tests
+    WORKER_COMPLEX = 1024 # Targeted reasoning for multi-file refactors
+
+    @classmethod
+    def budget_for(cls, phase_or_task_type: str) -> int:
+        """Resolve dynamic thinking token budget for a given phase or task type."""
+        phase = (phase_or_task_type or "").lower()
+        if "plan" in phase or "propose" in phase or "architect" in phase:
+            return cls.PLANNING
+        if "qc" in phase or "critique" in phase or "audit" in phase or "review" in phase:
+            return cls.QC
+        if "complex" in phase or "refactor" in phase:
+            return cls.WORKER_COMPLEX
+        return cls.WORKER_STANDARD
 
 
 class ModelRegistry:
@@ -20,7 +45,7 @@ class ModelRegistry:
     WORKER_FALLBACK = "gemini:gemini-3.5-flash-lite"
     QC_FALLBACK = "gemini:gemini-3.7-flash"
     HYBRID = f"hybrid:{WORKER_PREFIXED}"
-    FALLBACK = "openai:gpt-4o-mini"
+    FALLBACK = "gemini:gemini-3.5-flash-lite"
     OPUS = "claude-opus-5"
     KIMI = "kimi-k2"
 
@@ -85,11 +110,11 @@ class ModelRegistry:
         return cls.QC_PREFIXED
 
     @classmethod
-    def prefixed(cls, model: str = None) -> str:
+    def prefixed(cls, model: Optional[str] = None) -> str:
         return f"gemini:{model or cls.WORKER}"
 
     @classmethod
-    def hybrid(cls, model: str = None) -> str:
+    def hybrid(cls, model: Optional[str] = None) -> str:
         return f"hybrid:gemini:{model or cls.WORKER}"
 
     @classmethod

@@ -196,7 +196,10 @@ def _call_llm(
         }
 
     try:
-        resp = call_llm(prompt, model, timeout_s=timeout_sec)
+        from .models import ThinkingBudget
+
+        tb = ThinkingBudget.budget_for(role)
+        resp = call_llm(prompt, model, thinking_budget=tb, timeout_s=timeout_sec)
     except LLMError as e:
         from .worker_adapters import WorkerRegistry
 

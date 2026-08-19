@@ -221,6 +221,7 @@ def call_llm(
     system: Optional[str] = None,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
+    thinking_budget: Optional[int] = None,
     timeout_s: int = DEFAULT_TIMEOUT_S,
 ) -> Dict[str, Any]:
     """Call a chat model and return ``{"text": str, "usage": dict, "model": str, "provider": str}``.
@@ -253,6 +254,8 @@ def call_llm(
             payload["system"] = system
         if temperature is not None:
             payload["temperature"] = temperature
+        if thinking_budget is not None and thinking_budget > 0:
+            payload["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
         try:
             data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
         except LLMError as e:
@@ -271,7 +274,7 @@ def call_llm(
             "Authorization": f"Bearer {key}",
             "content-type": "application/json",
         }
-        payload = {
+        payload: Dict[str, Any] = {
             "model": model_id,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens or 4096,
@@ -280,6 +283,16 @@ def call_llm(
             payload["messages"].insert(0, {"role": "system", "content": system})
         if temperature is not None:
             payload["temperature"] = temperature
+        if thinking_budget is not None:
+            if provider == "gemini":
+                payload["extra_body"] = {"google": {"thinking_config": {"thinking_budget": thinking_budget}}}
+            elif provider == "openai":
+                if thinking_budget == 0:
+                    payload["reasoning_effort"] = "low"
+                elif thinking_budget >= 4096:
+                    payload["reasoning_effort"] = "high"
+                else:
+                    payload["reasoning_effort"] = "medium"
         try:
             data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
         except LLMError as e:
