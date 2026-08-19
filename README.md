@@ -140,9 +140,9 @@ export ANTHROPIC_API_KEY="your-anthropic-key"
 export DEEPSEEK_API_KEY="your-deepseek-key"
 
 # Model Routing Defaults
-export WORKER_MODEL="gemini:gemini-2.5-flash"
-export QC_MODEL="gemini:gemini-2.5-pro"
-export PLANNER_MODEL="gemini:gemini-2.5-flash"
+export WORKER_MODEL="gemini:gemini-3.7-flash"
+export QC_MODEL="gemini:gemini-3.1-pro"
+export PLANNER_MODEL="gemini:gemini-3.7-flash"
 
 # Optional Gateways (Omniroute, OpenRouter, Groq, Ollama)
 export OMNIROUTE_BASE_URL="http://localhost:8000/v1"
@@ -161,8 +161,8 @@ export OMNIROUTE_BASE_URL="http://localhost:8000/v1"
     "letitloop": {
       "command": "letitloop-mcp",
       "env": {
-        "WORKER_MODEL": "gemini:gemini-2.5-flash",
-        "QC_MODEL": "gemini:gemini-2.5-pro"
+        "WORKER_MODEL": "gemini:gemini-3.7-flash",
+        "QC_MODEL": "gemini:gemini-3.1-pro"
       }
     }
   }

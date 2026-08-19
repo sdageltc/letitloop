@@ -24,13 +24,25 @@ HYBRID_ROLES = ("Implementer", "Critic", "Verifier")
 # bare prompt through the hybrid worker path — the guard lives in the
 # orchestrator routing layer, not the transport.
 PAID_MODELS = {
+    "kimi-k2",
+    "kimi-k3",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-fable-5",
     "claude-3-opus",
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
-    "gpt-4o",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.6-cyber",
     "o1",
+    "o3",
     "o3-mini",
+    "o4-mini",
+    "deepseek-v4-pro",
     "deepseek-reasoner",
+    "gemini-3.1-pro",
     "gemini-2.5-pro",
     "gemini-1.5-pro",
 }
