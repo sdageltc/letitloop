@@ -171,9 +171,12 @@ def _pid_alive(pid: int, expected_start_token: Optional[str] = None) -> bool:
             import ctypes
 
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            ERROR_ACCESS_DENIED = 5
             handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
             if not handle:
-                return False
+                # If access is denied, the process exists and is alive
+                err = ctypes.GetLastError()
+                return err == ERROR_ACCESS_DENIED
             ctypes.windll.kernel32.CloseHandle(handle)
             return True
         except (AttributeError, OSError, TypeError, ValueError):
