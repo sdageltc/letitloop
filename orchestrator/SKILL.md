@@ -117,25 +117,25 @@ export WORKER_MODEL="groq:llama-3.3-70b-versatile"
 
 ### 3. Frontier Commercial APIs (Gemini, Anthropic, OpenAI, DeepSeek)
 ```bash
-# Google Gemini
+# Google Gemini 3 Generation
 export GEMINI_API_KEY="your-gemini-key"
-export WORKER_MODEL="gemini:gemini-2.5-flash"
-export QC_MODEL="gemini:gemini-2.5-pro"
+export WORKER_MODEL="gemini:gemini-3.7-flash"
+export QC_MODEL="gemini:gemini-3.1-pro"
 
-# OpenAI
+# OpenAI GPT-5.6 Generation
 export OPENAI_API_KEY="your-openai-key"
-export WORKER_MODEL="openai:gpt-4o-mini"
-export QC_MODEL="openai:gpt-4o"
+export WORKER_MODEL="openai:gpt-5.6-luna"
+export QC_MODEL="openai:gpt-5.6-sol"
 
-# Anthropic Claude
+# Anthropic Claude 5 Generation
 export ANTHROPIC_API_KEY="your-anthropic-key"
-export WORKER_MODEL="anthropic:claude-3-5-sonnet-latest"
-export QC_MODEL="anthropic:claude-3-7-sonnet-latest"
+export WORKER_MODEL="anthropic:claude-sonnet-5"
+export QC_MODEL="anthropic:claude-opus-5"
 
-# DeepSeek
+# DeepSeek V4 Generation
 export DEEPSEEK_API_KEY="your-deepseek-key"
-export WORKER_MODEL="deepseek:deepseek-chat"
-export QC_MODEL="deepseek:deepseek-reasoner"
+export WORKER_MODEL="deepseek:deepseek-v4-flash"
+export QC_MODEL="deepseek:deepseek-v4-pro"
 ```
 
 ---
@@ -210,8 +210,8 @@ Every step in an autonomous plan is defined by a strictly validated contract:
   },
   "objective": "Build token decode, expiration validation, and signature verification with unit tests.",
   "worker": {
-    "model": "gemini:gemini-2.5-flash",
-    "fallback_model": "openai:gpt-4o-mini",
+    "model": "gemini:gemini-3.7-flash",
+    "fallback_model": "openai:gpt-5.6-luna",
     "max_attempts": 3,
     "adapter": "direct"
   },

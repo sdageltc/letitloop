@@ -1,11 +1,12 @@
 """Centralized model string registry and dynamic thinking budget configuration.
 
-Single source of truth for all verified official model IDs, provider routing, and model-specific compute allocation.
-Verified official provider endpoints:
-- Google: Gemini 2.5 Pro / Flash, Gemini 2.0 Flash / Lite, Gemini 1.5 Pro / Flash, Gemini 3.7 Flash
-- Anthropic: Claude 3.7 Sonnet, Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
-- OpenAI: GPT-4o, GPT-4o-mini, o1, o1-mini, o3-mini, GPT-4-turbo
-- DeepSeek: DeepSeek-Chat (V3), DeepSeek-Reasoner (R1)
+Single source of truth for all model IDs, provider routing, and model-specific compute allocation.
+Ground truth updated for 2026 frontier model generations:
+- OpenAI: GPT-5.6 Series (Sol, Terra, Luna, Cyber), o3, o3-mini, o4-mini, o1
+- Anthropic: Claude 5 Series (Opus 5, Sonnet 5, Fable 5, Haiku 4.5), Claude 3.7 Sonnet
+- Google: Gemini 3 Series (3.7 Flash, 3.6 Flash, 3.5 Flash Lite, 3.1 Pro), Gemini 2.5 Pro / Flash
+- DeepSeek: V4 Series (DeepSeek-V4 Pro, DeepSeek-V4 Flash), DeepSeek-Chat (V3), DeepSeek-Reasoner (R1)
+- Kimi: Kimi K3, Kimi K2
 - Gateways: Omniroute, OpenRouter, Groq, Ollama
 """
 
@@ -40,15 +41,19 @@ class ModelThinkingConfig:
     """Model-specific dynamic thinking and reasoning configuration engine."""
 
     REASONING_MODELS_OPENAI: Set[str] = {
-        "o1", "o1-mini", "o1-preview", "o3-mini"
+        "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-cyber",
+        "o1", "o1-mini", "o1-preview", "o3", "o3-mini", "o4-mini"
     }
 
     THINKING_MODELS_ANTHROPIC: Set[str] = {
-        "claude-3-7-sonnet", "claude-3-7-sonnet-20250219", "claude-3-7-sonnet-latest", "claude-3.7-sonnet"
+        "claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-4-5",
+        "claude-3-7-sonnet", "claude-3-7-sonnet-20250219", "claude-3-7-sonnet-latest", "claude-3.7-sonnet",
+        "claude-opus-4", "claude-sonnet-4"
     }
 
     THINKING_MODELS_GEMINI: Set[str] = {
-        "gemini-3.7-flash", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.7-flash-latest"
+        "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-pro",
+        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.7-flash-latest"
     }
 
     @classmethod
@@ -81,8 +86,8 @@ class ModelThinkingConfig:
         - Anthropic: budget_tokens >= 1024 if enabled, max_tokens > budget_tokens, no temperature != 1.0.
                      If budget == 0 (standard worker), thinking is cleanly omitted for sub-3s response.
         - Gemini: passes extra_body.google.thinking_config.thinking_budget (0 for instant response).
-        - OpenAI: only passes reasoning_effort ('low', 'medium', 'high') to reasoning models (o1, o3-mini);
-                  never passes reasoning_effort to standard models (gpt-4o, gpt-4o-mini) to prevent 400 errors.
+        - OpenAI: passes reasoning_effort ('low', 'medium', 'high') to reasoning models (gpt-5.6 series, o1, o3, o4);
+                  never passes reasoning_effort to standard non-reasoning models (gpt-4o, gpt-4o-mini) to prevent 400 errors.
         """
         budget = thinking_budget if thinking_budget is not None else ThinkingBudget.budget_for(phase)
 
@@ -118,43 +123,56 @@ class ModelThinkingConfig:
 
 class ModelRegistry:
     # Default workhorse & QC reviewer
-    WORKER = "gemini-2.5-flash"
-    QC = "gemini-2.5-pro"
+    WORKER = "gemini-3.7-flash"
+    QC = "gemini-3.1-pro"
     WORKER_PREFIXED = f"gemini:{WORKER}"
     QC_PREFIXED = f"gemini:{QC}"
-    WORKER_FALLBACK = "gemini:gemini-2.0-flash-lite"
-    QC_FALLBACK = "gemini:gemini-2.5-flash"
+    WORKER_FALLBACK = "gemini:gemini-3.6-flash"
+    QC_FALLBACK = "gemini:gemini-3.7-flash"
     HYBRID = f"hybrid:{WORKER_PREFIXED}"
-    FALLBACK = "gemini:gemini-2.0-flash-lite"
-    OPUS = "claude-3-opus-latest"
-    KIMI = "kimi-k2"
+    FALLBACK = "gemini:gemini-3.6-flash"
+    OPUS = "claude-opus-5"
+    KIMI = "kimi-k3"
 
-    # OpenAI Family (Official)
-    GPT_4O = "openai:gpt-4o"
-    GPT_4O_MINI = "openai:gpt-4o-mini"
+    # OpenAI 2026 Generation
+    GPT_SOL = "openai:gpt-5.6-sol"
+    GPT_TERRA = "openai:gpt-5.6-terra"
+    GPT_LUNA = "openai:gpt-5.6-luna"
+    GPT_CYBER = "openai:gpt-5.6-cyber"
+    O3 = "openai:o3"
+    O3_MINI = "openai:o3-mini"
+    O4_MINI = "openai:o4-mini"
     O1 = "openai:o1"
     O1_MINI = "openai:o1-mini"
-    O3_MINI = "openai:o3-mini"
-    GPT_4_TURBO = "openai:gpt-4-turbo"
+    GPT_4O = "openai:gpt-4o"
+    GPT_4O_MINI = "openai:gpt-4o-mini"
 
-    # Anthropic Claude Family (Official)
+    # Anthropic Claude 5 Generation
+    CLAUDE_OPUS_5 = "anthropic:claude-opus-5"
+    CLAUDE_SONNET_5 = "anthropic:claude-sonnet-5"
+    CLAUDE_FABLE_5 = "anthropic:claude-fable-5"
+    CLAUDE_HAIKU_4_5 = "anthropic:claude-haiku-4-5"
     CLAUDE_3_7_SONNET = "anthropic:claude-3-7-sonnet-latest"
     CLAUDE_3_5_SONNET = "anthropic:claude-3-5-sonnet-latest"
-    CLAUDE_3_5_HAIKU = "anthropic:claude-3-5-haiku-latest"
     CLAUDE_3_OPUS = "anthropic:claude-3-opus-latest"
 
-    # Google Gemini Family (Official)
+    # Google Gemini 3 Generation
     GEMINI_3_7_FLASH = "gemini:gemini-3.7-flash"
+    GEMINI_3_6_FLASH = "gemini:gemini-3.6-flash"
+    GEMINI_3_5_FLASH_LITE = "gemini:gemini-3.5-flash-lite"
+    GEMINI_3_1_PRO = "gemini:gemini-3.1-pro"
     GEMINI_2_5_PRO = "gemini:gemini-2.5-pro"
     GEMINI_2_5_FLASH = "gemini:gemini-2.5-flash"
-    GEMINI_2_0_FLASH = "gemini:gemini-2.0-flash"
-    GEMINI_2_0_FLASH_LITE = "gemini:gemini-2.0-flash-lite"
-    GEMINI_1_5_PRO = "gemini:gemini-1.5-pro"
-    GEMINI_1_5_FLASH = "gemini:gemini-1.5-flash"
 
-    # DeepSeek Family (Official)
+    # DeepSeek V4 Generation
+    DEEPSEEK_V4_PRO = "deepseek:deepseek-v4-pro"
+    DEEPSEEK_V4_FLASH = "deepseek:deepseek-v4-flash"
     DEEPSEEK_CHAT = "deepseek:deepseek-chat"
     DEEPSEEK_REASONER = "deepseek:deepseek-reasoner"
+
+    # Kimi Generation
+    KIMI_K3 = "kimi:kimi-k3"
+    KIMI_K2 = "kimi:kimi-k2"
 
     # Gateways
     OMNIROUTE_AUTO = "omniroute:auto"
@@ -167,11 +185,11 @@ class ModelRegistry:
         if os.environ.get("GEMINI_API_KEY"):
             return cls.WORKER_PREFIXED
         if os.environ.get("OPENAI_API_KEY"):
-            return "openai:gpt-4o-mini"
+            return cls.GPT_LUNA
         if os.environ.get("DEEPSEEK_API_KEY"):
-            return "deepseek:deepseek-chat"
+            return cls.DEEPSEEK_V4_FLASH
         if os.environ.get("ANTHROPIC_API_KEY"):
-            return "anthropic:claude-3-5-sonnet-latest"
+            return cls.CLAUDE_SONNET_5
         return cls.WORKER_PREFIXED
 
     @classmethod
@@ -182,11 +200,11 @@ class ModelRegistry:
         if os.environ.get("GEMINI_API_KEY"):
             return cls.QC_PREFIXED
         if os.environ.get("OPENAI_API_KEY"):
-            return "openai:gpt-4o"
+            return cls.GPT_SOL
         if os.environ.get("DEEPSEEK_API_KEY"):
-            return "deepseek:deepseek-reasoner"
+            return cls.DEEPSEEK_V4_PRO
         if os.environ.get("ANTHROPIC_API_KEY"):
-            return "anthropic:claude-3-5-sonnet-latest"
+            return cls.CLAUDE_OPUS_5
         return cls.QC_PREFIXED
 
     @classmethod

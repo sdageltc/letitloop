@@ -3,7 +3,7 @@
 You can use `letitloop` as a **Universal Agent Skill** across the entire 2026 AI coding ecosystem:
 **Claude Code**, **OpenAI Codex**, **Cursor**, **Google Antigravity**, **Hermes Agent**, **OpenCode**, **Cline**, and **Windsurf**.
 
-When installed as a skill, the Lead Model (e.g. **Claude 3.7 Sonnet / Opus**, **GPT-4o / o3-mini**, **Gemini 2.5 Pro**, or **DeepSeek-Reasoner**) acts as the high-level architect while `letitloop` acts as the underlying deterministic engine.
+When installed as a skill, the Lead Model (e.g. **Claude Opus 5 / Sonnet 5**, **GPT-5.6 Luna / Sol**, **Gemini 3.1 Pro / 3.7 Flash**, or **DeepSeek-V4 Pro**) acts as the high-level architect while `letitloop` acts as the underlying deterministic engine.
 
 ---
 

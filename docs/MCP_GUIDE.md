@@ -43,8 +43,8 @@ Or in `~/.codex/mcp.json` / `.codex/mcp.json`:
     "letitloop": {
       "command": "letitloop-mcp",
       "env": {
-        "WORKER_MODEL": "openai:gpt-4o-mini",
-        "QC_MODEL": "openai:gpt-4o"
+        "WORKER_MODEL": "openai:gpt-5.6-luna",
+        "QC_MODEL": "openai:gpt-5.6-sol"
       }
     }
   }
@@ -70,8 +70,8 @@ Add to your Antigravity MCP configuration (`~/.gemini/antigravity/mcp/letitloop/
       "command": "letitloop-mcp",
       "args": [],
       "env": {
-        "WORKER_MODEL": "gemini:gemini-2.5-flash",
-        "QC_MODEL": "gemini:gemini-2.5-pro"
+        "WORKER_MODEL": "gemini:gemini-3.7-flash",
+        "QC_MODEL": "gemini:gemini-3.1-pro"
       }
     }
   }
@@ -88,8 +88,8 @@ In `~/.config/opencode/config.json` or `.opencode/mcp.json`:
     "letitloop": {
       "command": "letitloop-mcp",
       "env": {
-        "WORKER_MODEL": "openai:gpt-4o-mini",
-        "QC_MODEL": "openai:gpt-4o"
+        "WORKER_MODEL": "openai:gpt-5.6-luna",
+        "QC_MODEL": "openai:gpt-5.6-sol"
       }
     }
   }
