@@ -1,0 +1,61 @@
+{
+  "task_id": "perf-step-1",
+  "title": "Step 1: Implement Dynamic Thinking Budget",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement dynamic thinking budget in orchestrator/models.py and orchestrator/hybrid_worker.py to support high thinking budgets for planning tasks and 0-1024 low thinking budgets for worker execution steps.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/dynamic_thinking_patch.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-1",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/dynamic_thinking_patch.py",
+      "expected": "(?s).*thinking_budget.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "models_thinking_config",
+      "worker_thinking_budget_allocation"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_budget_bounds_check"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

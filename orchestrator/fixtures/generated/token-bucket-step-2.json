@@ -1,0 +1,70 @@
+{
+  "task_id": "token-bucket-step-2",
+  "title": "Step 2: Write unit and concurrency tests",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Create a unittest test suite covering capacity bounds, refill timing, token consumption, and multi-threaded race conditions in scratch/test_token_bucket.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/test_token_bucket.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-test-file-exists",
+      "kind": "content_regex",
+      "path": "scratch/test_token_bucket.py",
+      "expected": "class TestTokenBucket\\(unittest\\.TestCase\\)"
+    },
+    {
+      "id": "check-concurrency-test",
+      "kind": "content_regex",
+      "path": "scratch/test_token_bucket.py",
+      "expected": "threading\\.Thread"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "TestTokenBucket",
+      "test_consume",
+      "test_refill",
+      "test_concurrency"
+    ],
+    "quality_dimensions": {
+      "coverage": 0.4,
+      "concurrency_stress": 0.4,
+      "cleanliness": 0.2
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_concurrency_test"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

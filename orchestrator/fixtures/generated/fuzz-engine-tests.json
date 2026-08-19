@@ -1,0 +1,62 @@
+{
+  "task_id": "fuzz-engine-tests",
+  "title": "Step 3: Implement unit test suite for AST fuzz engine",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement unit tests covering AST mutation rules, property verification edge cases, deterministic seeding, and error handling.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/fuzz_engine/test_experimental_fuzz_engine.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-tests-structure",
+      "kind": "content_regex",
+      "path": "scratch/fuzz_engine/test_experimental_fuzz_engine.py",
+      "expected": "(?s).*def test_.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "TestMutators",
+      "TestPropertyChecker",
+      "TestFuzzEngineExecution"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "empty_test_suite"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

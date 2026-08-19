@@ -1,0 +1,63 @@
+{
+  "task_id": "fuzz-engine-design",
+  "title": "Step 1: Research and design AST property-based fuzz engine architecture",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Design the AST mutation operators, property verification logic, and execution harness for the experimental fuzz engine.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/fuzz_engine/design_spec.md"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-design-spec",
+      "kind": "content_regex",
+      "path": "scratch/fuzz_engine/design_spec.md",
+      "expected": "(?s).*AST.*Mutation.*Property.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "Overview",
+      "AST Mutation Strategies",
+      "Property Invariants",
+      "Test Strategy"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "missing_ast_strategies",
+      "missing_property_invariants"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

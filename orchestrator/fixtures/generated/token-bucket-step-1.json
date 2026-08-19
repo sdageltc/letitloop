@@ -1,0 +1,70 @@
+{
+  "task_id": "token-bucket-step-1",
+  "title": "Step 1: Implement thread-safe TokenBucket",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement a thread-safe TokenBucket rate limiter class using threading.Lock with token refill, consumption, and capacity management in scratch/token_bucket.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/token_bucket.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-token-bucket-exists",
+      "kind": "content_regex",
+      "path": "scratch/token_bucket.py",
+      "expected": "class TokenBucket"
+    },
+    {
+      "id": "check-thread-safety-lock",
+      "kind": "content_regex",
+      "path": "scratch/token_bucket.py",
+      "expected": "threading\\.Lock"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "TokenBucket",
+      "consume",
+      "refill"
+    ],
+    "quality_dimensions": {
+      "thread_safety": 0.4,
+      "correctness": 0.3,
+      "simplicity": 0.3
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_lock",
+      "negative_tokens"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "perf-step-3",
+  "title": "Step 3: Implement 3-Tier Verification Engine",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement 3-tier verification in orchestrator/verifier.py with Tier 0 (<5ms in-memory AST syntax check), Tier 1 (targeted single-file pytest), and Tier 2 (full suite on goal completion).",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/three_tier_verifier_patch.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-3",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/three_tier_verifier_patch.py",
+      "expected": "(?s).*ast\\.parse.*pytest.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "tier_0_ast_check",
+      "tier_1_targeted_test",
+      "tier_2_full_suite"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "ast_check_missing",
+      "tier0_latency_exceeds_threshold"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "task_id": "perf-step-5",
+  "title": "Step 5: Add Unit Tests & Verify Performance & Trace",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Add comprehensive unit tests in tests/test_performance_and_trace.py covering dynamic thinking budget, DAG concurrency, 3-tier verifier stages, and CLI trace command, ensuring a 100% test pass rate.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/tests/test_performance_and_trace.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-5",
+      "kind": "content_regex",
+      "path": "scratch/tests/test_performance_and_trace.py",
+      "expected": "(?s).*def\\s+test_.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "test_thinking_budget",
+      "test_dag_concurrency",
+      "test_three_tier_verification",
+      "test_cli_trace_timeline"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "failing_tests",
+      "insufficient_assertions"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

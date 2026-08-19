@@ -1,0 +1,64 @@
+{
+  "task_id": "trace-ux-tests-step-1",
+  "title": "Step 1: Inspect cmd_trace, latest goal resolution, and dashboard rendering APIs",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Analyze the codebase implementations of cmd_trace, implicit latest goal resolution, and ASCII dashboard rendering to identify target interfaces, mock requirements, and key edge cases.",
+  "worker": {
+    "model": "openai:gpt-4o-mini",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/trace_ux_tests/api_analysis.md"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-analysis-content",
+      "kind": "content_regex",
+      "path": "scratch/trace_ux_tests/api_analysis.md",
+      "expected": "(?s).*cmd_trace.*implicit latest goal.*ASCII safe.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "cmd_trace Analysis",
+      "Implicit Latest Goal Resolution Analysis",
+      "ASCII Safe Dashboard Rendering Analysis",
+      "Proposed Test Cases"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "missing cmd_trace analysis",
+      "missing goal resolution analysis",
+      "missing ASCII rendering analysis"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "task_id": "trace-ux-tests-step-2",
+  "title": "Step 2: Generate unit test suite for trace and UX functionality",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Create modular, syntax-valid unit tests covering cmd_trace execution, implicit latest goal resolution, and ASCII safe dashboard rendering.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/trace_ux_tests/test_trace_and_ux.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-test-structure",
+      "kind": "content_regex",
+      "path": "scratch/trace_ux_tests/test_trace_and_ux.py",
+      "expected": "(?s).*def test_cmd_trace.*def test_implicit_latest_goal.*def test_ascii_safe_dashboard.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "test_cmd_trace",
+      "test_implicit_latest_goal",
+      "test_ascii_safe_dashboard"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax error",
+      "missing cmd_trace tests",
+      "missing latest goal resolution tests",
+      "missing ASCII safety tests"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

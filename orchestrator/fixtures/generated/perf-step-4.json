@@ -1,0 +1,62 @@
+{
+  "task_id": "perf-step-4",
+  "title": "Step 4: Implement Interactive Colorized CLI Trace Command",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement the 'lil trace <goal-id>' command in orchestrator/cli.py to display an interactive, colorized step-by-step reasoning and latency timeline.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/cli_trace_patch.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-4",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/cli_trace_patch.py",
+      "expected": "(?s).*def\\s+trace.*latency.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "trace_cli_command",
+      "timeline_formatter",
+      "colorized_output_renderer"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "missing_trace_command",
+      "missing_latency_metrics"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}
