@@ -419,6 +419,22 @@ def _write_impossibility(contract, state):
         f.write("\n---\n")
 
 
+def _latest_goal_id(status_filter: Optional[str] = None) -> Optional[str]:
+    """Find the most recently updated goal directory in DEFAULT_RUN_DIR."""
+    if not os.path.isdir(DEFAULT_RUN_DIR):
+        return None
+    candidates = []
+    for d in os.listdir(DEFAULT_RUN_DIR):
+        full = os.path.join(DEFAULT_RUN_DIR, d)
+        if os.path.isdir(full) and os.path.isfile(os.path.join(full, "goal.json")):
+            mtime = os.path.getmtime(full)
+            candidates.append((mtime, d))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
+
 def cmd_propose(args):
     """Propose a plan for a natural-language task: goal → plan → preview → approval check."""
     prompt = args.prompt
@@ -491,20 +507,31 @@ def cmd_propose(args):
     print(f"  Plan file: {plan_path}")
     print(f"  Preview:   {preview_path}")
     print()
+
+    auto_run = getattr(args, "run", False) or getattr(args, "yes", False)
+
     if approval["requires_approval"]:
+        if auto_run:
+            print("Auto-approving proposed plan (--run / -y specified)...")
+            approval_data["status"] = "approved"
+            with open(approval_path, "w", encoding="utf-8") as f:
+                json.dump(approval_data, f, indent=2, ensure_ascii=False)
+            print("Executing approved plan...")
+            _execute_approved_plan(goal, plan, run_dir)
+            return
+
         print("Approval required.")
         print(format_approval_reasons(approval))
         print()
-        print(f"To approve: orchestrator approve {goal_id}")
-        print(f"To execute: orchestrator run-approved {goal_id}")
+        print(f"To approve: lil approve {goal_id}")
+        print(f"To execute: lil run-approved {goal_id}")
     else:
         print("Approval not required — ready to execute.")
-        print(f"To execute: orchestrator run-approved {goal_id}")
-
-    if not approval["requires_approval"] and args.run:
-        print()
-        print("Auto-executing approved plan...")
-        _execute_approved_plan(goal, plan, run_dir)
+        print(f"To execute: lil run-approved {goal_id}")
+        if auto_run:
+            print()
+            print("Auto-executing plan...")
+            _execute_approved_plan(goal, plan, run_dir)
 
 
 def _execute_approved_plan(goal, plan, run_dir, force: bool = False):
@@ -517,12 +544,16 @@ def _execute_approved_plan(goal, plan, run_dir, force: bool = False):
 
 def cmd_approve(args):
     """Mark a plan as approved."""
-    goal_id = args.goal_id
+    goal_id = args.goal_id or _latest_goal_id()
+    if not goal_id:
+        print("error: no goal_id specified and no existing goals found in run directory.", file=sys.stderr)
+        sys.exit(1)
+
     run_dir = _run_dir(goal_id)
     approval_path = os.path.join(run_dir, "approval.json")
 
     if not os.path.isfile(approval_path):
-        print(f"error: no approval record found for goal {goal_id}. Run 'propose' first.", file=sys.stderr)
+        print(f"error: no approval record found for goal {goal_id}. Run 'lil propose' first.", file=sys.stderr)
         sys.exit(1)
 
     with open(approval_path, "r", encoding="utf-8") as f:
@@ -530,6 +561,7 @@ def cmd_approve(args):
 
     if approval_data.get("status") == "approved":
         print(f"Goal {goal_id} is already approved.")
+        print(f"To execute: lil run-approved {goal_id}")
         return
 
     # Verify the plan being approved matches the one that was proposed
@@ -545,7 +577,7 @@ def cmd_approve(args):
         if recorded_digest and current_digest != recorded_digest:
             print(
                 f"error: plan for goal {goal_id} changed since propose "
-                f"(digest mismatch). Re-run 'propose' before approving.",
+                f"(digest mismatch). Re-run 'lil propose' before approving.",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -555,18 +587,22 @@ def cmd_approve(args):
         json.dump(approval_data, f, indent=2, ensure_ascii=False)
 
     print(f"Goal {goal_id} approved.")
-    print(f"To execute: orchestrator run-approved {goal_id}")
+    print(f"To execute: lil run-approved {goal_id}")
 
 
 def cmd_run_approved(args):
     """Execute an approved plan."""
-    goal_id = args.goal_id
+    goal_id = args.goal_id or _latest_goal_id()
+    if not goal_id:
+        print("error: no goal_id specified and no existing goals found in run directory.", file=sys.stderr)
+        sys.exit(1)
+
     run_dir = _run_dir(goal_id)
 
     # Load goal
     goal_path = os.path.join(run_dir, "goal.json")
     if not os.path.isfile(goal_path):
-        print(f"error: no goal found for {goal_id}. Run 'propose' first.", file=sys.stderr)
+        print(f"error: no goal found for {goal_id}. Run 'lil propose' first.", file=sys.stderr)
         sys.exit(1)
     with open(goal_path, "r", encoding="utf-8") as f:
         goal = Goal.from_dict(json.load(f))
@@ -574,7 +610,7 @@ def cmd_run_approved(args):
     # Load plan
     plan_path = os.path.join(run_dir, "plan.json")
     if not os.path.isfile(plan_path):
-        print(f"error: no plan found for {goal_id}. Run 'propose' first.", file=sys.stderr)
+        print(f"error: no plan found for {goal_id}. Run 'lil propose' first.", file=sys.stderr)
         sys.exit(1)
     with open(plan_path, "r", encoding="utf-8") as f:
         plan = Plan.from_dict(json.load(f))
@@ -583,7 +619,7 @@ def cmd_run_approved(args):
     approval_path = os.path.join(run_dir, "approval.json")
     if not os.path.isfile(approval_path):
         print(
-            f"error: no approval record found for goal {goal_id}; run 'propose' and 'approve' before execution",
+            f"error: no approval record found for goal {goal_id}; run 'lil propose' and 'lil approve' before execution",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -600,7 +636,7 @@ def cmd_run_approved(args):
 
     if approval_data.get("status") != "approved":
         print(
-            f"error: goal {goal_id} has not been approved. Run 'approve {goal_id}' first.",
+            f"error: goal {goal_id} has not been approved. Run 'lil approve {goal_id}' first.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -1388,14 +1424,14 @@ def main():
     p_propose.add_argument("--title", default="", help="Goal title (defaults to prompt)")
     p_propose.add_argument("--description", default="", help="Goal description (defaults to prompt)")
     p_propose.add_argument("--constraints", default="{}", help="Goal constraints JSON string")
-    p_propose.add_argument("--run", action="store_true", help="Auto-execute if no approval required")
+    p_propose.add_argument("--run", "-y", "--yes", action="store_true", help="Auto-approve and execute immediately")
     p_propose.add_argument("prompt", nargs="?", default="", help="Natural language task prompt")
 
-    p_approve = sub.add_parser("approve", help="Approve a proposed plan")
-    p_approve.add_argument("goal_id", help="Goal ID")
+    p_approve = sub.add_parser("approve", help="Approve a proposed plan (defaults to latest goal if omitted)")
+    p_approve.add_argument("goal_id", nargs="?", default=None, help="Goal ID")
 
-    p_run_approved = sub.add_parser("run-approved", help="Execute an approved plan")
-    p_run_approved.add_argument("goal_id", help="Goal ID")
+    p_run_approved = sub.add_parser("run-approved", help="Execute an approved plan (defaults to latest goal if omitted)")
+    p_run_approved.add_argument("goal_id", nargs="?", default=None, help="Goal ID")
     p_run_approved.add_argument("--force", action="store_true", help="Force acquire lock if stale")
 
     p_plan_preview = sub.add_parser("plan-preview", help="Show plan preview for a goal")
