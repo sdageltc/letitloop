@@ -148,6 +148,7 @@ class Contract:
         self.quality_spec = raw.get("quality_spec", {})
         self.quality_plan = raw.get("quality_plan")
         self.components = raw.get("components", [])
+        self.required_mcp_servers = raw.get("required_mcp_servers", [])
         self.next_action = raw.get("next_action", "preflight")
 
     def allowed_paths(self):
@@ -296,6 +297,20 @@ def validate_contract(raw, workspace_root=None, strict_unknown=True):
         if not is_scratch:
             errors.append("qc.required is True but quality_spec is missing or empty (required for non-scratch tasks)")
 
+    if "required_mcp_servers" in raw:
+        rms = raw["required_mcp_servers"]
+        if not isinstance(rms, list):
+            errors.append("required_mcp_servers must be a list of strings")
+        else:
+            seen_servers = set()
+            for idx, srv in enumerate(rms):
+                if not isinstance(srv, str) or not srv.strip():
+                    errors.append(f"required_mcp_servers[{idx}]: must be a non-empty string")
+                elif srv in seen_servers:
+                    errors.append(f"required_mcp_servers[{idx}]: duplicate server {srv!r}")
+                else:
+                    seen_servers.add(srv)
+
     if strict_unknown:
         known_keys = set(REQUIRED_TOP_LEVEL.keys()) | {
             "next_action",
@@ -303,6 +318,7 @@ def validate_contract(raw, workspace_root=None, strict_unknown=True):
             "quality_spec",
             "quality_plan",
             "components",
+            "required_mcp_servers",
         }
         extra = set(raw.keys()) - known_keys
         if extra:
