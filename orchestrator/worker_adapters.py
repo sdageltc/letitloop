@@ -103,6 +103,38 @@ class ScriptWorkerAdapter(BaseWorkerAdapter):
             }
 
 
+class ClaudeCodeWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via the Claude Code CLI."""
+
+    def __init__(self, name: str = "claude-code", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.cli_binary = self.config.get("binary", "claude")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        cmd = [self.cli_binary, "-p", prompt, "--dangerously-skip-permissions"]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "claude_code_autonomous",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Claude Code invocation error: {e}",
+                "approach": "error",
+            }
+
+
 class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
     """Executes tasks via the Google Antigravity CLI (`agy`)."""
 
@@ -338,6 +370,8 @@ class WorkerRegistry:
 
     _adapters: Dict[str, BaseWorkerAdapter] = {
         "mock": MockWorkerAdapter("mock"),
+        "claude-code": ClaudeCodeWorkerAdapter("claude-code"),
+        "claude": ClaudeCodeWorkerAdapter("claude"),
         "antigravity-cli": AntigravityCliWorkerAdapter("antigravity-cli"),
         "antigravity": AntigravityCliWorkerAdapter("antigravity"),
         "agy": AntigravityCliWorkerAdapter("agy"),
