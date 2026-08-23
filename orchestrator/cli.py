@@ -1453,9 +1453,15 @@ def cmd_trace(args):
 
 def cmd_dashboard(args):
     """Render rich terminal UI dashboard for active run directory."""
-    from .tui import print_dashboard
+    from .tui import LiveDashboard, print_dashboard
 
     run_dir = getattr(args, "run_dir", DEFAULT_RUN_DIR)
+    live = bool(getattr(args, "live", False))
+    once = bool(getattr(args, "once", False))
+    if live or once:
+        interval = float(getattr(args, "interval", 2.0) or 2.0)
+        LiveDashboard(run_dir, interval=interval).run(once=once)
+        return
     print_dashboard(run_dir)
 
 
@@ -1647,7 +1653,15 @@ def main():
     p_dryrun = sub.add_parser("dry-run", help="Simulate plan execution without real worker calls")
     p_dryrun.add_argument("goal_id", help="Goal ID")
 
-    sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
+    p_dash = sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
+    p_dash.add_argument("--live", action="store_true", help="Continuously refresh the dashboard until quit")
+    p_dash.add_argument(
+        "--interval",
+        type=float,
+        default=2.0,
+        help="Refresh interval in seconds for --live mode (default: 2.0)",
+    )
+    p_dash.add_argument("--once", action="store_true", help="Render a single dashboard frame and exit")
 
     p_trace = sub.add_parser("trace", help="Render step-by-step reasoning and verification trace for a goal")
     p_trace.add_argument("goal_id", nargs="?", default=None, help="Goal ID (defaults to latest)")
