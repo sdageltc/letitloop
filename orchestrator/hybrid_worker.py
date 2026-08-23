@@ -211,24 +211,6 @@ def _call_llm(
         tb = ThinkingBudget.budget_for(role)
         resp = call_llm(prompt, model, thinking_budget=tb, timeout_s=timeout_sec)
     except LLMError as e:
-        from .worker_adapters import WorkerRegistry
-
-        for cli_name in ("agy", "antigravity", "claude", "opencode", "hermes", "cline"):
-            adapter = WorkerRegistry.get(cli_name)
-            if adapter:
-                try:
-                    res = adapter.execute(prompt, workspace_root, f"hybrid_{role.lower()}", timeout=timeout_sec)
-                    if res.get("exit_code") == 0 and res.get("stdout"):
-                        return {
-                            "ok": True,
-                            "raw": res["stdout"],
-                            "stderr": "",
-                            "exit_code": 0,
-                            "prompt_tokens": estimated_prompt,
-                            "completion_tokens": max(1, len(res["stdout"]) // 4),
-                        }
-                except Exception:
-                    continue
         return {
             "ok": False,
             "raw": "",
