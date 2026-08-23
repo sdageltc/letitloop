@@ -7,7 +7,6 @@ Script executors, and Direct LLM APIs.
 
 import os
 import subprocess
-import sys
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +21,7 @@ class BaseWorkerAdapter(ABC):
     def is_available(self) -> bool:
         """Check if the worker CLI binary is available on system PATH."""
         import shutil
+
         binary = getattr(self, "cli_binary", self.name)
         return shutil.which(binary) is not None
 
@@ -143,7 +143,10 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
         self.cli_binary = self.config.get("binary", "agy")
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
-        cmd = [self.cli_binary, "-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
+        import shutil
+
+        executable = shutil.which(self.cli_binary) or self.cli_binary
+        cmd = [executable, "-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
         if workspace_root and os.path.isdir(workspace_root):
             cmd.extend(["--add-dir", workspace_root])
 
@@ -154,7 +157,6 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
                 text=True,
                 cwd=workspace_root,
                 timeout=timeout,
-                shell=(sys.platform == "win32"),
                 stdin=subprocess.DEVNULL,
             )
             return {
