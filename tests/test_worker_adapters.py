@@ -9,7 +9,9 @@ from orchestrator.worker_adapters import (
     AntigravityCliWorkerAdapter,
     ClineWorkerAdapter,
     CodexWorkerAdapter,
+    DockerWorkerAdapter,
     HermesWorkerAdapter,
+    LocalToolWorkerAdapter,
     MockWorkerAdapter,
     OmnirouteWorkerAdapter,
     OpenCodeWorkerAdapter,
@@ -102,7 +104,25 @@ def test_worker_registry():
     assert "aider" in available
     assert "omniroute" in available
     assert "codex" in available
+    assert "docker" in available
+    assert "local-tool" in available
 
     custom = MockWorkerAdapter("custom_mock")
     WorkerRegistry.register("custom", custom)
     assert WorkerRegistry.get("custom") == custom
+
+
+def test_docker_worker_adapter_defaults():
+    adapter = DockerWorkerAdapter()
+    assert adapter.image == "python:3.11-slim"
+    assert adapter.network == "none"
+    assert adapter.cpus == "1.0"
+    assert adapter.memory == "512m"
+
+
+def test_local_tool_worker_adapter_defaults():
+    adapter = LocalToolWorkerAdapter(config={"model": "qwen2.5-coder:7b"})
+    assert adapter.base_url == "http://localhost:11434/v1"
+    assert adapter.max_turns == 8
+    assert adapter.api_key is None
+    assert adapter.is_available() is True
