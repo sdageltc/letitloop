@@ -189,31 +189,6 @@ def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeo
         raise LLMError(f"non-JSON response: {raw[:200]!r}") from e
 
 
-def _try_agent_cli_fallback(
-    prompt: str, system: Optional[str] = None, timeout_s: int = 300
-) -> Optional[Dict[str, Any]]:
-    """Execute via locally detected agent CLI (agy, claude, opencode) when REST endpoints are unavailable."""
-    try:
-        from .worker_adapters import WorkerRegistry
-
-        full_prompt = f"{system}\n\n{prompt}" if system else prompt
-        for cli_name in ("agy", "antigravity", "claude", "opencode", "hermes"):
-            adapter = WorkerRegistry.get(cli_name)
-            if adapter:
-                res = adapter.execute(full_prompt, os.getcwd(), f"call_llm_{cli_name}", timeout=timeout_s)
-                if res.get("exit_code") == 0 and res.get("stdout"):
-                    return {
-                        "text": res["stdout"],
-                        "usage": {"prompt_tokens": len(prompt) // 4, "completion_tokens": len(res["stdout"]) // 4},
-                        "model": f"cli:{cli_name}",
-                        "provider": cli_name,
-                        "elapsed_sec": 0.5,
-                    }
-    except Exception:
-        pass
-    return None
-
-
 def call_llm(
     prompt: str,
     model: str,
@@ -227,16 +202,36 @@ def call_llm(
     """Call a chat model and return ``{"text": str, "usage": dict, "model": str, "provider": str}``.
 
     Raises ``LLMError`` on any transport failure so callers can degrade deterministically.
+    Never falls back silently to unrequested external CLI tools or unauthenticated models.
     """
+    # Explicit CLI Adapter Routing (e.g. cli:agy, cli:antigravity)
+    if model.startswith("cli:"):
+        cli_name = model[4:].strip()
+        from .worker_adapters import WorkerRegistry
+
+        adapter = WorkerRegistry.get(cli_name)
+        if not adapter:
+            raise LLMError(f"CLI adapter '{cli_name}' is not registered in WorkerRegistry.", provider="cli")
+        if not adapter.is_available():
+            raise LLMError(f"CLI binary for '{cli_name}' is not available on system PATH.", provider="cli")
+        full_prompt = f"{system}\n\n{prompt}" if system else prompt
+        res = adapter.execute(full_prompt, os.getcwd(), f"call_llm_{cli_name}", timeout=timeout_s)
+        if res.get("exit_code") != 0 or not res.get("stdout"):
+            raise LLMError(f"CLI execution failed for '{cli_name}': {res.get('stderr')}", provider="cli")
+        return {
+            "text": res["stdout"],
+            "usage": {"prompt_tokens": len(prompt) // 4, "completion_tokens": len(res["stdout"]) // 4},
+            "model": model,
+            "provider": cli_name,
+            "elapsed_sec": 0.5,
+        }
+
     provider = provider_of(model)
     key = api_key(provider)
     if not key:
-        cli_res = _try_agent_cli_fallback(prompt, system, timeout_s)
-        if cli_res:
-            return cli_res
         raise LLMError(
             f"provider '{provider}' is not configured: set {PROVIDERS[provider]['env_key']} "
-            f"(or LLM_API_KEY/LLM_BASE_URL for any OpenAI-compatible endpoint)",
+            f"(or pass an explicit CLI model such as 'cli:agy' / 'cli:antigravity')",
             provider=provider,
         )
     model_id = strip_provider(model)
@@ -257,14 +252,7 @@ def call_llm(
         if temperature is not None:
             payload["temperature"] = temperature
         ModelThinkingConfig.apply_thinking_config(model_id, provider, payload, thinking_budget=thinking_budget)
-        try:
-            data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
-        except LLMError as e:
-            if e.status in (401, 402, 403):
-                cli_res = _try_agent_cli_fallback(prompt, system, timeout_s)
-                if cli_res:
-                    return cli_res
-            raise
+        data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
         try:
             text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
         except (AttributeError, TypeError):
@@ -285,14 +273,7 @@ def call_llm(
         if temperature is not None:
             payload["temperature"] = temperature
         ModelThinkingConfig.apply_thinking_config(model_id, provider, payload, thinking_budget=thinking_budget)
-        try:
-            data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
-        except LLMError as e:
-            if e.status in (401, 402, 403):
-                cli_res = _try_agent_cli_fallback(prompt, system, timeout_s)
-                if cli_res:
-                    return cli_res
-            raise
+        data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError):
