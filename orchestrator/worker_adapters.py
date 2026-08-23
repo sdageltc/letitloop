@@ -7,6 +7,7 @@ Script executors, and Direct LLM APIs.
 
 import os
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +18,12 @@ class BaseWorkerAdapter(ABC):
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
         self.name = name
         self.config = config or {}
+
+    def is_available(self) -> bool:
+        """Check if the worker CLI binary is available on system PATH."""
+        import shutil
+        binary = getattr(self, "cli_binary", self.name)
+        return shutil.which(binary) is not None
 
     @abstractmethod
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 300) -> Dict[str, Any]:
@@ -96,38 +103,6 @@ class ScriptWorkerAdapter(BaseWorkerAdapter):
             }
 
 
-class ClaudeCodeWorkerAdapter(BaseWorkerAdapter):
-    """Executes tasks via the Claude Code CLI."""
-
-    def __init__(self, name: str = "claude-code", config: Optional[Dict[str, Any]] = None):
-        super().__init__(name, config)
-        self.cli_binary = self.config.get("binary", "claude")
-
-    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
-        cmd = [self.cli_binary, "-p", prompt, "--dangerously-skip-permissions"]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "claude_code_autonomous",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Claude Code invocation error: {e}",
-                "approach": "error",
-            }
-
-
 class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
     """Executes tasks via the Google Antigravity CLI (`agy`)."""
 
@@ -136,9 +111,10 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
         self.cli_binary = self.config.get("binary", "agy")
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
-        cmd = [self.cli_binary, "-p", prompt, "--dangerously-skip-permissions"]
+        cmd = [self.cli_binary, "-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
         if workspace_root and os.path.isdir(workspace_root):
             cmd.extend(["--add-dir", workspace_root])
+
         try:
             proc = subprocess.run(
                 cmd,
@@ -146,8 +122,8 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
                 text=True,
                 cwd=workspace_root,
                 timeout=timeout,
-                encoding="utf-8",
-                errors="replace",
+                shell=(sys.platform == "win32"),
+                stdin=subprocess.DEVNULL,
             )
             return {
                 "exit_code": proc.returncode,
@@ -362,8 +338,6 @@ class WorkerRegistry:
 
     _adapters: Dict[str, BaseWorkerAdapter] = {
         "mock": MockWorkerAdapter("mock"),
-        "claude-code": ClaudeCodeWorkerAdapter("claude-code"),
-        "claude": ClaudeCodeWorkerAdapter("claude"),
         "antigravity-cli": AntigravityCliWorkerAdapter("antigravity-cli"),
         "antigravity": AntigravityCliWorkerAdapter("antigravity"),
         "agy": AntigravityCliWorkerAdapter("agy"),
