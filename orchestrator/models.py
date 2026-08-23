@@ -12,8 +12,9 @@ Ground truth updated for 2026 frontier model generations:
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 
 class ThinkingBudget:
@@ -226,3 +227,116 @@ class ModelRegistry:
     @classmethod
     def strip_hybrid_prefix(cls, model: str) -> str:
         return model[7:] if model.startswith("hybrid:") else model
+
+
+# ---------------------------------------------------------------------------
+# Cost/risk tiering (issue #19): cheap/standard/frontier ladders used by the
+# risk-aware provider router. Tier 1 = cheapest, tier 3 = most capable.
+
+MODEL_TIERS: Dict[int, List[str]] = {
+    1: ["gemini-2.5-flash-lite", "qwen2.5-coder"],
+    2: ["gemini-2.5-flash", "claude-3-5-haiku", "gpt-4o-mini"],
+    3: ["claude-3-5-sonnet", "gpt-4o", "deepseek-r1"],
+}
+
+_TIER_ONE_RISKS = ("trivial", "boilerplate", "format")
+_TIER_THREE_RISKS = ("crucible", "architecture", "high_risk")
+
+# Ordered cheapest-first; substring families checked tier by tier so that
+# specific families ("flash-lite") win over generic ones ("flash").
+_TIER_FAMILIES: Dict[int, tuple] = {
+    1: ("flash-lite", "flashlite", "qwen"),
+    2: ("haiku", "4o-mini"),
+    3: ("sonnet", "opus", "gpt-4o", "deepseek", "reasoner"),
+}
+
+
+def _bare_model_id(model: str) -> str:
+    """Lowercased bare model id with provider/hybrid prefixes stripped."""
+    text = (model or "").strip().lower()
+    while ":" in text:
+        head, _, tail = text.partition(":")
+        if not tail:
+            break
+        text = tail
+    return text
+
+
+def model_tiers() -> Dict[int, List[str]]:
+    """Effective tier ladder; LETITLOOP_MODEL_TIERS JSON overrides the default."""
+    raw = os.environ.get("LETITLOOP_MODEL_TIERS", "")
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, dict) and parsed:
+            try:
+                overridden = {
+                    int(tier): [str(m) for m in models]
+                    for tier, models in parsed.items()
+                    if models
+                }
+            except (TypeError, ValueError):
+                overridden = {}
+            if overridden:
+                return overridden
+    return {tier: list(models) for tier, models in MODEL_TIERS.items()}
+
+
+def classify_model(model: str) -> int:
+    """Classify a model id into its cost tier (1 cheapest .. 3 frontier).
+
+    Exact ladder membership first, then substring/family match against known
+    families. Unknown models default to tier 2 (standard).
+    """
+    bare = _bare_model_id(model)
+    tiers = model_tiers()
+    ordered = sorted(tiers)
+    for tier in ordered:
+        if bare in {_bare_model_id(m) for m in tiers[tier]}:
+            return int(tier)
+    for tier in ordered:
+        if any(family in bare for family in _TIER_FAMILIES.get(int(tier), ())):
+            return int(tier)
+    return 2
+
+
+def tier_for_risk(risk_hint: str) -> int:
+    """Map a task risk hint to a target tier ('' / unknown hints default to 2)."""
+    hint = (risk_hint or "").strip().lower().replace("-", "_")
+    if hint in _TIER_ONE_RISKS:
+        return 1
+    if hint in _TIER_THREE_RISKS:
+        return 3
+    return 2
+
+
+def escalation_ladder(start_model: Optional[str] = None, start_tier: Optional[int] = None) -> List[str]:
+    """Ordered deduped candidate sequence ascending from the starting tier.
+
+    The starting model (when given) heads the ladder, followed by the rest of
+    its tier and then every higher tier in order.
+    """
+    tiers = model_tiers()
+    lo, hi = min(tiers), max(tiers)
+    if start_tier is None:
+        start_tier = classify_model(start_model) if start_model else lo
+    try:
+        base = int(start_tier)
+    except (TypeError, ValueError):
+        base = lo
+    base = max(lo, min(hi, base))
+    sequence: List[str] = []
+    if start_model and start_model.strip():
+        sequence.append(start_model.strip())
+    for tier in range(base, hi + 1):
+        sequence.extend(tiers.get(tier, []))
+    seen: Set[str] = set()
+    ladder: List[str] = []
+    for candidate in sequence:
+        key = _bare_model_id(candidate)
+        if key and key not in seen:
+            seen.add(key)
+            ladder.append(candidate)
+    return ladder
