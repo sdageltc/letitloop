@@ -87,7 +87,18 @@ class SSEServer:
         with self._lock:
             queues = list(self._clients.values())
         for q in queues:
-            q.put(envelope)
+            try:
+                q.put(envelope, block=False)
+            except queue.Full:
+                # Slow reader: drop the oldest envelope to make room for the freshest.
+                try:
+                    q.get(block=False)
+                except queue.Empty:
+                    pass
+                try:
+                    q.put(envelope, block=False)
+                except queue.Full:
+                    pass
 
     def shutdown(self) -> None:
         """Unsubscribe from the bus and stop serving; safe to call once after start."""
@@ -105,7 +116,7 @@ class SSEServer:
             server.server_close()
 
     def _register_client(self) -> "queue.Queue[Dict[str, Any]]":
-        q: "queue.Queue[Dict[str, Any]]" = queue.Queue()
+        q: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=256)
         with self._lock:
             self._clients[id(q)] = q
         return q

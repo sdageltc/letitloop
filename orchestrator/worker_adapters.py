@@ -8,6 +8,7 @@ Script executors, Direct LLM APIs, Docker sandboxes, and local tool-calling LLMs
 import json
 import os
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
@@ -422,8 +423,14 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
             return False
 
     def _build_volumes(self, workspace_root: str) -> List[str]:
-        """Build -v mount specs: each allow path rw, root ro unless fully covered."""
+        """Build -v mount specs: each allow path rw, root ro unless fully covered.
+
+        Host paths outside the workspace (absolute escapes or parent traversals)
+        are refused - they would mount arbitrary host directories into the
+        container. Such allows are skipped with a stderr warning.
+        """
         ws_abs = os.path.abspath(workspace_root)
+        ws_norm = os.path.normcase(ws_abs) if os.name == "nt" else ws_abs
         scope = self.config.get("workspace_scope") or {}
         allows = [str(a).strip().replace("\\", "/") for a in scope.get("allow", []) if str(a).strip()]
         fully_covered = any(a in (".", "./") for a in allows)
@@ -434,6 +441,14 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
             if allow in (".", "./"):
                 continue
             host = os.path.normpath(os.path.join(ws_abs, allow))
+            host_norm = os.path.normcase(host) if os.name == "nt" else host
+            # Refuse host paths outside the workspace (absolute escape or parent traversal).
+            if os.path.commonpath([ws_norm, host_norm]) != ws_norm:
+                print(
+                    f"[docker] refusing allow outside workspace: {allow!r} -> {host!r}",
+                    file=sys.stderr,
+                )
+                continue
             if host.lower() in seen:
                 continue
             seen.add(host.lower())

@@ -33,21 +33,52 @@ class WebhookConfig:
 class WebhookDispatcher:
     """Delivers event envelopes to configured webhook endpoints."""
 
-    def __init__(self, webhooks: List[WebhookConfig]) -> None:
+    DEFAULT_MAX_CONCURRENT = 16
+
+    def __init__(
+        self,
+        webhooks: List[WebhookConfig],
+        max_concurrent: int = DEFAULT_MAX_CONCURRENT,
+    ) -> None:
         self.webhooks = list(webhooks)
+        cap = max(1, int(max_concurrent))
+        self._capacity = cap
+        self._slots = threading.BoundedSemaphore(cap)
+        self.dropped_count = 0
 
     def dispatch(self, event_type: str, envelope: Dict[str, Any]) -> None:
-        """Fire matching webhook deliveries asynchronously; never raises or blocks."""
+        """Fire matching webhook deliveries asynchronously; never raises or blocks.
+
+        When the concurrent-delivery cap is saturated the delivery is skipped
+        and counted (``dropped_count``) instead of spawning unbounded threads.
+        """
         body = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
         for config in self.webhooks:
             if config.events is not None and event_type not in config.events:
                 continue
+            if not self._slots.acquire(blocking=False):
+                self.dropped_count += 1
+                print(
+                    f"[webhooks] delivery saturated - dropping {event_type} -> {config.url}"
+                    f" (dropped_total={self.dropped_count})",
+                    file=sys.stderr,
+                )
+                continue
             thread = threading.Thread(
-                target=self._post,
+                target=self._deliver,
                 args=(config, body, event_type),
                 daemon=True,
             )
             thread.start()
+
+    def _deliver(self, config: WebhookConfig, body: bytes, event_type: str) -> None:
+        try:
+            self._post(config, body, event_type)
+        finally:
+            try:
+                self._slots.release()
+            except ValueError:
+                pass
 
     def _post(self, config: WebhookConfig, body: bytes, event_type: str) -> None:
         try:
