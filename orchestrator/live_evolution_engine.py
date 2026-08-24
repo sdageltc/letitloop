@@ -155,8 +155,13 @@ Return ONLY an exact Search/Replace block matching this schema:
                     prompt=prompt,
                     thinking_budget=budget.thinking_tokens,
                 )
+                raw_text = (
+                    raw_response["text"]
+                    if isinstance(raw_response, dict)
+                    else str(raw_response)
+                )
                 patch_res = PatchApplier.apply_patch(
-                    existing_code, raw_response, fuzzy_whitespace=True
+                    existing_code, raw_text, fuzzy_whitespace=True
                 )
                 if not patch_res.success:
                     violations = [
