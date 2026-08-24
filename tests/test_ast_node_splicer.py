@@ -1,0 +1,50 @@
+import ast
+import pytest
+from orchestrator.ast_node_splicer import splice_ast_function
+
+def test_splice_function_preserves_surrounding_comments_and_formatting():
+    source = """# Global configuration constant
+MAX_RETRIES = 3
+
+# Important helper comment
+def helper():
+    return 42
+
+def target_func(x: int, flag: bool = True) -> int:
+    \"\"\"Docstring for target function.\"\"\"
+    # Inline comment inside target
+    return x + 1
+
+# Trailing file comment
+def another_helper():
+    pass
+"""
+    new_func_code = """def target_func(x: int, flag: bool = True) -> int:
+    \"\"\"Docstring for target function.\"\"\"
+    # Updated inline logic
+    return x * 10"""
+
+    spliced = splice_ast_function(source, "target_func", new_func_code, enforce_strict_signature=True)
+    
+    assert "return x * 10" in spliced
+    assert "# Global configuration constant" in spliced
+    assert "# Important helper comment" in spliced
+    assert "# Trailing file comment" in spliced
+
+def test_splice_rejects_signature_drift_and_type_mutations():
+    source = "def target_func(x: int, flag: bool = True) -> int:\n    return x\n"
+    
+    # 1. Parameter name change
+    bad_name = "def target_func(y: int, flag: bool = True) -> int:\n    return y\n"
+    with pytest.raises(ValueError, match="Signature drift detected"):
+        splice_ast_function(source, "target_func", bad_name, enforce_strict_signature=True)
+
+    # 2. Type annotation change
+    bad_type = "def target_func(x: str, flag: bool = True) -> int:\n    return 0\n"
+    with pytest.raises(ValueError, match="Signature drift detected"):
+        splice_ast_function(source, "target_func", bad_type, enforce_strict_signature=True)
+
+    # 3. Default value count change
+    bad_default = "def target_func(x: int, flag: bool) -> int:\n    return x\n"
+    with pytest.raises(ValueError, match="Signature drift detected"):
+        splice_ast_function(source, "target_func", bad_default, enforce_strict_signature=True)
