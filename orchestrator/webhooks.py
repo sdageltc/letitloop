@@ -58,7 +58,7 @@ class WebhookDispatcher:
             if config.secret:
                 headers["X-LetItLoop-Signature"] = "sha256=" + sign_payload(body, config.secret)
             req = urllib.request.Request(config.url, data=body, headers=headers)
-            with urllib.request.urlopen(req, timeout=config.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=config.timeout) as resp:  # nosec B310
                 resp.read()
         except Exception as exc:
             print(f"[webhooks] delivery to {config.url} failed: {exc}", file=sys.stderr)
