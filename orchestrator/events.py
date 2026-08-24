@@ -83,8 +83,7 @@ class EventBus:
                 with self._lock:
                     self.dropped_count += 1
                 print(
-                    "[events] delivery saturated - dropping event "
-                    f"{event_type} (dropped_total={self.dropped_count})",
+                    f"[events] delivery saturated - dropping event {event_type} (dropped_total={self.dropped_count})",
                     file=sys.stderr,
                 )
                 continue
