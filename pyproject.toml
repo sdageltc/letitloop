@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.1.1"
-description = "Autonomous Macro-Task Control Loop & Verification Engine. DAG Contract Planning, Crash-Proof Supervisor (WAL), Deterministic Verifiers, Multi-Lens QC, and Universal MCP / Skill Support."
+version = "0.1.2"
+description = "Autonomous Macro-Task Control Loop & Verification Engine. Ephemeral Worktrees, DAG Contract Planning, Docker Sandbox, Process-Tree Guard, Live TUI, Prometheus, and Multi-Lens QC."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -17,6 +17,12 @@ keywords = [
     "agent-loop",
     "mcp",
     "mcp-server",
+    "docker-sandbox",
+    "worktree",
+    "process-guard",
+    "tui",
+    "prometheus",
+    "webhooks",
     "claude-code",
     "cursor",
     "antigravity",

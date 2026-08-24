@@ -53,15 +53,17 @@ $ lil run --doctor --strict
 
 ## Key Capabilities
 
-- **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs with cycle detection.
-- **Fault-Tolerant Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, Win32/POSIX atomic file-locking, and bounded 3-strike retries with strategy mutation.
-- **Zero-Trust Verification Engine**: 8 distinct deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
-- **Multi-Lens Quality Plane**: Multi-perspective evaluation with 5 specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Completeness*, *Adversarial Architecture Audit*) and formal arbitration.
-- **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, OpenAI Codex, Cursor, Google Antigravity, Hermes Agent, OpenCode, Cline, and Windsurf.
-- **10 Pluggable Worker Adapters**: Native execution interfaces for Claude Code, OpenAI Codex, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Omniroute gateways, local scripts, and direct LLMs.
-- **Zero-Subscription Independence**: Seamlessly run 100% locally via Ollama/vLLM, multi-model gateways (Omniroute, OpenRouter, Groq), or commercial frontier APIs.
-- **Interactive Terminal Dashboard**: Zero-dependency live ASCII DAG status matrix, execution progress bars, and event telemetry (`lil dashboard`).
-- **Turnkey Containerization**: Production multi-stage Docker build and Docker Compose orchestration.
+- **Autonomous DAG Planning**: Decomposes natural language objectives into cryptographically scoped, strongly-typed JSON contract dependency graphs with cycle and deadlock detection.
+- **Fault-Tolerant Supervisor Loop**: Modular state journal with WAL (Write-Ahead Logging), crash recovery, Win32/POSIX atomic file-locking, and bounded 3-strike retries with strategy mutation.
+- **Ephemeral Git Worktree Sandboxing**: Automated temporary Git worktree creation with merge-on-pass and prune-on-fail semantics to keep the workspace clean.
+- **Cross-Platform Process Orphan Guard**: Windows Job Objects (`win32job`) and POSIX session process-group containment ensuring complete cleanup of child/grandchild processes.
+- **Zero-Trust Verification Engine**: Deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
+- **Multi-Lens Quality Plane**: Modular multi-perspective evaluation with specialized lenses (*Code Correctness*, *Security Hardening*, *Documentation Fidelity*, *Test Completeness*, *Adversarial Architecture Audit*) and formal arbitration.
+- **Prometheus Observability & Signed Webhooks**: Native Prometheus exporter, lifecycle event bus, SSE streaming, and HMAC-SHA256 signed webhook dispatcher (`lil serve`).
+- **Native Model Context Protocol (MCP) Server & Client**: 8 stdio JSON-RPC tools and client manager with Server-Sent Events (SSE) support.
+- **12 Pluggable Worker Adapters**: Native interfaces for Claude Code, OpenAI Codex, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Docker Sandboxes (`docker`), Local LLMs (`local-tool`), Omniroute gateways, local scripts, and direct LLMs.
+- **Live Interactive TUI Dashboard**: Zero-dependency interactive DAG visualizer, real-time node state transitions, and budget gauges (`lil dashboard`).
+- **Community Recipe Book**: Schema-validated cookbooks and goal recipes for fast onboarding (`recipes/`).
 
 ---
 
@@ -246,6 +248,8 @@ lil reconcile <goal_id>
 | **Hermes Agent CLI** | `hermes` | Autonomous execution via Nous Research Hermes agent CLI |
 | **Cline CLI** | `cline` | Headless execution via Cline autonomous coding runner |
 | **Aider Pair Programmer** | `aider` | Pair programming execution via Aider CLI |
+| **Docker Sandbox Worker** | `docker` | Isolated execution inside container runtime with workspace scoping |
+| **Local LLM Tool Caller** | `local-tool` | Local tool-calling model adapter for offline Ollama/vLLM loops |
 | **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways |
 | **Script Worker** | `script` | Executes local shell/Python automation scripts with env isolation |
 | **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek, or Ollama |
