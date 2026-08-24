@@ -23,6 +23,7 @@ from orchestrator.fast_sandbox import ZeroCopyFastSandbox
 from orchestrator.anti_ouroboros import AntiOuroborosGate
 from orchestrator.micro_epoch import MicroEpochManager
 from orchestrator.feasibility_gate import CognitiveFeasibilityGate, FeasibilityVerdict
+from orchestrator.proposal_ledger import ProposalLedger
 from orchestrator.research import AdaptiveResearchCoordinator, ResearchFinding
 
 
@@ -44,6 +45,7 @@ class LiveEvolutionEngine:
         )
         self.introspector = NormalizedExplorationEngine()
         self.researcher = AdaptiveResearchCoordinator()
+        self.proposal_ledger = ProposalLedger(self.workspace_root)
 
     def execute_live_optimization_cycle(
         self,
@@ -51,6 +53,7 @@ class LiveEvolutionEngine:
         optimization_goal: str,
         target_function: Optional[str] = None,
         test_file_path: Optional[str] = None,
+        force_approved: bool = False,
     ) -> Dict[str, Any]:
         full_path = self.workspace_root / module_path
         if not full_path.exists():
@@ -87,26 +90,65 @@ class LiveEvolutionEngine:
         budget = DynamicElasticityGovernor.allocate(complexity_score)
 
         # 3. Phase 1: Cognitive Feasibility Deliberation Gate (Reason First!)
-        feasibility = CognitiveFeasibilityGate.deliberate(
-            target_symbol=target_function or module_path,
-            source_code=context_snippet,
-            complexity_score=complexity_score,
-            model_name=self.model_name,
-            thinking_budget=budget.thinking_tokens,
-        )
+        if not force_approved:
+            feasibility = CognitiveFeasibilityGate.deliberate(
+                target_symbol=target_function or module_path,
+                source_code=context_snippet,
+                complexity_score=complexity_score,
+                model_name=self.model_name,
+                thinking_budget=budget.thinking_tokens,
+            )
+        else:
+            feasibility = FeasibilityVerdict(
+                verdict="APPROVED_BY_HUMAN",
+                is_approved=True,
+                rationale="User explicitly approved execution of staged architectural proposal.",
+                suggested_strategy=f"Execute approved refactor for {target_function or module_path}",
+                risk_score=0.10,
+                requires_research=self.enable_research,
+            )
 
         if not feasibility.is_approved:
-            diff_summary = f"Skipped {target_function or module_path}: Feasibility verdict={feasibility.verdict}, rationale='{feasibility.rationale}'."
+            # Gather research before staging so the proposal artifact contains external intelligence
+            findings = []
+            if self.enable_research:
+                try:
+                    findings = self.researcher.research(
+                        f"python {target_function or module_path} {feasibility.suggested_strategy}"
+                    )
+                except Exception:
+                    findings = []
+
+            # Stage architectural proposal in persistent ledger
+            proposal = self.proposal_ledger.record_proposal(
+                target_module=module_path,
+                target_function=target_function or "module_level",
+                complexity_score=complexity_score,
+                deliberation_verdict=feasibility.verdict,
+                risk_score=feasibility.risk_score,
+                rationale=feasibility.rationale,
+                suggested_strategy=feasibility.suggested_strategy,
+                research_findings=findings,
+                proposed_approach=f"Refactor {target_function or module_path}: {feasibility.suggested_strategy}",
+            )
+
+            diff_summary = f"Staged Proposal {proposal.proposal_id} for {target_function or module_path}: verdict={feasibility.verdict}, risk={feasibility.risk_score:.2f}."
             self.epoch_mgr.record_task_completion(
                 task_id=f"{module_path}:{target_function}",
                 diff_summary=diff_summary,
             )
             return {
                 "is_success": False,
-                "status": "FEASIBILITY_DEFERRED",
+                "status": "PROPOSAL_STAGED_FOR_REVIEW",
                 "verdict": feasibility.verdict,
                 "rationale": feasibility.rationale,
                 "risk_score": feasibility.risk_score,
+                "proposal_id": proposal.proposal_id,
+                "proposal_markdown": str(
+                    self.workspace_root
+                    / "scratch/evolution_state/proposals"
+                    / f"{proposal.proposal_id}.md"
+                ),
             }
 
         # 4. Optional Adaptive Research Hook

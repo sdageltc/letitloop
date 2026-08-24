@@ -67,7 +67,7 @@ def main():
         )
         print(f"     Verdict: {deferred_res['status']} (is_success={deferred_res['is_success']})")
         print(f"     Protection Rationale: {deferred_res['rationale']}")
-        assert deferred_res["status"] == "FEASIBILITY_DEFERRED"
+        assert deferred_res["status"] == "PROPOSAL_STAGED_FOR_REVIEW"
         assert deferred_res["is_success"] is False
 
     print("\n" + "=" * 70)
