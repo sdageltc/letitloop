@@ -19,8 +19,7 @@ def test_duckduckgo_provider_formatting():
     provider = DuckDuckGoProvider()
     mock_html = """
     <html><body>
-    <a class="result__url" href="https://example.com/repo">https://example.com/repo</a>
-    <a class="result__snippet">Python fast algorithm implementation for AST optimization.</a>
+    <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Frepo">Python fast algorithm implementation for AST optimization.</a>
     </body></html>
     """
     with patch("urllib.request.urlopen") as mock_urlopen:
