@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 from orchestrator.live_evolution_engine import LiveEvolutionEngine
+from orchestrator.feasibility_gate import FeasibilityVerdict
 
 
 def test_live_evolution_engine_cycle_success():
@@ -34,7 +35,17 @@ def process_value(x: int) -> int:
     return x * 2
 >>>>>>> REPLACE
 """
-        with patch("orchestrator.live_evolution_engine.call_llm", return_value=mock_delta):
+        approved_feasibility = FeasibilityVerdict(
+            verdict="FEASIBLE",
+            is_approved=True,
+            rationale="Approved for optimization.",
+            suggested_strategy="Multiply by 2",
+            risk_score=0.1,
+            requires_research=False,
+        )
+
+        with patch("orchestrator.live_evolution_engine.CognitiveFeasibilityGate.deliberate", return_value=approved_feasibility), \
+             patch("orchestrator.live_evolution_engine.call_llm", return_value=mock_delta):
             res = engine.execute_live_optimization_cycle(
                 module_path="core.py",
                 optimization_goal="Double return value",
