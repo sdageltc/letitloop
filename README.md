@@ -2,6 +2,10 @@
   <img src="assets/logo.png" alt="let it loop (LIL)" width="340" style="border-radius: 20px;">
 </p>
 
+<p align="center">
+  <img src="assets/demo.gif" alt="letitloop: propose, verify, complete - a deterministic agent loop" width="720">
+</p>
+
 # let it loop (LIL)
 
 **let it loop (LIL)** is an autonomous macro-task orchestration and verification control loop for AI coding agents. It provides a durable, production-grade execution backbone featuring automated DAG contract planning, crash-resilient supervisor execution (Write-Ahead Logging), deterministic multi-phase verification, multi-lens quality reviews, and universal Model Context Protocol (MCP) support.
