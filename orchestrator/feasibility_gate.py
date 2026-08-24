@@ -67,7 +67,8 @@ Return ONLY valid JSON matching this schema:
                 prompt=prompt,
                 thinking_budget=thinking_budget,
             )
-            return cls._parse_verdict(raw_resp)
+            raw_text = raw_resp["text"] if isinstance(raw_resp, dict) else str(raw_resp)
+            return cls._parse_verdict(raw_text)
         except Exception as e:
             return FeasibilityVerdict(
                 verdict="DEFER",
