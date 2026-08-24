@@ -40,36 +40,33 @@ class DuckDuckGoProvider(BaseResearchProvider):
             req = urllib.request.Request(
                 url,
                 headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 },
             )
             with urllib.request.urlopen(req, timeout=5.0) as resp:
                 html = resp.read().decode("utf-8", errors="replace")
 
             # Extract result snippets and URLs
-            snippets = re.findall(
-                r'<a class="result__snippet[^>]*>(.*?)</a>', html, re.DOTALL
-            )
-            urls = re.findall(
-                r'<a class="result__url[^>]*href="([^"]+)"', html, re.DOTALL
-            )
-            titles = re.findall(
-                r'<a class="result__title[^>]*>(.*?)</a>', html, re.DOTALL
+            results = re.findall(
+                r'<a[^>]+class="result__snippet[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
+                html,
+                re.DOTALL,
             )
 
-            for i in range(min(max_results, len(snippets))):
-                clean_snippet = re.sub(r"<[^>]+>", "", snippets[i]).strip()
-                clean_url = urls[i].strip() if i < len(urls) else ""
-                clean_title = (
-                    re.sub(r"<[^>]+>", "", titles[i]).strip()
-                    if i < len(titles)
-                    else "Search Result"
+            for href, snip in results[:max_results]:
+                clean_snip = re.sub(r"<[^>]+>", "", snip).strip()
+                uddg_match = re.search(r"uddg=([^&]+)", href)
+                clean_url = (
+                    urllib.parse.unquote(uddg_match.group(1))
+                    if uddg_match
+                    else href
                 )
-                if clean_snippet:
+                title = clean_url.split("/")[-1] or "Web Result"
+                if clean_snip:
                     findings.append(
                         ResearchFinding(
-                            title=clean_title,
-                            summary=clean_snippet,
+                            title=title,
+                            summary=clean_snip,
                             source_url=clean_url,
                             provider_name="DuckDuckGo",
                         )
@@ -87,26 +84,40 @@ class ArXivProvider(BaseResearchProvider):
         try:
             encoded_query = urllib.parse.quote(f"all:{query}")
             url = f"http://export.arxiv.org/api/query?search_query={encoded_query}&start=0&max_results={max_results}"
-            req = urllib.request.Request(url, headers={"User-Agent": "LetItLoop/0.1"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "LetItLoop/0.1"}
+            )
             with urllib.request.urlopen(req, timeout=5.0) as resp:
                 xml_data = resp.read().decode("utf-8", errors="replace")
 
             root = ET.fromstring(xml_data)
-            # Atom namespace handling
             ns = {"atom": "http://www.w3.org/2005/Atom"}
             for entry in root.findall("atom:entry", ns):
                 title_node = entry.find("atom:title", ns)
                 summary_node = entry.find("atom:summary", ns)
                 id_node = entry.find("atom:id", ns)
 
-                title = title_node.text.strip() if title_node is not None and title_node.text else "arXiv Paper"
-                summary = summary_node.text.strip().replace("\n", " ") if summary_node is not None and summary_node.text else ""
-                source_url = id_node.text.strip() if id_node is not None and id_node.text else ""
+                title = (
+                    title_node.text.strip()
+                    if title_node is not None and title_node.text
+                    else "arXiv Paper"
+                )
+                summary = (
+                    summary_node.text.strip().replace("\n", " ")
+                    if summary_node is not None and summary_node.text
+                    else ""
+                )
+                source_url = (
+                    id_node.text.strip()
+                    if id_node is not None and id_node.text
+                    else ""
+                )
 
                 findings.append(
                     ResearchFinding(
                         title=title,
-                        summary=summary[:300] + ("..." if len(summary) > 300 else ""),
+                        summary=summary[:300]
+                        + ("..." if len(summary) > 300 else ""),
                         source_url=source_url,
                         provider_name="arXiv",
                     )
@@ -138,7 +149,10 @@ class GitHubSearchProvider(BaseResearchProvider):
                 findings.append(
                     ResearchFinding(
                         title=item.get("full_name", "GitHub Repo"),
-                        summary=item.get("description", "No description provided.") or "",
+                        summary=item.get(
+                            "description", "No description provided."
+                        )
+                        or "",
                         source_url=item.get("html_url", ""),
                         provider_name="GitHub",
                     )
@@ -168,11 +182,15 @@ class AdaptiveResearchCoordinator:
                 DuckDuckGoProvider(),
             ]
 
-    def research(self, topic: str, max_results_per_provider: int = 2) -> List[ResearchFinding]:
+    def research(
+        self, topic: str, max_results_per_provider: int = 2
+    ) -> List[ResearchFinding]:
         aggregated: List[ResearchFinding] = []
         for provider in self.providers:
             try:
-                results = provider.search(topic, max_results=max_results_per_provider)
+                results = provider.search(
+                    topic, max_results=max_results_per_provider
+                )
                 aggregated.extend(results)
             except Exception:
                 continue
