@@ -104,9 +104,7 @@ def validate_contract_dag(contracts: Iterable[Any]) -> List[DagIssue]:
 
     issues: List[DagIssue] = []
     for tid in duplicate_ids:
-        issues.append(
-            DagIssue(DUPLICATE_TASK_ID, tid, f"Duplicate contract task_id: {tid} (later entries ignored)")
-        )
+        issues.append(DagIssue(DUPLICATE_TASK_ID, tid, f"Duplicate contract task_id: {tid} (later entries ignored)"))
     valid_edges: Dict[str, List[str]] = {tid: [] for tid in order}
     for tid in order:
         for dep in deps_of[tid]:
