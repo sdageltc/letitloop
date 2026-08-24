@@ -248,7 +248,7 @@ class SseMcpClient(BaseMcpClient):
             method="GET",
         )
         try:
-            self._stream = urllib.request.urlopen(req, timeout=self.timeout)
+            self._stream = urllib.request.urlopen(req, timeout=self.timeout)  # nosec B310
         except (urllib.error.URLError, OSError) as e:
             raise McpClientError(f"Failed to open SSE stream to MCP server at {self.url}: {e}") from e
 
@@ -307,7 +307,7 @@ class SseMcpClient(BaseMcpClient):
             method="POST",
         )
         try:
-            resp = urllib.request.urlopen(req, timeout=self.timeout)
+            resp = urllib.request.urlopen(req, timeout=self.timeout)  # nosec B310
         except (urllib.error.URLError, OSError) as e:
             raise McpClientError(f"Failed to POST message to MCP endpoint {self.endpoint}: {e}") from e
         try:

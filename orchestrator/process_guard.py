@@ -93,7 +93,7 @@ def pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except OSError as exc:
-        return exc.errno != errno.EPERM
+        return exc.errno == errno.EPERM
     return True
 
 

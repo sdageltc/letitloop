@@ -7,7 +7,6 @@ Script executors, Direct LLM APIs, Docker sandboxes, and local tool-calling LLMs
 
 import json
 import os
-import pathlib
 import subprocess
 import urllib.error
 import urllib.request
@@ -391,8 +390,7 @@ class CodexWorkerAdapter(BaseWorkerAdapter):
 
 def _docker_host_path(host_path: str) -> str:
     """Normalize a host path for a docker -v spec (POSIX separators, no drive colon)."""
-    p = pathlib.Path(host_path)
-    posix = p.as_posix()
+    posix = str(host_path).replace("\\", "/")
     # 'C:/ws' -> '/c/ws' style avoids the ambiguous drive-letter colon in -v specs.
     if len(posix) >= 2 and posix[1] == ":":
         posix = "/" + posix[0].lower() + posix[2:]
