@@ -1,0 +1,43 @@
+name: Welcome & First-Time Contributor Greeting
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Welcome New Contributor
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const author = context.actor;
+            const repo = context.repo.repo;
+            const body = isPR
+              ? `👋 Thanks @${author} for opening this PR to **${repo}**! Our CI verification suite will run automated durability checks. Please ensure your PR adheres to our [Contributing Guidelines](https://github.com/${context.repo.owner}/${repo}/blob/main/CONTRIBUTING.md).`
+              : `👋 Thanks @${author} for opening an issue in **${repo}**! Our triage team will review this shortly. For general architecture questions and discussions, check out [GitHub Discussions](https://github.com/sdageltc/letitloop/discussions).`;
+            
+            if (isPR) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: body
+              });
+            }

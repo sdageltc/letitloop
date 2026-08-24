@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LetItLoop (LIL) — Deterministic Durability & Verification for AI Coding Agents</title>
+  <meta name="description" content="Crash-resilience benchmark, source-span AST node splicing, and proof-carrying PR verification gate for autonomous AI coding agents.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --bg-surface: rgba(18, 24, 38, 0.7);
+      --bg-card: rgba(22, 30, 46, 0.6);
+      --bg-code: #0b0f19;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --purple: #a855f7;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* Glow Effects */
+    .glow-bg {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, rgba(9, 13, 22, 0) 70%);
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Header / Nav */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 10;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .brand-badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      border: 1px solid var(--border-accent);
+    }
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--text); }
+    .btn-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-github:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 5rem 0 3rem;
+      text-align: center;
+      position: relative;
+      z-index: 10;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 1rem;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--border-accent);
+      border-radius: 999px;
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 780px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.6;
+    }
+    .hero-cta {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #090d16;
+      padding: 0.85rem 1.75rem;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-primary:hover {
+      background: #7dd3fc;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.85rem 1.75rem;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Terminal Copy Box */
+    .install-box {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1rem;
+      gap: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .install-box:hover { border-color: var(--border-accent); }
+    .install-box span.cmd { color: var(--accent); }
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    /* Tri-Fold Ecosystem Cards */
+    .ecosystem-section {
+      padding: 4rem 0;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .section-header h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+    .section-header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      backdrop-filter: blur(12px);
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-3px);
+      background: rgba(26, 36, 56, 0.7);
+    }
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    .card-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .tag-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+    .tag-green { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+    .tag-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); }
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .card-bullets {
+      list-style: none;
+      margin-bottom: 1.5rem;
+    }
+    .card-bullets li {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-bullets li::before {
+      content: "✓";
+      color: var(--green);
+      font-weight: bold;
+    }
+    .card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: gap 0.2s;
+    }
+    .card-link:hover { gap: 0.6rem; }
+
+    /* Interactive Code Tabs */
+    .code-section {
+      padding: 4rem 0;
+    }
+    .code-box {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .code-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      padding: 1rem 1.5rem;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: rgba(56, 189, 248, 0.05);
+    }
+    .tab-content {
+      padding: 1.5rem;
+      display: none;
+    }
+    .tab-content.active { display: block; }
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    /* Comparison Table */
+    .table-section {
+      padding: 4rem 0;
+    }
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-surface);
+      backdrop-filter: blur(12px);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    th, td {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-weight: 600;
+    }
+    td { color: var(--text-muted); }
+    tr:last-child td { border-bottom: none; }
+    .col-highlight {
+      color: var(--accent);
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.04);
+    }
+
+    /* Scorecard & Sunset Protocol */
+    .scorecard-banner {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      text-align: center;
+      margin: 3rem 0;
+    }
+    .scorecard-banner h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .scorecard-banner p {
+      color: var(--text-muted);
+      max-width: 650px;
+      margin: 0 auto 1.5rem;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 0;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1rem;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.5rem; }
+      .hero p { font-size: 1.05rem; }
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <div class="container">
+    <!-- Navigation -->
+    <nav>
+      <a href="#" class="brand">
+        LetItLoop <span class="brand-badge">Ecosystem v0.2</span>
+      </a>
+      <div class="nav-links">
+        <a href="#ecosystem" class="nav-link">Architecture</a>
+        <a href="#benchmarks" class="nav-link">Benchmark</a>
+        <a href="#code" class="nav-link">Quickstart</a>
+        <a href="https://github.com/sdageltc/letitloop" class="btn-github" target="_blank">
+          <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+          GitHub
+        </a>
+      </div>
+    </nav>
+
+    <!-- Hero Header -->
+    <section class="hero">
+      <div class="hero-eyebrow">
+        <span>🛡️</span> Zero-Trust Verification & Durability for AI Coding Agents
+      </div>
+      <h1>Deterministic Execution.<br>Crash-Resilient Agent Loops.</h1>
+      <p>
+        AI coding agents fail when processes crash or when whole-file rewrites destroy code syntax. LetItLoop provides AST source-span node splicing, zero-token WAL crash recovery, and signed PR verification gates.
+      </p>
+      <div class="hero-cta">
+        <a href="https://github.com/sdageltc/agent-durability-bench" class="btn-primary" target="_blank">
+          Explore Durability Benchmark →
+        </a>
+        <a href="https://github.com/sdageltc/letitloop-action" class="btn-secondary" target="_blank">
+          Install GitHub Action
+        </a>
+      </div>
+      <div>
+        <div class="install-box" onclick="navigator.clipboard.writeText('pip install letitloop'); alert('Copied: pip install letitloop');">
+          <span>$</span>
+          <span class="cmd">pip install letitloop</span>
+          <button class="copy-btn">📋 Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tri-Fold Ecosystem Architecture -->
+    <section class="ecosystem-section" id="ecosystem">
+      <div class="section-header">
+        <h2>The Three Ecosystem Pillars</h2>
+        <p>A decoupled tripartite architecture designed for benchmarking, CI verification, and local execution.</p>
+      </div>
+      <div class="grid-3">
+        <!-- Card 1 -->
+        <div class="card">
+          <div>
+            <div class="card-icon">📊</div>
+            <div class="card-title">agent-durability-bench</div>
+            <div class="card-tag tag-blue">DCP-1.0 Benchmark</div>
+            <div class="card-desc">
+              The first open crash-resilience benchmark measuring agent recovery fidelity, token waste, and process cleanup under deterministic SIGKILL failure injections.
+            </div>
+            <ul class="card-bullets">
+              <li>Zero-token synthetic harness ($0.00 cost)</li>
+              <li>Live conformance leaderboard</li>
+              <li>BaseAdapter conformance suite</li>
+            </ul>
+          </div>
+          <a href="https://github.com/sdageltc/agent-durability-bench" class="card-link" target="_blank">
+            View Benchmark Repo →
+          </a>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="card">
+          <div>
+            <div class="card-icon">🛡️</div>
+            <div class="card-title">letitloop-action</div>
+            <div class="card-tag tag-green">GitHub Action Gate</div>
+            <div class="card-desc">
+              Drop-in GitHub Action running AST invariant checks, scope fencing, and automated test gates on AI-generated Pull Requests with signed SHA-256 proof receipts.
+            </div>
+            <ul class="card-bullets">
+              <li>Zero runtime node_modules (~1.1MB bundle)</li>
+              <li>Floating @v1 major version tag</li>
+              <li>Markdown PR receipt comments</li>
+            </ul>
+          </div>
+          <a href="https://github.com/sdageltc/letitloop-action" class="card-link" target="_blank">
+            View Action Repo →
+          </a>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="card">
+          <div>
+            <div class="card-icon">⚙️</div>
+            <div class="card-title">letitloop</div>
+            <div class="card-tag tag-purple">Core Execution Engine</div>
+            <div class="card-desc">
+              Deterministic supervisor engine with method-level AST Node Splicing (100% comment/decorator retention) and SQLite/JSONL Write-Ahead Log recovery.
+            </div>
+            <ul class="card-bullets">
+              <li>5-Pillar verification firewall</li>
+              <li>2ms crash resumption from WAL</li>
+              <li>CLI (lil) & Python SDK APIs</li>
+            </ul>
+          </div>
+          <a href="https://github.com/sdageltc/letitloop" class="card-link" target="_blank">
+            View Core Engine →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Code Tabs -->
+    <section class="code-section" id="code">
+      <div class="section-header">
+        <h2>Integrate in Under 60 Seconds</h2>
+        <p>Use the CLI tool, orchestrate in Python, or guard your GitHub Pull Requests.</p>
+      </div>
+      <div class="code-box">
+        <div class="code-tabs">
+          <button class="tab-btn active" onclick="switchTab('tab-cli', this)">CLI Entrypoint (lil)</button>
+          <button class="tab-btn" onclick="switchTab('tab-action', this)">GitHub Actions (.yml)</button>
+          <button class="tab-btn" onclick="switchTab('tab-python', this)">Python SDK</button>
+        </div>
+        <div id="tab-cli" class="tab-content active">
+          <pre><code># 1. Propose execution contract DAG
+$ lil propose "Add rate limiter middleware to FastAPI app"
+
+# 2. Run supervisor loop with strict verification firewall
+$ lil run --strict
+
+# 3. Inspect atomic Write-Ahead Log (WAL) checkpoints
+$ lil status</code></pre>
+        </div>
+        <div id="tab-action" class="tab-content">
+          <pre><code># .github/workflows/letitloop-verify.yml
+name: Verify AI Pull Request
+on: [pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - uses: sdageltc/letitloop-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          strict-ast: 'true'
+          test-command: 'pytest -q'</code></pre>
+        </div>
+        <div id="tab-python" class="tab-content">
+          <pre><code>from orchestrator.ast_node_splicer import splice_ast_function
+from harness.injector import ProcessLifecycleGuard
+
+# Source-span function splicing with zero comment stripping
+clean_code = splice_ast_function(
+    original_source=file_content,
+    target_function_name="process_event",
+    new_function_code=generated_snippet
+)</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison Table -->
+    <section class="table-section" id="benchmarks">
+      <div class="section-header">
+        <h2>Why Durability Bench (DCP-1.0)?</h2>
+        <p>Comparing crash resilience evaluation against industry single-shot benchmarks.</p>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Evaluation Dimension</th>
+              <th class="col-highlight">Durability Bench (DCP-1.0)</th>
+              <th>SWE-bench</th>
+              <th>GAIA</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Primary Metric</strong></td>
+              <td class="col-highlight">Crash Survival & Resumption Fidelity</td>
+              <td>Single-Shot Issue Resolution</td>
+              <td>Multimodal Tool Execution</td>
+            </tr>
+            <tr>
+              <td><strong>Failure Injection</strong></td>
+              <td class="col-highlight">Deterministic SIGKILL, OOM, Spot Eviction</td>
+              <td>None (Runs to completion)</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><strong>State Corruption Check</strong></td>
+              <td class="col-highlight">AST Invariants & File Integrity Proofs</td>
+              <td>Pytest Exit Code Only</td>
+              <td>Regex String Match</td>
+            </tr>
+            <tr>
+              <td><strong>Cost to Run (100 Tasks)</strong></td>
+              <td class="col-highlight">$0.00 (Zero-API Synthetic Engine)</td>
+              <td>~$450.00 (Cloud LLM Tokens)</td>
+              <td>~$120.00 (LLM API)</td>
+            </tr>
+            <tr>
+              <td><strong>Runtime Duration</strong></td>
+              <td class="col-highlight">&lt; 15 Seconds</td>
+              <td>4–12 Hours</td>
+              <td>1–3 Hours</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6-Month Scorecard & Transparency Banner -->
+    <div class="scorecard-banner">
+      <h3>📅 6-Month Calibrated Scorecard & Sunset Protocol</h3>
+      <p>
+        We hold open-source software to empirical standards. If LetItLoop fails to achieve organic adoption milestones (Month 4: 50+ stars, 1+ external PR), we pre-commit to a transparent post-mortem and clean archival.
+      </p>
+      <a href="https://github.com/sdageltc/letitloop/blob/main/MILESTONES.md" class="btn-secondary" target="_blank">
+        Read MILESTONES.md Scorecard →
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-links">
+        <a href="https://github.com/sdageltc/letitloop" target="_blank">Engine Core</a>
+        <a href="https://github.com/sdageltc/agent-durability-bench" target="_blank">Durability Bench</a>
+        <a href="https://github.com/sdageltc/letitloop-action" target="_blank">GitHub Action</a>
+        <a href="https://pypi.org/p/letitloop" target="_blank">PyPI Package</a>
+        <a href="https://www.linkedin.com/in/oguzhankayan/" target="_blank">Maintainer</a>
+      </div>
+      <p>© 2026 Oguzhan Kayan. Open source under the MIT License.</p>
+    </footer>
+  </div>
+
+  <script>
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>
