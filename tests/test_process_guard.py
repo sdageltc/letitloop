@@ -115,6 +115,24 @@ class TestProcessGuard:
     def test_default_guard_singleton(self):
         assert isinstance(DEFAULT_GUARD, ProcessGuard)
 
+    def test_registry_prunes_exited_children_on_register(self):
+        """Regression for #41: exited children used to accumulate forever."""
+        g = ProcessGuard()
+        for _ in range(10):
+            p = subprocess.Popen([sys.executable, "-c", "pass"])
+            p.wait()
+            g.register(p)
+        assert len(g._procs) <= 1  # only the last (exited) child lingers pre-prune
+        live = g.spawn(
+            [sys.executable, "-c", "import time; time.sleep(10)"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        assert len(g._procs) == 1  # exited one pruned, live one kept
+        g.sweep(timeout=5)
+        assert len(g._procs) == 0
+        assert _wait_dead(live.pid, 10)
+
 
 class TestSignalHandlers:
     def test_install_uninstall_idempotent(self, monkeypatch):

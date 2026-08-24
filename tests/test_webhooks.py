@@ -294,6 +294,67 @@ def test_load_webhook_configs_from_env(monkeypatch, tmp_path):
 
 
 @pytest.mark.fast
+def test_event_bus_delivery_is_bounded():
+    """Regression for #40: thread-per-subscriber-per-publish piled up unbounded
+    (116 live threads after 200 events with one slow subscriber). The cap is
+    asserted deterministically by saturating the delivery semaphore directly."""
+    bus = EventBus(max_concurrent_deliveries=4)
+    delivered = []
+    bus.subscribe(lambda _e: delivered.append(1))
+
+    # Saturate all delivery slots from the test (simulating slow subscribers).
+    acquired = [bus._slots.acquire(blocking=False) for _ in range(4)]
+    assert all(acquired)
+    try:
+        for _ in range(10):
+            bus.publish("contract.working", goal_id="g")
+        assert bus.dropped_count == 10  # saturated -> skipped + counted, never blocked
+        assert delivered == []
+        before = threading.active_count()
+        assert before <= 3  # no delivery threads spawned while saturated
+    finally:
+        for _ in acquired:
+            bus._slots.release()
+
+    deadline = time.time() + 3
+    while threading.active_count() > 1 and time.time() < deadline:
+        time.sleep(0.02)
+    assert len(delivered) == 0  # dropped events are gone by design (skip, not queue)
+    assert bus.dropped_count == 10
+
+    # Slots freed -> fresh publishes deliver normally again.
+    for _ in range(10):
+        bus.publish("goal.started", goal_id="g")
+    deadline = time.time() + 3
+    while len(delivered) < 10 and time.time() < deadline:
+        time.sleep(0.02)
+    assert len(delivered) == 10
+    assert bus.dropped_count == 10  # unchanged by the healthy publishes
+
+
+@pytest.mark.fast
+def test_event_bus_envelope_stays_pure():
+    bus = EventBus()
+    env = bus.publish("goal.completed", goal_id="g", extra=1)
+    assert set(env) == {"event", "goal_id", "task_id", "timestamp", "data"}
+    assert "_bus" not in json.dumps(env)
+
+
+@pytest.mark.fast
+def test_event_bus_normal_delivery_unaffected_by_cap():
+    bus = EventBus(max_concurrent_deliveries=4)
+    got = []
+    bus.subscribe(lambda _e: got.append(1))
+    for _ in range(3):
+        bus.publish("goal.started", goal_id="g")
+    deadline = time.time() + 3
+    while not got and time.time() < deadline:
+        time.sleep(0.02)
+    assert len(got) == 3
+    assert bus.dropped_count == 0
+
+
+@pytest.mark.fast
 def test_event_types_tuple_matches_spec():
     assert EVENT_TYPES == (
         "goal.started",
