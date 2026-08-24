@@ -219,6 +219,16 @@ class TestModelTiers:
     def test_prefixed_models_classify_same_as_bare(self):
         assert classify_model("openai:gpt-4o-mini") == 2
         assert classify_model("anthropic:claude-3-5-sonnet") == 3
+
+    def test_slash_tagged_ids_classify_by_model_not_tag(self):
+        # Regression for #38: provider/model:tag ids collapsed to the tag ("14b")
+        # and defaulted to tier 2, misrouting local Ollama/vLLM models.
+        assert classify_model("ollama/qwen2.5-coder:14b") == 1
+        assert classify_model("vllm/Qwen2.5-Coder-32B-Instruct") == 1
+        assert classify_model("gemini/gemini-2.5-flash-lite") == 1
+        assert classify_model("gemini/gemini-2.5-flash:latest") == 2
+        assert classify_model("ollama/gpt-4o-mini:latest") == 2
+        assert classify_model("openai/gpt-4o:2024-11-20") == 3
         assert classify_model("hybrid:gemini:gemini-2.5-flash-lite") == 1
 
     def test_unknown_model_defaults_to_standard_tier2(self):

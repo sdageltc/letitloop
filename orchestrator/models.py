@@ -252,8 +252,20 @@ _TIER_FAMILIES: Dict[int, tuple] = {
 
 
 def _bare_model_id(model: str) -> str:
-    """Lowercased bare model id with provider/hybrid prefixes stripped."""
+    """Lowercased bare model id with provider/hybrid prefixes stripped.
+
+    Handles three id shapes:
+    - ``model`` / ``model:tag`` (Ollama-style tag kept only for bare ids)
+    - ``provider/model`` and ``provider/model:tag`` (slash form: drop path, drop tag)
+    - ``provider:model`` (hybrid worker prefix: keep the model part)
+    """
     text = (model or "").strip().lower()
+    if "/" in text:
+        # Slash form: provider/model[:tag] -> model[:tag] -> model
+        text = text.rsplit("/", 1)[-1]
+        if ":" in text:
+            text = text.rsplit(":", 1)[0]
+        return text
     while ":" in text:
         head, _, tail = text.partition(":")
         if not tail:

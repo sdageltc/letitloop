@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from orchestrator.dag_validator import (
+    DUPLICATE_TASK_ID,
     DagIssue,
     DagValidationError,
     format_cycle_trace,
@@ -103,6 +104,29 @@ def test_mixed_cycle_and_dangling_reported_together():
 def test_format_cycle_trace_shape():
     issue = DagIssue(kind="cycle", task_id="A", message="", cycle_path=["A", "B", "A"])
     assert format_cycle_trace(issue) == "Cycle detected: A -> B -> A"
+
+
+def test_duplicate_task_ids_detected_not_silently_merged():
+    """Regression for #39: duplicate task_ids used to overwrite the first node,
+    erasing its edges and letting self-deps slip through the gate."""
+    contracts = [
+        {"task_id": "A", "depends_on": ["A", "A"]},
+        {"task_id": "A", "depends_on": []},
+    ]
+    issues = validate_contract_dag(contracts)
+    kinds = {i.kind for i in issues}
+    assert DUPLICATE_TASK_ID in kinds
+    assert "self_reference" in kinds  # first entry's self-dep must still be caught
+    with pytest.raises(DagValidationError):
+        raise_if_invalid(contracts)
+
+
+def test_clean_graph_untouched_by_duplicate_detection():
+    contracts = [
+        {"task_id": "A", "depends_on": []},
+        {"task_id": "B", "depends_on": ["A"]},
+    ]
+    assert validate_contract_dag(contracts) == []
 
 
 def test_raise_if_invalid_collects_all_issues_in_message():
