@@ -116,29 +116,53 @@ class ContractGraph:
                 "contract_path": c.get("contract_path"),
             }
 
+    def cycle_path(self, start: Optional[str] = None) -> List[str]:
+        """Return one concrete dependency cycle as [A, B, ..., A]; empty list if acyclic.
+
+        Iterative DFS with a color map (1=on stack, 2=done) and parent-chain
+        reconstruction once a back edge hits an on-stack node.
+        """
+        color: Dict[str, int] = {}
+        parent: Dict[str, str] = {}
+
+        roots = [start] if (start is not None and start in self.nodes) else list(self.nodes.keys())
+        for root in roots:
+            if color.get(root):
+                continue
+            color[root] = 1
+            stack = [(root, iter(self.nodes.get(root, {}).get("depends_on", [])))]
+            while stack:
+                node_id, dep_iter = stack[-1]
+                advanced = False
+                for dep in dep_iter:
+                    if dep not in self.nodes:
+                        continue
+                    state = color.get(dep)
+                    if state is None:
+                        color[dep] = 1
+                        parent[dep] = node_id
+                        stack.append((dep, iter(self.nodes[dep].get("depends_on", []))))
+                        advanced = True
+                        break
+                    if state == 1:
+                        chain = []
+                        cur = node_id
+                        while True:
+                            chain.append(cur)
+                            if cur == dep:
+                                break
+                            cur = parent[cur]
+                        chain.reverse()
+                        chain.append(dep)
+                        return chain
+                if not advanced:
+                    color[node_id] = 2
+                    stack.pop()
+        return []
+
     def has_cycle(self) -> bool:
         """Return True if a cycle exists in the graph."""
-        visited = set()
-        rec_stack = set()
-
-        def dfs(node_id: str) -> bool:
-            visited.add(node_id)
-            rec_stack.add(node_id)
-            for dep in self.nodes.get(node_id, {}).get("depends_on", []):
-                if dep in self.nodes:
-                    if dep not in visited:
-                        if dfs(dep):
-                            return True
-                    elif dep in rec_stack:
-                        return True
-            rec_stack.remove(node_id)
-            return False
-
-        for node_id in self.nodes:
-            if node_id not in visited:
-                if dfs(node_id):
-                    return True
-        return False
+        return bool(self.cycle_path())
 
     def topological_sort(self) -> List[str]:
         """Return task IDs in dependency order (dependencies first).

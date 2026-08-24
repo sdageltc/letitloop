@@ -8,6 +8,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from .contract import requires_semantic_qc, validate_contract
+from .dag_validator import raise_if_invalid
 from .exceptions import PlannerError
 from .goal import Goal, Plan
 from .llm import LLMError, call_llm
@@ -527,4 +528,5 @@ def decompose_goal(
     if not plan_is_safe(quality_warnings):
         error_msgs = [w.message for w in quality_warnings if w.severity == "error"]
         raise PlannerError(f"Generated plan has quality errors: {'; '.join(error_msgs)}")
+    raise_if_invalid(plan.contracts)
     return plan

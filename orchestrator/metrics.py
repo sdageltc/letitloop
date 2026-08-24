@@ -1,8 +1,10 @@
-"""Runtime metrics collector — wall-clock per phase, attempt counters."""
+"""Runtime metrics collector — wall-clock per phase, attempt counters,
+named event counters, and cumulative LLM token usage."""
 
 import json
 import os
 import time
+from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from typing import Dict, List
 
@@ -25,6 +27,9 @@ class MetricsSnapshot:
     total_attempts: int = 0
     completed_tasks: int = 0
     failed_tasks: int = 0
+    counters: Dict[str, int] = field(default_factory=dict)
+    token_usage: Dict[str, int] = field(default_factory=dict)
+    contracts_by_status: Dict[str, int] = field(default_factory=dict)
 
 
 class MetricsCollector:
@@ -35,6 +40,9 @@ class MetricsCollector:
         self.phases: List[PhaseRecord] = []
         self._timers: Dict[str, float] = {}
         self.attempts: Dict[str, int] = {}
+        self.counters: Dict[str, int] = defaultdict(int)
+        self.token_usage: Dict[str, int] = {"prompt": 0, "completion": 0}
+        self.contracts_by_status: Dict[str, int] = {}
 
     def start_phase(self, phase: str, task_id: str = "") -> None:
         key = f"{task_id}:{phase}" if task_id else phase
@@ -64,6 +72,25 @@ class MetricsCollector:
     def record_attempt(self, task_id: str) -> None:
         self.attempts[task_id] = self.attempts.get(task_id, 0) + 1
 
+    def incr(self, counter: str, amount: int = 1, **labels) -> None:
+        """Increment a named counter. Keyword labels are accepted at call
+        sites for compatibility but counters stay plain name -> int."""
+        self.counters[counter] += amount
+
+    def record_token_usage(self, prompt_tokens: int, completion_tokens: int) -> None:
+        """Accumulate LLM token usage totals."""
+        self.token_usage["prompt"] += int(prompt_tokens)
+        self.token_usage["completion"] += int(completion_tokens)
+
+    def record_three_strike_escalation(self) -> None:
+        """Record one three-strike escalation event."""
+        self.incr("three_strike_escalations")
+
+    def record_contract_status(self, status: str) -> None:
+        """Increment the terminal-status histogram for contracts."""
+        key = str(status)
+        self.contracts_by_status[key] = self.contracts_by_status.get(key, 0) + 1
+
     def snapshot(self) -> MetricsSnapshot:
         s = MetricsSnapshot(goal_id=self.goal_id)
         phase_elapsed: Dict[str, float] = {}
@@ -76,6 +103,9 @@ class MetricsCollector:
         s.phase_counts = phase_counts
         s.attempt_counts = dict(self.attempts)
         s.total_attempts = sum(self.attempts.values())
+        s.counters = dict(self.counters)
+        s.token_usage = dict(self.token_usage)
+        s.contracts_by_status = dict(self.contracts_by_status)
         return s
 
     def summary(self) -> str:
@@ -99,6 +129,9 @@ class MetricsCollector:
             "phase_counts": s.phase_counts,
             "attempt_counts": s.attempt_counts,
             "total_attempts": s.total_attempts,
+            "counters": dict(self.counters),
+            "token_usage": dict(self.token_usage),
+            "contracts_by_status": dict(self.contracts_by_status),
             "phases": [asdict(r) for r in self.phases],
         }
 
@@ -116,4 +149,11 @@ class MetricsCollector:
         for rec_data in data.get("phases", []):
             mc.phases.append(PhaseRecord(**rec_data))
         mc.attempts = data.get("attempt_counts", {})
+        mc.counters = defaultdict(int, data.get("counters", {}) or {})
+        token_usage = dict(data.get("token_usage", {}) or {})
+        mc.token_usage = {
+            "prompt": int(token_usage.get("prompt", 0)),
+            "completion": int(token_usage.get("completion", 0)),
+        }
+        mc.contracts_by_status = dict(data.get("contracts_by_status", {}) or {})
         return mc

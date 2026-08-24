@@ -1,0 +1,119 @@
+{
+  "goal_id": "legacy-refactor-ledger",
+  "title": "Refactor legacy ledger module with regression-test safety net",
+  "description": "Split a legacy single-file Python module into a ruff-clean package, then prove behavior is preserved with pytest.",
+  "constraints": {
+    "public_api_stable": true
+  },
+  "contracts": [
+    {
+      "task_id": "01-refactor-ledger-module",
+      "depends_on": [],
+      "status": "drafted",
+      "contract": {
+        "task_id": "01-refactor-ledger-module",
+        "title": "Refactor legacy ledger.py into a ruff-clean package",
+        "status": "drafted",
+        "risk_tier": "auto",
+        "workspace_scope": {
+          "allow": ["src/ledger.py", "src/ledger/"],
+          "deny": [".env", ".git/", "scratch/orchestrator_runs/"]
+        },
+        "objective": "Split src/ledger.py into a src/ledger/ package (core.py plus __init__.py) without changing the public API. All existing call sites must keep working; the package must pass ruff with no warnings.",
+        "worker": {
+          "model": "anthropic:claude-sonnet-5",
+          "max_attempts": 3
+        },
+        "inputs": [],
+        "outputs": [
+          { "path": "src/ledger/__init__.py" },
+          { "path": "src/ledger/core.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "syntax_init",
+            "kind": "syntax",
+            "path": "src/ledger/__init__.py",
+            "expected": "python"
+          },
+          {
+            "id": "syntax_core",
+            "kind": "syntax",
+            "path": "src/ledger/core.py",
+            "expected": "python"
+          },
+          {
+            "id": "ruff_clean",
+            "kind": "command",
+            "command": "python -m ruff check src/ledger/",
+            "expected": 0
+          },
+          {
+            "id": "public_api_preserved",
+            "kind": "content_regex",
+            "path": "src/ledger/core.py",
+            "expected": "def post_entries"
+          }
+        ],
+        "qc": {
+          "required": false,
+          "lens": "code_correctness"
+        }
+      }
+    },
+    {
+      "task_id": "02-regression-tests",
+      "depends_on": ["01-refactor-ledger-module"],
+      "status": "drafted",
+      "contract": {
+        "task_id": "02-regression-tests",
+        "title": "Add pytest regression suite for the refactored ledger package",
+        "status": "drafted",
+        "risk_tier": "auto",
+        "workspace_scope": {
+          "allow": ["tests/test_ledger.py", "src/ledger/"],
+          "deny": [".env", ".git/", "scratch/orchestrator_runs/"]
+        },
+        "objective": "Write tests/test_ledger.py covering post_entries and adjacent helpers so the refactor in 01-refactor-ledger-module is provably behavior-preserving, then run the suite to green.",
+        "worker": {
+          "model": "anthropic:claude-sonnet-5",
+          "max_attempts": 3
+        },
+        "inputs": [{ "path": "src/ledger/core.py" }],
+        "outputs": [
+          { "path": "tests/test_ledger.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "test_file_exists",
+            "kind": "file_exists",
+            "path": "tests/test_ledger.py",
+            "expected": "nonempty"
+          },
+          {
+            "id": "suite_substantive",
+            "kind": "min_size",
+            "path": "tests/test_ledger.py",
+            "expected": 1200
+          },
+          {
+            "id": "pytest_pass",
+            "kind": "command",
+            "command": "python -m pytest tests/test_ledger.py -q",
+            "expected": 0
+          },
+          {
+            "id": "covers_public_api",
+            "kind": "content_regex",
+            "path": "tests/test_ledger.py",
+            "expected": "def test_post_entries"
+          }
+        ],
+        "qc": {
+          "required": false,
+          "lens": "code_correctness"
+        }
+      }
+    }
+  ]
+}

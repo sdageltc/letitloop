@@ -133,3 +133,6 @@ Vagrantfile
 
 # Scope-lease registry runtime state
 .opencode/locks/
+
+# Local IDE metadata
+*.metadata.json

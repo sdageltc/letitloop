@@ -1,0 +1,59 @@
+{
+  "goal_id": "offline-local-hello",
+  "title": "Create a greeting module and passing test using a local Ollama model",
+  "description": "Minimal one-contract goal that runs entirely on a local Ollama endpoint with no cloud API keys.",
+  "constraints": {
+    "offline": true
+  },
+  "contracts": [
+    {
+      "task_id": "01-local-greeting",
+      "depends_on": [],
+      "status": "drafted",
+      "contract": {
+        "task_id": "01-local-greeting",
+        "title": "Write greeting.py plus a passing pytest module",
+        "status": "drafted",
+        "risk_tier": "auto",
+        "workspace_scope": {
+          "allow": ["scratch/local_llm_demo/"],
+          "deny": [".env", ".git/"]
+        },
+        "objective": "Create scratch/local_llm_demo/greeting.py with a function greet(name) returning 'Hello, {name}!', and scratch/local_llm_demo/test_greeting.py asserting greet('World') == 'Hello, World!'. Make pytest pass.",
+        "worker": {
+          "model": "ollama:qwen2.5-coder",
+          "max_attempts": 3
+        },
+        "inputs": [],
+        "outputs": [
+          { "path": "scratch/local_llm_demo/greeting.py" },
+          { "path": "scratch/local_llm_demo/test_greeting.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "greeting_exists",
+            "kind": "file_exists",
+            "path": "scratch/local_llm_demo/greeting.py",
+            "expected": "nonempty"
+          },
+          {
+            "id": "syntax_greeting",
+            "kind": "syntax",
+            "path": "scratch/local_llm_demo/greeting.py",
+            "expected": "python"
+          },
+          {
+            "id": "pytest_pass",
+            "kind": "command",
+            "command": "python -m pytest scratch/local_llm_demo -q",
+            "expected": 0
+          }
+        ],
+        "qc": {
+          "required": false,
+          "lens": "code_correctness"
+        }
+      }
+    }
+  ]
+}
