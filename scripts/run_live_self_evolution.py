@@ -6,10 +6,14 @@ CLI runner for LetItLoop live self-evolution cycles with Cognitive Feasibility D
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
 
 from orchestrator.feasibility_gate import CognitiveFeasibilityGate
 from orchestrator.live_evolution_engine import LiveEvolutionEngine
@@ -17,15 +21,29 @@ from orchestrator.proposal_ledger import ProposalLedger
 from orchestrator.sensory_radar import SensoryRadar
 
 
+def format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    m = int(seconds // 60)
+    s = int(seconds % 60)
+    return f"{m}m {s}s"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="LetItLoop Live Self-Evolution Runner & Human-in-the-Loop Decision Matrix"
     )
     parser.add_argument(
+        "--duration-minutes",
+        type=float,
+        default=0.0,
+        help="Run self-evolution loop continuously for specified duration in minutes",
+    )
+    parser.add_argument(
         "--max-iterations",
         type=int,
-        default=3,
-        help="Maximum iterations to execute",
+        default=10,
+        help="Maximum iterations to execute (if duration-minutes is not set)",
     )
     parser.add_argument(
         "--model", type=str, default="cli:agy", help="LLM model identifier"
@@ -145,42 +163,100 @@ def main():
 
     applied_mutations = []
     staged_proposals = []
+    failed_attempts = []
 
-    for i, task in enumerate(tasks[: args.max_iterations], start=1):
-        print(
-            f"\n[Iteration {i}/{args.max_iterations}] Evaluating & Evolving {task.target_module}::{task.target_function}..."
+    start_time = time.time()
+    deadline = (
+        start_time + (args.duration_minutes * 60)
+        if args.duration_minutes > 0
+        else float("inf")
+    )
+    max_count = (
+        len(tasks) if args.duration_minutes > 0 else args.max_iterations
+    )
+
+    print("\n" + "=" * 70)
+    print(
+        f"STARTING LIVE SELF-EVOLUTION LOOP "
+        f"({'Duration: ' + str(args.duration_minutes) + ' mins' if args.duration_minutes > 0 else 'Max Iterations: ' + str(args.max_iterations)})"
+    )
+    print(f"Backend Model: {args.model} | Research: {args.enable_research}")
+    print("=" * 70)
+
+    iteration = 0
+    while iteration < len(tasks) and iteration < max_count:
+        if time.time() >= deadline:
+            print(f"\n[Timer] Reached duration limit of {args.duration_minutes} minutes. Concluding loop.")
+            break
+
+        task = tasks[iteration]
+        iteration += 1
+        elapsed = time.time() - start_time
+        remaining = deadline - time.time() if args.duration_minutes > 0 else 0
+
+        time_str = (
+            f" [Elapsed: {format_duration(elapsed)} | Remaining: {format_duration(max(0, remaining))}]"
+            if args.duration_minutes > 0
+            else f" [Elapsed: {format_duration(elapsed)}]"
         )
+
+        print(
+            f"\n[Iteration {iteration}]{time_str} Evaluating & Evolving {task.target_module}::{task.target_function} (Score: {task.complexity_score:.1f})..."
+        )
+        iter_t0 = time.time()
         res = engine.execute_live_optimization_cycle(
             module_path=task.target_module,
             optimization_goal=task.optimization_goal,
             target_function=task.target_function,
         )
+        iter_dur = time.time() - iter_t0
+
         print(
-            f"  Result: {res['status']} (Success: {res.get('is_success', False)})"
+            f"  Result: {res['status']} in {format_duration(iter_dur)} (Success: {res.get('is_success', False)})"
         )
         if "rationale" in res:
-            print(f"  Deliberation Rationale: {res['rationale']}")
+            clean_rat = res['rationale'].encode('ascii', errors='replace').decode('ascii')
+            print(f"  Deliberation Rationale: {clean_rat}")
 
         if res.get("is_success"):
             applied_mutations.append(task.task_id)
+            print(f"  [MUTATION APPLIED] Complexity reduced & verified in fast sandbox!")
         elif res.get("status") == "PROPOSAL_STAGED_FOR_REVIEW":
             staged_proposals.append(res)
+            print(f"  [PROPOSAL STAGED] Risk score={res.get('risk_score', 1.0):.2f}. Awaiting human review.")
+        else:
+            failed_attempts.append(task.task_id)
 
         with open(telemetry_file, "a", encoding="utf-8") as f:
             f.write(
                 json.dumps(
-                    {"iteration": i, "task": task.task_id, "result": res}
+                    {
+                        "iteration": iteration,
+                        "task": task.task_id,
+                        "result": res,
+                        "duration_s": iter_dur,
+                        "timestamp": time.time(),
+                    }
                 )
                 + "\n"
             )
+
+    total_elapsed = time.time() - start_time
 
     # 4. Executive Decision Report
     print("\n" + "=" * 70)
     print("EXECUTIVE SELF-EVOLUTION DECISION REPORT")
     print("=" * 70)
-    print(f"Iterations Completed: {min(len(tasks), args.max_iterations)}")
+    print(f"Total Execution Time: {format_duration(total_elapsed)}")
+    print(f"Total Iterations Completed: {iteration}")
     print(f"Autonomous Mutations Verified & Applied: {len(applied_mutations)}")
     print(f"Architectural Proposals Staged for Review: {len(staged_proposals)}")
+    print(f"Exhausted / Refactoring Attempts: {len(failed_attempts)}")
+
+    if applied_mutations:
+        print("\nAPPLIED & VERIFIED CODE MUTATIONS:")
+        for am in applied_mutations:
+            print(f"  * [VERIFIED] {am}")
 
     if staged_proposals:
         print("\nPENDING HUMAN APPROVAL DECISIONS:")
@@ -190,7 +266,8 @@ def main():
             print(
                 f"    Risk Score: {sp.get('risk_score', 1.0):.2f} ({sp.get('verdict', 'DEFER')})"
             )
-            print(f"    Rationale: {sp.get('rationale', '')}")
+            clean_rat = sp.get('rationale', '').encode('ascii', errors='replace').decode('ascii')
+            print(f"    Rationale: {clean_rat}")
             print(f"    Review Doc: scratch/evolution_state/proposals/{p_id}.md")
             print(
                 f'    Approve Command: python scripts/run_live_self_evolution.py --approve-proposal "{p_id}"'
