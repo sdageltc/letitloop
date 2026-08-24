@@ -91,6 +91,12 @@ def pid_alive(pid: int) -> bool:
         finally:
             kernel32.CloseHandle(handle)
     try:
+        reaped_pid, _ = os.waitpid(pid, os.WNOHANG)
+        if reaped_pid == pid:
+            return False
+    except (ChildProcessError, OSError):
+        pass
+    try:
         os.kill(pid, 0)
     except OSError as exc:
         return exc.errno == errno.EPERM
