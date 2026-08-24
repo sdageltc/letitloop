@@ -1,0 +1,93 @@
+{
+  "goal_id": "architecture-audit-payment-service",
+  "title": "Multi-agent architecture audit of the payment service design doc",
+  "description": "Panel-mode quality review with arbitration over a design document, configured through quality_spec and an explicit quality_plan.",
+  "constraints": {
+    "review_only": true
+  },
+  "contracts": [
+    {
+      "task_id": "01-design-review-doc",
+      "depends_on": [],
+      "status": "drafted",
+      "contract": {
+        "task_id": "01-design-review-doc",
+        "title": "Produce payment service architecture review document",
+        "status": "drafted",
+        "risk_tier": "qc_required",
+        "workspace_scope": {
+          "allow": ["docs/reviews/payment_service.md"],
+          "deny": [".env", ".git/", "src/"]
+        },
+        "objective": "Write docs/reviews/payment_service.md auditing the payment service design: overview, failure modes, and rollback plan, with concrete recommendations.",
+        "worker": {
+          "model": "anthropic:claude-sonnet-5",
+          "max_attempts": 3
+        },
+        "inputs": [],
+        "outputs": [
+          { "path": "docs/reviews/payment_service.md" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "doc_exists",
+            "kind": "file_exists",
+            "path": "docs/reviews/payment_service.md",
+            "expected": "nonempty"
+          },
+          {
+            "id": "doc_substantive",
+            "kind": "min_size",
+            "path": "docs/reviews/payment_service.md",
+            "expected": 2000
+          },
+          {
+            "id": "sections_present",
+            "kind": "required_sections",
+            "path": "docs/reviews/payment_service.md",
+            "expected": ["Overview", "Failure Modes", "Rollback Plan"]
+          }
+        ],
+        "quality_spec": {
+          "required_sections": ["Overview", "Failure Modes", "Rollback Plan"],
+          "hard_failures": [
+            "contradicts stated system constraints",
+            "recommends rollback strategy without a rollback trigger"
+          ],
+          "minimum_score": 0.75
+        },
+        "quality_plan": {
+          "mode": "panel",
+          "lens": "architecture_audit",
+          "components": "auto",
+          "reviewers": [
+            { "role": "systems_architect", "model_policy": "default", "focus": [] },
+            { "role": "minimalist", "model_policy": "cheap_cross_family", "focus": [] },
+            { "role": "product_owner", "model_policy": "default", "focus": [] }
+          ],
+          "synthesis": {
+            "required": true,
+            "preserve_dissent": true,
+            "reject_on_p0": true
+          },
+          "arbitration": {
+            "enabled": true,
+            "trigger": ["p0_disagreement", "low_confidence"],
+            "model_policy": "default"
+          },
+          "budget": {
+            "max_llm_calls": 8,
+            "max_wall_clock_sec": 900,
+            "max_reviewers_per_component": 3,
+            "max_components": 5,
+            "degrade_strategy": "single_reviewer_then_synthesis"
+          }
+        },
+        "qc": {
+          "required": true,
+          "lens": "architecture_audit"
+        }
+      }
+    }
+  ]
+}
