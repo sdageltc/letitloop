@@ -170,9 +170,7 @@ def _scoped_resolver(workspace_root: str, contract_scope: Optional[Dict[str, Any
     return resolve
 
 
-def build_default_registry(
-    workspace_root: str, contract_scope: Optional[Dict[str, Any]] = None
-) -> LocalToolRegistry:
+def build_default_registry(workspace_root: str, contract_scope: Optional[Dict[str, Any]] = None) -> LocalToolRegistry:
     """Build a LocalToolRegistry with the four default sandboxed workspace tools.
 
     Tools: read_file(path), write_file(path, content),

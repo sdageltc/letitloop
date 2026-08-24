@@ -460,9 +460,7 @@ class McpClientManager:
                 return existing
             cfg = self._configs.get(name)
             if cfg is None:
-                raise McpClientError(
-                    f"Unknown MCP server '{name}'. Configured servers: {sorted(self._configs)}"
-                )
+                raise McpClientError(f"Unknown MCP server '{name}'. Configured servers: {sorted(self._configs)}")
             client = self._build_client(name, cfg)
             try:
                 client.start()
@@ -507,9 +505,7 @@ class McpClientManager:
         """Connect every required server or raise listing what failed."""
         missing = [name for name in required if name not in self._configs]
         if missing:
-            raise McpClientError(
-                f"MCP servers not configured: {missing}. Available: {sorted(self._configs)}"
-            )
+            raise McpClientError(f"MCP servers not configured: {missing}. Available: {sorted(self._configs)}")
         failures: List[str] = []
         for name in required:
             try:
@@ -538,9 +534,7 @@ class McpClientManager:
         else:
             unknown = [srv for srv in servers if srv not in self._configs]
             if unknown:
-                raise McpClientError(
-                    f"Unknown MCP servers requested: {unknown}. Available: {sorted(self._configs)}"
-                )
+                raise McpClientError(f"Unknown MCP servers requested: {unknown}. Available: {sorted(self._configs)}")
             targets = list(dict.fromkeys(servers))
         defs: List[Dict[str, Any]] = []
         for srv in targets:

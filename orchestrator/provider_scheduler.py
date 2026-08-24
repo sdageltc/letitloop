@@ -263,7 +263,9 @@ def _decide(
     current = (start_model or "").strip() or ladder[0]
     current_tier = tier_of.get(current, classify_model(current))
 
-    def decision(model: str, tier: int, reason: str, escalate: bool = False, skip: Set[str] = frozenset()) -> RoutingDecision:
+    def decision(
+        model: str, tier: int, reason: str, escalate: bool = False, skip: Set[str] = frozenset()
+    ) -> RoutingDecision:
         return RoutingDecision(
             model=model,
             tier=int(tier),
@@ -298,8 +300,7 @@ def _decide(
             return decision(
                 nxt,
                 current_tier,
-                f"rate-limit: rotating within tier {current_tier} "
-                f"(failure class: {_failure_class(last_error)})",
+                f"rate-limit: rotating within tier {current_tier} (failure class: {_failure_class(last_error)})",
                 skip=skip_providers,
             )
         # Same tier exhausted -> escalate to the next tier below.

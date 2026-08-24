@@ -22,10 +22,7 @@ from orchestrator.webhooks import (
 
 @pytest.mark.fast
 def test_sign_payload_known_vectors():
-    assert (
-        sign_payload(b"Hi There", "\x0b" * 20)
-        == "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
-    )
+    assert sign_payload(b"Hi There", "\x0b" * 20) == "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
     assert (
         sign_payload(b"what do ya want for nothing?", "Jefe")
         == "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
@@ -137,19 +134,14 @@ def test_dispatcher_end_to_end_signed_delivery():
     thread.start()
     try:
         url = f"http://127.0.0.1:{server.server_address[1]}/hook"
-        dispatcher = WebhookDispatcher(
-            [WebhookConfig(url=url, secret="s3cr3t", timeout=5.0)]
-        )
+        dispatcher = WebhookDispatcher([WebhookConfig(url=url, secret="s3cr3t", timeout=5.0)])
         bus = EventBus()
         detach = attach_webhooks(bus, dispatcher)
         envelope = bus.publish("goal.started", goal_id="g9", task_id="t9")
         assert hit.wait(3.0)
         body = recorded["body"]
         assert json.loads(body.decode("utf-8")) == envelope
-        assert (
-            recorded["headers"]["x-letitloop-signature"]
-            == "sha256=" + sign_payload(body, "s3cr3t")
-        )
+        assert recorded["headers"]["x-letitloop-signature"] == "sha256=" + sign_payload(body, "s3cr3t")
         assert recorded["headers"]["x-letitloop-event"] == "goal.started"
         detach()
     finally:
@@ -179,9 +171,7 @@ def test_dispatcher_respects_event_filter():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         url = f"http://127.0.0.1:{server.server_address[1]}/hook"
-        dispatcher = WebhookDispatcher(
-            [WebhookConfig(url=url, events=["goal.completed"], timeout=5.0)]
-        )
+        dispatcher = WebhookDispatcher([WebhookConfig(url=url, events=["goal.completed"], timeout=5.0)])
         dispatcher.dispatch("contract.working", {"event": "contract.working"})
         assert not hit.wait(0.5)
         dispatcher.dispatch("goal.completed", {"event": "goal.completed"})
@@ -193,9 +183,7 @@ def test_dispatcher_respects_event_filter():
 
 @pytest.mark.integration
 def test_dispatcher_unreachable_url_does_not_raise():
-    dispatcher = WebhookDispatcher(
-        [WebhookConfig(url="http://127.0.0.1:9/hook", timeout=1.0)]
-    )
+    dispatcher = WebhookDispatcher([WebhookConfig(url="http://127.0.0.1:9/hook", timeout=1.0)])
     dispatcher.dispatch("goal.started", {"event": "goal.started"})
 
 
@@ -210,9 +198,7 @@ def test_sse_server_streams_frames():
 
     def reader():
         try:
-            resp = urllib.request.urlopen(
-                f"http://127.0.0.1:{server.bound_port}/events", timeout=5.0
-            )
+            resp = urllib.request.urlopen(f"http://127.0.0.1:{server.bound_port}/events", timeout=5.0)
             lines = []
             while True:
                 line = resp.readline()
@@ -243,9 +229,7 @@ def test_sse_server_streams_frames():
 
     def health_check():
         try:
-            resp = urllib.request.urlopen(
-                f"http://127.0.0.1:{server.bound_port}/health", timeout=5.0
-            )
+            resp = urllib.request.urlopen(f"http://127.0.0.1:{server.bound_port}/health", timeout=5.0)
             health_ok["status"] = resp.status
             health_ok["body"] = resp.read()
         except Exception as exc:

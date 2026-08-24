@@ -41,7 +41,7 @@ class TerminalDashboard:
     }
 
     @classmethod
-    def render_header(cls, title: str = "letitloop (LIL) — Autonomous Macro-Task Orchestrator") -> str:
+    def render_header(cls, title: str = "letitloop (LIL) â€” Autonomous Macro-Task Orchestrator") -> str:
         bar = "=" * 78
         return f"\n{bar}\n  {title}\n{bar}\n"
 
@@ -457,7 +457,7 @@ class LiveDashboard:
         gtitle = goal.get("title", "Untitled Goal")
         gstatus = str(goal.get("status", "DRAFTED"))
         now = datetime.datetime.now().strftime("%H:%M:%S")
-        head = f"letitloop LIVE — [{gid}] {gtitle}"
+        head = f"letitloop LIVE â€” [{gid}] {gtitle}"
         line1 = f"  {head}   refresh {now}   pane: {self.active_pane}   ([tab] panes, [q] quit)"
         colored = colorize_status(gstatus, line1, enabled=self._use_color) if self._use_color else line1
         return [bar, colored, bar]
@@ -465,7 +465,7 @@ class LiveDashboard:
     def _render_dag_pane(self, data: Dict[str, Any]) -> List[str]:
         lines: List[str] = ["", "  Task DAG:"]
         tree = render_dag_tree(plan=data["plan"], goal=data["goal"], ascii_mode=self._ascii_mode)
-        lines.extend("  " + l for l in tree)
+        lines.extend("  " + line for line in tree)
         lines.append("")
         lines.append("  Contracts:")
         states = data["states"]
@@ -525,15 +525,11 @@ class LiveDashboard:
             cap = usage.get("max")
             if cap:
                 gauge = render_budget_gauge(used, cap, width=30)
-                gauge = colorize_status(
-                    "FAILED" if cap and used >= cap else "WORKING", gauge, enabled=self._use_color
-                )
+                gauge = colorize_status("FAILED" if cap and used >= cap else "WORKING", gauge, enabled=self._use_color)
                 lines.append(f"  Budget: {gauge}")
             else:
                 lines.append(f"  Tokens used: {int(used)} (no cap recorded)")
-        lines.append(
-            f"  Attempts: {data['attempts_total']} | Active leases: {data['leases']}"
-        )
+        lines.append(f"  Attempts: {data['attempts_total']} | Active leases: {data['leases']}")
         lines.append("=" * 78)
         lines.append("")
         text = "\n".join(lines)
@@ -576,7 +572,7 @@ class LiveDashboard:
     def _build_tty_reader() -> Optional[Callable[[], Optional[str]]]:
         if os.name == "nt":
             try:
-                import msvcrt
+                import msvcrt  # noqa: F401 - availability probe; used inside read_key_win
             except ImportError:
                 return None
 
@@ -641,9 +637,7 @@ class LiveDashboard:
                     if k == "q":
                         break
                     if key == "\t" or k == "tab":
-                        self.active_pane = (
-                            self.PANE_METRICS if self.active_pane == self.PANE_DAG else self.PANE_DAG
-                        )
+                        self.active_pane = self.PANE_METRICS if self.active_pane == self.PANE_DAG else self.PANE_DAG
                 if self.interval > 0:
                     time.sleep(self.interval)
         except KeyboardInterrupt:

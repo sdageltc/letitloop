@@ -155,7 +155,7 @@ def test_render_dag_tree_linear_chain():
     assert idx_b > idx_a
     assert idx_c > idx_b
     # unicode box-drawing connectors by default
-    assert any("\u251c\u2500\u2500" in l or "\u2514\u2500\u2500" in l for l in lines)
+    assert any("\u251c\u2500\u2500" in ln or "\u2514\u2500\u2500" in ln for ln in lines)
 
 
 @pytest.mark.fast
@@ -174,7 +174,7 @@ def test_render_dag_tree_diamond():
     for tid in ("a", "b", "c", "d"):
         assert tid in joined
     # diamond join node rendered exactly once (cycle/dup safe)
-    d_lines = [l for l in lines if l.strip().endswith("d")]
+    d_lines = [ln for ln in lines if ln.strip().endswith("d")]
     assert len(d_lines) == 1
     # d is dependency-indented under its parent branch
     assert d_lines[0].index("d") > lines[0].index("a")
