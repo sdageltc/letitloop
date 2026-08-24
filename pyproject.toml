@@ -1,10 +1,10 @@
-[build-system]
+﻿[build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.1.2"
+version = "0.2.0"
 description = "Autonomous Macro-Task Control Loop & Verification Engine. Ephemeral Worktrees, DAG Contract Planning, Docker Sandbox, Process-Tree Guard, Live TUI, Prometheus, and Multi-Lens QC."
 readme = "README.md"
 license = { text = "MIT" }
