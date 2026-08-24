@@ -35,7 +35,7 @@ def test_live_evolution_skips_when_feasibility_is_deferred():
                 target_function="sensitive_security_func",
             )
             assert res["is_success"] is False
-            assert res["status"] == "FEASIBILITY_DEFERRED"
+            assert res["status"] == "PROPOSAL_STAGED_FOR_REVIEW"
             assert "Critical security sensitivity" in res["rationale"]
             # Disk file must remain untouched
             assert mod_file.read_text(encoding="utf-8") == "def sensitive_security_func(): pass\n"
