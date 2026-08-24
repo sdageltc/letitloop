@@ -1,6 +1,6 @@
 """
 scripts/run_live_self_evolution.py
-CLI runner for LetItLoop live self-evolution cycles.
+CLI runner for LetItLoop live self-evolution cycles with Cognitive Feasibility Deliberation & Adaptive Research.
 """
 
 import argparse
@@ -13,6 +13,7 @@ sys.path.insert(0, str(root))
 
 from orchestrator.live_evolution_engine import LiveEvolutionEngine
 from orchestrator.sensory_radar import SensoryRadar
+from orchestrator.feasibility_gate import CognitiveFeasibilityGate
 
 
 def main():
@@ -29,9 +30,14 @@ def main():
         "--model", type=str, default="cli:agy", help="LLM model identifier"
     )
     parser.add_argument(
+        "--enable-research",
+        action="store_true",
+        help="Enable external multi-tier research provider (DuckDuckGo, arXiv, GitHub API)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Perform discovery scan without mutating",
+        help="Perform discovery scan and feasibility evaluation without mutating",
     )
     args = parser.parse_args()
 
@@ -42,27 +48,35 @@ def main():
     )
 
     if args.dry_run:
+        print("\n[Dry Run - Discovered Hotspots & Initial Targets]:")
         for t in tasks[: args.max_iterations]:
             print(
                 f"  • {t.task_id} ({t.target_module}::{t.target_function}) - Score: {t.complexity_score:.1f}"
             )
         sys.exit(0)
 
-    engine = LiveEvolutionEngine(workspace_root=root, model_name=args.model)
+    engine = LiveEvolutionEngine(
+        workspace_root=root,
+        model_name=args.model,
+        enable_research=args.enable_research,
+    )
     telemetry_dir = root / "scratch/evolution_state"
     telemetry_dir.mkdir(parents=True, exist_ok=True)
     telemetry_file = telemetry_dir / "live_evolution_telemetry.jsonl"
 
     for i, task in enumerate(tasks[: args.max_iterations], start=1):
         print(
-            f"\n[Iteration {i}/{args.max_iterations}] Evolving {task.target_module}::{task.target_function}..."
+            f"\n[Iteration {i}/{args.max_iterations}] Evaluating & Evolving {task.target_module}::{task.target_function}..."
         )
         res = engine.execute_live_optimization_cycle(
             module_path=task.target_module,
             optimization_goal=task.optimization_goal,
             target_function=task.target_function,
         )
-        print(f"  Result: {res['status']} (Success: {res['is_success']})")
+        print(f"  Result: {res['status']} (Success: {res.get('is_success', False)})")
+        if "rationale" in res:
+            print(f"  Deliberation Rationale: {res['rationale']}")
+
         with open(telemetry_file, "a", encoding="utf-8") as f:
             f.write(
                 json.dumps(

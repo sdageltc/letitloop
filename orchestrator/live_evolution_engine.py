@@ -1,6 +1,6 @@
 """
 orchestrator/live_evolution_engine.py
-Unified Sensory & Surgical Self-Evolution Engine.
+Unified Sensory, Cognitive Feasibility & Surgical Self-Evolution Engine.
 """
 
 from __future__ import annotations
@@ -22,19 +22,28 @@ from orchestrator.codebase_introspector import (
 from orchestrator.fast_sandbox import ZeroCopyFastSandbox
 from orchestrator.anti_ouroboros import AntiOuroborosGate
 from orchestrator.micro_epoch import MicroEpochManager
+from orchestrator.feasibility_gate import CognitiveFeasibilityGate, FeasibilityVerdict
+from orchestrator.research import AdaptiveResearchCoordinator, ResearchFinding
 
 
 class LiveEvolutionEngine:
-    """Executes closed-loop self-evolution with precision surgical deltas and 5-pillar verification."""
+    """Executes closed-loop self-evolution with cognitive feasibility deliberation, adaptive research, and 5-pillar verification."""
 
-    def __init__(self, workspace_root: Path, model_name: str = "cli:agy"):
+    def __init__(
+        self,
+        workspace_root: Path,
+        model_name: str = "cli:agy",
+        enable_research: bool = True,
+    ):
         self.workspace_root = Path(workspace_root)
         self.model_name = model_name
+        self.enable_research = enable_research
         self.sandbox = ZeroCopyFastSandbox(self.workspace_root)
         self.epoch_mgr = MicroEpochManager(
             self.workspace_root / "scratch/evolution_state"
         )
         self.introspector = NormalizedExplorationEngine()
+        self.researcher = AdaptiveResearchCoordinator()
 
     def execute_live_optimization_cycle(
         self,
@@ -77,10 +86,47 @@ class LiveEvolutionEngine:
         )
         budget = DynamicElasticityGovernor.allocate(complexity_score)
 
-        # 3. Prompt Synthesis (Requesting Aider Search/Replace Delta)
+        # 3. Phase 1: Cognitive Feasibility Deliberation Gate (Reason First!)
+        feasibility = CognitiveFeasibilityGate.deliberate(
+            target_symbol=target_function or module_path,
+            source_code=context_snippet,
+            complexity_score=complexity_score,
+            model_name=self.model_name,
+            thinking_budget=budget.thinking_tokens,
+        )
+
+        if not feasibility.is_approved:
+            diff_summary = f"Skipped {target_function or module_path}: Feasibility verdict={feasibility.verdict}, rationale='{feasibility.rationale}'."
+            self.epoch_mgr.record_task_completion(
+                task_id=f"{module_path}:{target_function}",
+                diff_summary=diff_summary,
+            )
+            return {
+                "is_success": False,
+                "status": "FEASIBILITY_DEFERRED",
+                "verdict": feasibility.verdict,
+                "rationale": feasibility.rationale,
+                "risk_score": feasibility.risk_score,
+            }
+
+        # 4. Optional Adaptive Research Hook
+        research_context = ""
+        findings_count = 0
+        if self.enable_research and feasibility.requires_research:
+            findings = self.researcher.research(
+                f"python {target_function or module_path} {feasibility.suggested_strategy}"
+            )
+            findings_count = len(findings)
+            if findings:
+                research_context = "\nExternal Architectural Intelligence / Prior Art:\n"
+                for f in findings:
+                    research_context += f"• [{f.provider_name}] {f.title}: {f.summary}\n"
+
+        # 5. Prompt Synthesis (Requesting Aider Search/Replace Delta)
         prompt = f"""You are the Lead Systems Engineer for LetItLoop.
 Synthesize an optimized Python implementation for `{target_function or module_path}`.
 Goal: {optimization_goal}
+Strategy: {feasibility.suggested_strategy}
 McCabe Complexity Target: <= 10
 
 Surgical Context:
@@ -88,6 +134,7 @@ Surgical Context:
 {context_snippet}
 ```
 {enclosing_class_context}
+{research_context}
 
 Return ONLY an exact Search/Replace block matching this schema:
 <<<<<<< SEARCH
@@ -97,7 +144,7 @@ Return ONLY an exact Search/Replace block matching this schema:
 >>>>>>> REPLACE
 """
 
-        # 4. LLM Generation & 3-Turn Repair Loop
+        # 6. LLM Generation & 3-Turn Repair Loop
         current_code = existing_code
         violations: List[str] = []
 
@@ -120,7 +167,7 @@ Return ONLY an exact Search/Replace block matching this schema:
                 candidate_code = patch_res.modified_content
 
                 # 5-Pillar Verification Firewall
-                # 5a. AST Invariant Validation
+                # 6a. AST Invariant Validation
                 if target_function:
                     inv_res = ASTInvariantValidator.validate(
                         existing_code, candidate_code, target_function
@@ -129,7 +176,7 @@ Return ONLY an exact Search/Replace block matching this schema:
                         violations = inv_res.violations
                         continue
 
-                # 5b. Anti-Ouroboros Gate
+                # 6b. Anti-Ouroboros Gate
                 ouro_res = AntiOuroborosGate.evaluate_mutation(
                     existing_code, candidate_code
                 )
@@ -139,7 +186,7 @@ Return ONLY an exact Search/Replace block matching this schema:
                     ]
                     continue
 
-                # 5c. Zero-Copy Fast Sandbox (In-Memory Overlay)
+                # 6c. Zero-Copy Fast Sandbox (In-Memory Overlay)
                 sandbox_res = self.sandbox.evaluate_in_memory_overlay(
                     target_relative_path=module_path,
                     candidate_code=candidate_code,
@@ -168,6 +215,7 @@ Return ONLY an exact Search/Replace block matching this schema:
                     "diff_summary": diff_summary,
                     "complexity_score": complexity_score,
                     "thinking_tokens_used": budget.thinking_tokens,
+                    "research_findings_count": findings_count,
                 }
             except Exception as e:
                 violations = [str(e)]
