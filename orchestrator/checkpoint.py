@@ -3,6 +3,7 @@
 import glob
 import json
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -208,12 +209,27 @@ def apply_checkpoint(
 
     graph_statuses = recovery.get("graph_statuses", {})
     from .exceptions import IllegalTransitionError, StateError
-    from .state import create_initial_state, load_state, save_state
+    from .state import WAL_FILENAME, create_initial_state, load_state, save_state
 
     for task_id, status in graph_statuses.items():
         task_dir = os.path.join(run_dir, task_id)
         os.makedirs(task_dir, exist_ok=True)
         state_file = os.path.join(task_dir, "state.json")
+
+        # Quarantine a corrupt/unreplayable WAL so the rehydrated snapshot
+        # becomes the consistent source of truth again. Without this, a
+        # poisoned journal keeps every subsequent load_state fail-closed
+        # forever and the checkpoint apply is effectively useless.
+        wal_file = os.path.join(task_dir, WAL_FILENAME)
+        if os.path.isfile(wal_file):
+            try:
+                load_state(state_file, journal_dir=task_dir)
+            except Exception:
+                try:
+                    os.replace(wal_file, f"{wal_file}.corrupt-{int(time.time())}")
+                except OSError:
+                    pass
+
         if os.path.isfile(state_file):
             try:
                 state = load_state(state_file, journal_dir=task_dir)
