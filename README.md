@@ -331,6 +331,21 @@ export LIL_RUN_DIR=~/.letitloop/runs
 
 ---
 
+## Recipes
+
+The [`recipes/`](recipes/README.md) cookbook provides end-to-end, schema-validated walkthroughs:
+
+| Recipe | Focus |
+|---|---|
+| [01 - Legacy Codebase Refactor](recipes/01-legacy-codebase-refactor/README.md) | Refactor under `pytest` + `ruff` acceptance gates with scope fencing and bounded retries |
+| [02 - FastAPI CRUD Generator](recipes/02-fastapi-crud-generator/README.md) | Feature decomposition into a 4-contract DAG chained with `depends_on` |
+| [03 - Offline Local LLM Loop](recipes/03-offline-local-llm-loop/README.md) | Zero-cloud-key runs via Ollama (`local-tool`) and the `docker` sandbox adapter |
+| [04 - Multi-Agent QC Audit](recipes/04-multi-agent-qc-audit/README.md) | Multi-lens quality plane: panels, arbitration, budgets, and `quality_spec` |
+
+Validate all embedded example contracts anytime with `python -m pytest tests/test_recipes.py -q`.
+
+---
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
