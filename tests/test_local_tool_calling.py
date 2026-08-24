@@ -127,9 +127,7 @@ def test_default_registry_write_read_replace_roundtrip(tmp_path):
 def test_default_registry_execute_command_exit_code(tmp_path):
     """execute_command captures exit codes and returns a truncated output tail."""
     registry = build_default_registry(str(tmp_path), {"allow": ["."], "deny": []})
-    res = registry.execute_call(
-        "execute_command", {"command": f'"{sys.executable}" -c "import sys; sys.exit(3)"'}
-    )
+    res = registry.execute_call("execute_command", {"command": f'"{sys.executable}" -c "import sys; sys.exit(3)"'})
     assert res["exit_code"] == 3
     assert isinstance(res["output_tail"], str)
 
@@ -139,9 +137,7 @@ def test_default_registry_execute_command_output_tail(tmp_path):
     from orchestrator.local_tool_calling import MAX_COMMAND_OUTPUT_CHARS
 
     registry = build_default_registry(str(tmp_path), {"allow": ["."], "deny": []})
-    script = (
-        "import sys; sys.stdout.write('x' * 9000); sys.stderr.write('E' * 500)"
-    )
+    script = "import sys; sys.stdout.write('x' * 9000); sys.stderr.write('E' * 500)"
     res = registry.execute_call("execute_command", {"command": f'"{sys.executable}" -c "{script}"'})
     assert res["exit_code"] == 0
     assert len(res["output_tail"]) <= MAX_COMMAND_OUTPUT_CHARS
@@ -204,9 +200,7 @@ def test_local_tool_adapter_loop_success(tmp_path):
         {"choices": [{"message": {"role": "assistant", "content": "Done: out.txt contains hello world"}}]},
     ]
     captured = []
-    adapter = LocalToolWorkerAdapter(
-        config={"model": "test-model"}, transport=_scripted_transport(responses, captured)
-    )
+    adapter = LocalToolWorkerAdapter(config={"model": "test-model"}, transport=_scripted_transport(responses, captured))
 
     res = adapter.execute("create out.txt", str(tmp_path), "task_loop_ok")
 
@@ -264,21 +258,15 @@ def test_local_tool_adapter_repair_nudge_once_then_valid(tmp_path):
         {"choices": [{"message": {"role": "assistant", "content": "final ok"}}]},
     ]
     captured = []
-    adapter = LocalToolWorkerAdapter(
-        config={"model": "test-model"}, transport=_scripted_transport(responses, captured)
-    )
+    adapter = LocalToolWorkerAdapter(config={"model": "test-model"}, transport=_scripted_transport(responses, captured))
     res = adapter.execute("do thing", str(tmp_path), "task_nudge")
 
     assert res["exit_code"] == 0
     assert res["stdout"] == "final ok"
     assert len(captured) == 2
 
-    nudges_first = [
-        m for m in captured[0] if m.get("role") == "user" and "no valid tool call" in m.get("content", "")
-    ]
-    nudges_second = [
-        m for m in captured[1] if m.get("role") == "user" and "no valid tool call" in m.get("content", "")
-    ]
+    nudges_first = [m for m in captured[0] if m.get("role") == "user" and "no valid tool call" in m.get("content", "")]
+    nudges_second = [m for m in captured[1] if m.get("role") == "user" and "no valid tool call" in m.get("content", "")]
     assert len(nudges_first) == 0
     assert len(nudges_second) == 1
 
@@ -322,9 +310,7 @@ def test_local_tool_adapter_hermes_tag_fallback_calls(tmp_path):
         {"choices": [{"message": {"role": "assistant", "content": "wrote via hermes tags"}}]},
     ]
     captured = []
-    adapter = LocalToolWorkerAdapter(
-        config={"model": "test-model"}, transport=_scripted_transport(responses, captured)
-    )
+    adapter = LocalToolWorkerAdapter(config={"model": "test-model"}, transport=_scripted_transport(responses, captured))
     res = adapter.execute("write tagged file", str(tmp_path), "task_tags")
 
     assert res["exit_code"] == 0

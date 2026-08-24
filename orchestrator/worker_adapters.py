@@ -7,11 +7,14 @@ Script executors, Direct LLM APIs, Docker sandboxes, and local tool-calling LLMs
 
 import json
 import os
+import pathlib
 import subprocess
 import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
+
+from orchestrator import process_guard
 
 
 class BaseWorkerAdapter(ABC):
@@ -74,28 +77,44 @@ class ScriptWorkerAdapter(BaseWorkerAdapter):
         env["LIL_WORKSPACE_ROOT"] = workspace_root
 
         try:
-            proc = subprocess.run(
-                self.script_command,
-                shell=True,  # nosec B602
-                input=prompt,
+            popen_kwargs = dict(
+                stdin=subprocess.PIPE,
                 text=True,
-                capture_output=True,
                 cwd=workspace_root,
-                timeout=timeout,
                 env=env,
             )
+            popen_kwargs.update(process_guard.containment_kwargs())
+            proc = subprocess.Popen(  # nosec B602
+                self.script_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                **popen_kwargs,
+            )
+            job = process_guard.attach_containment(proc)
+            try:
+                try:
+                    stdout, stderr = proc.communicate(input=prompt, timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    # Kill the whole tree (children included) before reporting the timeout.
+                    process_guard.kill_process_tree(proc.pid)
+                    try:
+                        proc.communicate(timeout=5)
+                    except Exception:
+                        pass
+                    return {
+                        "exit_code": 124,
+                        "stdout": "",
+                        "stderr": f"Script execution timed out after {timeout} seconds",
+                        "approach": "timeout",
+                    }
+            finally:
+                process_guard.close_job_handle(job)
             return {
                 "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
+                "stdout": stdout or "",
+                "stderr": stderr or "",
                 "approach": f"script:{self.script_command}",
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "exit_code": 124,
-                "stdout": "",
-                "stderr": f"Script execution timed out after {timeout} seconds",
-                "approach": "timeout",
             }
         except Exception as e:
             return {
@@ -370,6 +389,16 @@ class CodexWorkerAdapter(BaseWorkerAdapter):
             }
 
 
+def _docker_host_path(host_path: str) -> str:
+    """Normalize a host path for a docker -v spec (POSIX separators, no drive colon)."""
+    p = pathlib.Path(host_path)
+    posix = p.as_posix()
+    # 'C:/ws' -> '/c/ws' style avoids the ambiguous drive-letter colon in -v specs.
+    if len(posix) >= 2 and posix[1] == ":":
+        posix = "/" + posix[0].lower() + posix[2:]
+    return posix
+
+
 class DockerWorkerAdapter(BaseWorkerAdapter):
     """Executes tasks inside an isolated Docker sandbox container."""
 
@@ -411,7 +440,7 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
                 continue
             seen.add(host.lower())
             volumes.append((host, f"{self.CONTAINER_WORKSPACE}/{allow.rstrip('/')}", "rw"))
-        return [f"{host}:{container}:{mode}" for host, container, mode in volumes]
+        return [f"{_docker_host_path(host)}:{container}:{mode}" for host, container, mode in volumes]
 
     def _build_run_argv(self, prompt: str, workspace_root: str, task_id: str) -> List[str]:
         """Build the full `docker run` argv and stage the brief as a read-only file."""
@@ -537,7 +566,9 @@ class LocalToolWorkerAdapter(BaseWorkerAdapter):
             "- Do not run git commands, deploys, or anything mutating files outside the workspace."
         )
 
-    def _http_transport(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], timeout_s: int) -> Dict[str, Any]:
+    def _http_transport(
+        self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], timeout_s: int
+    ) -> Dict[str, Any]:
         url = f"{str(self.base_url).rstrip('/')}/chat/completions"
         headers = {"content-type": "application/json"}
         if self.api_key:
@@ -656,7 +687,9 @@ class LocalToolWorkerAdapter(BaseWorkerAdapter):
                     if not repair_nudged:
                         repair_nudged = True
                         self._append_journal(
-                            journal_path, turn, 1,
+                            journal_path,
+                            turn,
+                            1,
                             "GARBAGE TURN: no usable tool call or final answer; sending repair nudge",
                             "no usable model response",
                         )
@@ -664,7 +697,9 @@ class LocalToolWorkerAdapter(BaseWorkerAdapter):
                         messages.append({"role": "user", "content": REPAIR_NUDGE})
                         continue
                     self._append_journal(
-                        journal_path, turn, 1,
+                        journal_path,
+                        turn,
+                        1,
                         "GARBAGE TURN persists after repair nudge; aborting",
                         "no usable model response after repair nudge",
                     )
@@ -716,7 +751,9 @@ class LocalToolWorkerAdapter(BaseWorkerAdapter):
                 "approach": "error",
             }
 
-        self._append_journal(journal_path, self.max_turns, 1, "MAX TURNS reached without final answer", "max_turns exceeded")
+        self._append_journal(
+            journal_path, self.max_turns, 1, "MAX TURNS reached without final answer", "max_turns exceeded"
+        )
         return {
             "exit_code": 1,
             "stdout": "",

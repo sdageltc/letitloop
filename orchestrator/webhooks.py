@@ -71,10 +71,13 @@ def attach_webhooks(bus: EventBus, dispatcher: WebhookDispatcher) -> Callable[[]
     """
     unsubs = []
     for et in EVENT_TYPES:
+
         def make_callback(event_type=et):
             def cb(envelope: Dict[str, Any]) -> None:
                 dispatcher.dispatch(event_type, envelope)
+
             return cb
+
         unsubs.append(bus.subscribe(make_callback(), event_type=et))
 
     def detach() -> None:

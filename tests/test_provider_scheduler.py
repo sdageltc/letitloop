@@ -341,9 +341,7 @@ class TestRiskAwareRouterRoute:
     def test_budget_guard_ceiling_blocks_higher_tier(self):
         guard = BudgetGuard(max_cost_usd=0.004)
         guard.ledger.record("worker", "x", 10_000, 1_000)  # spent $0.0021
-        decision = RiskAwareRouter(budget_guard=guard).route(
-            "gemini-2.5-flash", 2, last_error=ValueError("boom")
-        )
+        decision = RiskAwareRouter(budget_guard=guard).route("gemini-2.5-flash", 2, last_error=ValueError("boom"))
         assert decision.model == "gemini-2.5-flash-lite"
         assert decision.tier == 1
         assert "budget" in decision.reason

@@ -272,11 +272,7 @@ def model_tiers() -> Dict[int, List[str]]:
             parsed = None
         if isinstance(parsed, dict) and parsed:
             try:
-                overridden = {
-                    int(tier): [str(m) for m in models]
-                    for tier, models in parsed.items()
-                    if models
-                }
+                overridden = {int(tier): [str(m) for m in models] for tier, models in parsed.items() if models}
             except (TypeError, ValueError):
                 overridden = {}
             if overridden:

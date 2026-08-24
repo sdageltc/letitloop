@@ -64,11 +64,7 @@ class EventBus:
             "data": dict(payload),
         }
         with self._lock:
-            targets = [
-                cb
-                for et, cb in self._subscribers
-                if et is None or et == event_type
-            ]
+            targets = [cb for et, cb in self._subscribers if et is None or et == event_type]
         for cb in targets:
             thread = threading.Thread(
                 target=self._invoke,
