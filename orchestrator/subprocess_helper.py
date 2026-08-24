@@ -6,6 +6,8 @@ import tempfile
 import time
 from typing import Optional, Tuple
 
+from orchestrator.process_guard import attach_containment, close_job_handle, containment_kwargs, kill_process_tree
+
 
 class BoundedSubprocessResult:
     def __init__(
@@ -51,35 +53,47 @@ def run_bounded_subprocess(
     """
     start = time.time()
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
+        popen_kwargs = dict(
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout_sec,
             cwd=workspace_root,
             encoding="utf-8",
             errors="replace",
-            input=input_text,
+            stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
         )
-        elapsed = time.time() - start
-        stdout = _cap_output(proc.stdout, max_capture)
-        stderr = _cap_output(proc.stderr, max_capture)
-        return BoundedSubprocessResult(
-            success=proc.returncode == 0,
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=proc.returncode,
-            elapsed_sec=elapsed,
-        )
-    except subprocess.TimeoutExpired:
-        elapsed = time.time() - start
-        return BoundedSubprocessResult(
-            success=False,
-            timed_out=True,
-            stderr=f"subprocess timed out after {timeout_sec}s",
-            elapsed_sec=elapsed,
-            error="timeout",
-        )
+        popen_kwargs.update(containment_kwargs())
+        proc = subprocess.Popen(cmd, **popen_kwargs)  # nosec B603
+        job = attach_containment(proc)
+        try:
+            try:
+                stdout, stderr = proc.communicate(input=input_text, timeout=timeout_sec)
+            except subprocess.TimeoutExpired:
+                kill_process_tree(proc.pid)
+                try:
+                    proc.communicate(timeout=5)
+                except Exception:
+                    pass
+                elapsed = time.time() - start
+                return BoundedSubprocessResult(
+                    success=False,
+                    timed_out=True,
+                    stderr=f"subprocess timed out after {timeout_sec}s",
+                    elapsed_sec=elapsed,
+                    error="timeout",
+                )
+            elapsed = time.time() - start
+            return BoundedSubprocessResult(
+                success=proc.returncode == 0,
+                stdout=_cap_output(stdout or "", max_capture),
+                stderr=_cap_output(stderr or "", max_capture),
+                exit_code=proc.returncode,
+                elapsed_sec=elapsed,
+            )
+        finally:
+            # Closing the kill-on-close job handle reaps any descendants that are
+            # still lingering (e.g. orphans holding our output pipes open).
+            close_job_handle(job)
     except OSError as e:
         elapsed = time.time() - start
         return BoundedSubprocessResult(
