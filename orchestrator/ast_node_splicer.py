@@ -7,6 +7,7 @@ def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFuncti
     pos_types = [ast.unparse(a.annotation) if a.annotation else None for a in args.args]
     kwonly_args = [a.arg for a in args.kwonlyargs]
     kwonly_types = [ast.unparse(a.annotation) if a.annotation else None for a in args.kwonlyargs]
+    decorators = [ast.unparse(d) for d in func_node.decorator_list]
     returns = ast.unparse(func_node.returns) if func_node.returns else None
     
     return {
@@ -18,6 +19,7 @@ def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFuncti
         "num_kw_defaults": len([d for d in args.kw_defaults if d is not None]),
         "has_vararg": bool(args.vararg),
         "has_kwarg": bool(args.kwarg),
+        "decorators": decorators,
         "returns": returns,
         "is_async": isinstance(func_node, ast.AsyncFunctionDef),
     }
@@ -33,7 +35,7 @@ def splice_ast_function(
     
     # 1. Locate replacement node
     rep_node = None
-    for node in replacement_tree.body:
+    for node in ast.walk(replacement_tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
             rep_node = node
             break
@@ -43,7 +45,7 @@ def splice_ast_function(
         
     # 2. Locate original node
     orig_node = None
-    for node in source_tree.body:
+    for node in ast.walk(source_tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
             orig_node = node
             break
@@ -58,9 +60,14 @@ def splice_ast_function(
         if orig_sig != rep_sig:
             raise ValueError(f"Signature drift detected for '{target_name}': expected {orig_sig}, got {rep_sig}")
 
-    # 4. Source-span line slicing (guarantees 0% comment and formatting loss)
+    # 4. Calculate source span including decorator stack
+    if orig_node.decorator_list:
+        start_lineno = min([d.lineno for d in orig_node.decorator_list])
+    else:
+        start_lineno = orig_node.lineno
+
     source_lines = source_code.splitlines(keepends=True)
-    start_line = orig_node.lineno - 1
+    start_line = start_lineno - 1
     end_line = orig_node.end_lineno
     
     before = source_lines[:start_line]
