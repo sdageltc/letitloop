@@ -99,3 +99,50 @@ def corrupt_ledger(run_dir: str):
     os.makedirs(run_dir, exist_ok=True)
     with open(ledger_file, "w") as f:
         f.write("not json at all")
+
+
+# Adversarial corruption payloads (#20)
+
+
+CORRUPTION_KINDS = ("truncated_json", "random_bytes", "zero_byte", "wrong_schema")
+
+
+def corruption_payload(kind: str, task_id: str = "t") -> bytes:
+    """Return raw corrupted bytes for the given journal-corruption kind."""
+    if kind == "truncated_json":
+        return ('{"task_id": "%s", "status": "WORKING", "data": {"ke' % task_id).encode("utf-8")
+    if kind == "random_bytes":
+        return b"\xde\xad\xbe\xef\xca\xfe\xba\xbe" * 8
+    if kind == "zero_byte":
+        return b""
+    if kind == "wrong_schema":
+        return b'{"foo": [1, 2, 3], "bar": {"baz": true}}'
+    raise ValueError(f"unknown corruption kind: {kind}")
+
+
+def corrupt_run_artifact(path: str, kind: str, task_id: str = "t"):
+    """Overwrite the artifact at *path* with corrupted bytes of the given kind."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(corruption_payload(kind, task_id))
+
+
+def make_fake_dead_pid_proc(pid: int):
+    """Build a minimal fake Popen whose terminate() is a no-op (SIGTERM-ignoring zombie)."""
+
+    class _IgnorantProc:
+        def __init__(self):
+            self.pid = pid
+            self.exit_code = None
+
+        def terminate(self):
+            pass  # zombie: ignores SIGTERM
+
+        def poll(self):
+            return self.exit_code
+
+        def wait(self, timeout=None):
+            self.exit_code = 137  # force-kill (SIGKILL) simulation
+            return self.exit_code
+
+    return _IgnorantProc()

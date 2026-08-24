@@ -1,0 +1,223 @@
+{
+  "goal_id": "fastapi-crud-items",
+  "title": "Generate a FastAPI CRUD feature as a 4-stage contract DAG",
+  "description": "Schema, then models, then endpoints, then tests - each stage fenced to a single file and chained with depends_on.",
+  "constraints": {
+    "framework": "fastapi"
+  },
+  "contracts": [
+    {
+      "task_id": "01-define-schema",
+      "depends_on": [],
+      "status": "drafted",
+      "contract": {
+        "task_id": "01-define-schema",
+        "title": "Define Pydantic request/response schemas for Item",
+        "status": "drafted",
+        "risk_tier": "auto",
+        "workspace_scope": {
+          "allow": ["src/schema.py"],
+          "deny": [".env", ".git/", "scratch/orchestrator_runs/"]
+        },
+        "objective": "Create src/schema.py with Pydantic models ItemBase, ItemCreate, and ItemRead for the Item CRUD resource.",
+        "worker": {
+          "model": "gemini:gemini-3.7-flash",
+          "max_attempts": 3
+        },
+        "inputs": [],
+        "outputs": [
+          { "path": "src/schema.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "schema_exists",
+            "kind": "file_exists",
+            "path": "src/schema.py",
+            "expected": "nonempty"
+          },
+          {
+            "id": "syntax_schema",
+            "kind": "syntax",
+            "path": "src/schema.py",
+            "expected": "python"
+          },
+          {
+            "id": "base_model_defined",
+            "kind": "content_regex",
+            "path": "src/schema.py",
+            "expected": "class ItemBase"
+          }
+        ],
+        "qc": {
+          "required": false,
+          "lens": "code_correctness"
+        }
+      }
+    },
+    {
+      "task_id": "02-persistence-models",
+      "depends_on": ["01-define-schema"],
+      "status": "drafted",
+      "contract": {
+        "task_id": "02-persistence-models",
+        "title": "Add persistence models for Item",
+        "status": "drafted",
+        "risk_tier": "auto",
+        "workspace_scope": {
+          "allow": ["src/models.py"],
+          "deny": [".env", ".git/", "scratch/orchestrator_runs/"]
+        },
+        "objective": "Create src/models.py mapping the Item schema to the persistence layer, importing the Pydantic shapes from src/schema.py.",
+        "worker": {
+          "model": "gemini:gemini-3.7-flash",
+          "max_attempts": 3
+        },
+        "inputs": [{ "path": "src/schema.py" }],
+        "outputs": [
+          { "path": "src/models.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "models_exist",
+            "kind": "file_exists",
+            "path": "src/models.py",
+            "expected": "nonempty"
+          },
+          {
+            "id": "syntax_models",
+            "kind": "syntax",
+            "path": "src/models.py",
+            "expected": "python"
+          },
+          {
+            "id": "item_model_defined",
+            "kind": "content_regex",
+            "path": "src/models.py",
+            "expected": "class Item"
+          }
+        ],
+        "qc": {
+          "required": false,
+          "lens": "code_correctness"
+        }
+      }
+    },
+    {
+      "task_id": "03-endpoints",
+      "depends_on": ["02-persistence-models"],
+      "status": "drafted",
+      "contract": {
+        "task_id": "03-endpoints",
+        "title": "Implement CRUD endpoints wiring schemas to models",
+        "status": "drafted",
+        "risk_tier": "qc_required",
+        "workspace_scope": {
+          "allow": ["src/api.py"],
+          "deny": [".env", ".git/", "scratch/orchestrator_runs/"]
+        },
+        "objective": "Create src/api.py exposing create_item and read_item endpoints that use src/schema.py for validation and src/models.py for storage.",
+        "worker": {
+          "model": "gemini:gemini-3.7-flash",
+          "max_attempts": 3
+        },
+        "inputs": [
+          { "path": "src/schema.py" },
+          { "path": "src/models.py" }
+        ],
+        "outputs": [
+          { "path": "src/api.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "api_exists",
+            "kind": "file_exists",
+            "path": "src/api.py",
+            "expected": "nonempty"
+          },
+          {
+            "id": "syntax_api",
+            "kind": "syntax",
+            "path": "src/api.py",
+            "expected": "python"
+          },
+          {
+            "id": "create_endpoint_present",
+            "kind": "content_regex",
+            "path": "src/api.py",
+            "expected": "def create_item"
+          },
+          {
+            "id": "read_endpoint_present",
+            "kind": "content_regex",
+            "path": "src/api.py",
+            "expected": "def read_item"
+          }
+        ],
+        "quality_spec": {
+          "minimum_score": 0.7
+        },
+        "qc": {
+          "required": true,
+          "lens": "code_correctness"
+        }
+      }
+    },
+    {
+      "task_id": "04-crud-tests",
+      "depends_on": ["03-endpoints"],
+      "status": "drafted",
+      "contract": {
+        "task_id": "04-crud-tests",
+        "title": "Cover the CRUD endpoints with pytest",
+        "status": "drafted",
+        "risk_tier": "auto",
+        "workspace_scope": {
+          "allow": ["tests/test_items.py"],
+          "deny": [".env", ".git/", "scratch/orchestrator_runs/"]
+        },
+        "objective": "Write tests/test_items.py exercising create and read flows against the endpoints from src/api.py; the suite must pass.",
+        "worker": {
+          "model": "gemini:gemini-3.7-flash",
+          "max_attempts": 3
+        },
+        "inputs": [
+          { "path": "src/api.py" },
+          { "path": "src/schema.py" }
+        ],
+        "outputs": [
+          { "path": "tests/test_items.py" }
+        ],
+        "acceptance_checks": [
+          {
+            "id": "tests_exist",
+            "kind": "file_exists",
+            "path": "tests/test_items.py",
+            "expected": "nonempty"
+          },
+          {
+            "id": "suite_substantive",
+            "kind": "min_size",
+            "path": "tests/test_items.py",
+            "expected": 800
+          },
+          {
+            "id": "create_test_present",
+            "kind": "content_regex",
+            "path": "tests/test_items.py",
+            "expected": "def test_create_item"
+          },
+          {
+            "id": "pytest_pass",
+            "kind": "command",
+            "command": "python -m pytest tests/test_items.py -q",
+            "expected": 0
+          }
+        ],
+        "qc": {
+          "required": false,
+          "lens": "code_correctness"
+        }
+      }
+    }
+  ]
+}

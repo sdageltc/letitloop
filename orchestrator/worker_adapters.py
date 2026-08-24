@@ -2,13 +2,18 @@
 
 Provides unified execution interfaces for various backend agents and CLIs:
 Claude Code, Google Antigravity, OpenCode, Hermes Agent, Cline, Aider, Omniroute,
-Script executors, and Direct LLM APIs.
+Script executors, Direct LLM APIs, Docker sandboxes, and local tool-calling LLMs.
 """
 
+import json
 import os
 import subprocess
+import urllib.error
+import urllib.request
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+from orchestrator import process_guard
 
 
 class BaseWorkerAdapter(ABC):
@@ -71,28 +76,44 @@ class ScriptWorkerAdapter(BaseWorkerAdapter):
         env["LIL_WORKSPACE_ROOT"] = workspace_root
 
         try:
-            proc = subprocess.run(
-                self.script_command,
-                shell=True,  # nosec B602
-                input=prompt,
+            popen_kwargs = dict(
+                stdin=subprocess.PIPE,
                 text=True,
-                capture_output=True,
                 cwd=workspace_root,
-                timeout=timeout,
                 env=env,
             )
+            popen_kwargs.update(process_guard.containment_kwargs())
+            proc = subprocess.Popen(  # nosec B602
+                self.script_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                **popen_kwargs,
+            )
+            job = process_guard.attach_containment(proc)
+            try:
+                try:
+                    stdout, stderr = proc.communicate(input=prompt, timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    # Kill the whole tree (children included) before reporting the timeout.
+                    process_guard.kill_process_tree(proc.pid)
+                    try:
+                        proc.communicate(timeout=5)
+                    except Exception:
+                        pass
+                    return {
+                        "exit_code": 124,
+                        "stdout": "",
+                        "stderr": f"Script execution timed out after {timeout} seconds",
+                        "approach": "timeout",
+                    }
+            finally:
+                process_guard.close_job_handle(job)
             return {
                 "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
+                "stdout": stdout or "",
+                "stderr": stderr or "",
                 "approach": f"script:{self.script_command}",
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "exit_code": 124,
-                "stdout": "",
-                "stderr": f"Script execution timed out after {timeout} seconds",
-                "approach": "timeout",
             }
         except Exception as e:
             return {
@@ -367,6 +388,380 @@ class CodexWorkerAdapter(BaseWorkerAdapter):
             }
 
 
+def _docker_host_path(host_path: str) -> str:
+    """Normalize a host path for a docker -v spec (POSIX separators, no drive colon)."""
+    posix = str(host_path).replace("\\", "/")
+    # 'C:/ws' -> '/c/ws' style avoids the ambiguous drive-letter colon in -v specs.
+    if len(posix) >= 2 and posix[1] == ":":
+        posix = "/" + posix[0].lower() + posix[2:]
+    return posix
+
+
+class DockerWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks inside an isolated Docker sandbox container."""
+
+    CONTAINER_WORKSPACE = "/workspace"
+
+    def __init__(self, name: str = "docker", config: Optional[Dict[str, Any]] = None):
+        super().__init__(name, config)
+        self.image = self.config.get("image", "python:3.11-slim")
+        self.network = self.config.get("network", "none")
+        self.cpus = self.config.get("cpus", "1.0")
+        self.memory = self.config.get("memory", "512m")
+        self.script_command = self.config.get("script", 'cat "${LIL_INSTRUCTIONS}"')
+
+    def is_available(self) -> bool:
+        return self._docker_available()
+
+    def _docker_available(self) -> bool:
+        """Check the Docker CLI answers `docker info` (daemon reachable)."""
+        try:
+            proc = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=10)
+            return proc.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
+    def _build_volumes(self, workspace_root: str) -> List[str]:
+        """Build -v mount specs: each allow path rw, root ro unless fully covered."""
+        ws_abs = os.path.abspath(workspace_root)
+        scope = self.config.get("workspace_scope") or {}
+        allows = [str(a).strip().replace("\\", "/") for a in scope.get("allow", []) if str(a).strip()]
+        fully_covered = any(a in (".", "./") for a in allows)
+
+        volumes = [(ws_abs, self.CONTAINER_WORKSPACE, "rw" if fully_covered else "ro")]
+        seen = {ws_abs.lower()}
+        for allow in allows:
+            if allow in (".", "./"):
+                continue
+            host = os.path.normpath(os.path.join(ws_abs, allow))
+            if host.lower() in seen:
+                continue
+            seen.add(host.lower())
+            volumes.append((host, f"{self.CONTAINER_WORKSPACE}/{allow.rstrip('/')}", "rw"))
+        return [f"{_docker_host_path(host)}:{container}:{mode}" for host, container, mode in volumes]
+
+    def _build_run_argv(self, prompt: str, workspace_root: str, task_id: str) -> List[str]:
+        """Build the full `docker run` argv and stage the brief as a read-only file."""
+        scratch_dir = os.path.join(workspace_root, "scratch")
+        os.makedirs(scratch_dir, exist_ok=True)
+        instructions_name = f"docker_instructions_{task_id}.txt"
+        with open(os.path.join(scratch_dir, instructions_name), "w", encoding="utf-8") as f:
+            f.write(prompt)
+        instructions_container = f"{self.CONTAINER_WORKSPACE}/scratch/{instructions_name}"
+
+        argv = [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            str(self.network),
+            "--cpus",
+            str(self.cpus),
+            "--memory",
+            str(self.memory),
+        ]
+        for volume in self._build_volumes(workspace_root):
+            argv.extend(["-v", volume])
+        argv.extend(["-w", self.CONTAINER_WORKSPACE])
+        argv.extend(
+            [
+                "-e",
+                f"LIL_TASK_ID={task_id}",
+                "-e",
+                f"LIL_WORKSPACE_ROOT={self.CONTAINER_WORKSPACE}",
+                "-e",
+                f"LIL_INSTRUCTIONS={instructions_container}",
+            ]
+        )
+        argv.append(self.image)
+        argv.extend(["/bin/sh", "-c", self.script_command])
+        return argv
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        if not self._docker_available():
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "Docker daemon unreachable: `docker info` failed or timed out; cannot run sandbox worker",
+                "approach": "error",
+            }
+        try:
+            cmd = self._build_run_argv(prompt, workspace_root, task_id)
+            proc = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                timeout=timeout,
+            )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "approach": "docker_sandbox",
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "exit_code": 124,
+                "stdout": "",
+                "stderr": f"Docker sandbox execution timed out after {timeout} seconds",
+                "approach": "timeout",
+            }
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Docker sandbox execution error: {e}",
+                "approach": "error",
+            }
+
+
+REPAIR_NUDGE = (
+    "Your previous response contained no valid tool call and no final answer. "
+    "Either call one of the provided tools, or reply with your complete final answer as plain text."
+)
+
+
+class LocalToolWorkerAdapter(BaseWorkerAdapter):
+    """Executes tasks via a local OpenAI-compatible LLM using native tool calling.
+
+    Talks to Ollama / vLLM / LM Studio style endpoints ({base_url}/chat/completions),
+    runs model tool calls against a sandboxed local registry, and journals every
+    turn to <workspace_root>/scratch/orchestrator_runs/<task_id>/worker_output.log.
+    """
+
+    def __init__(
+        self,
+        name: str = "local-tool",
+        config: Optional[Dict[str, Any]] = None,
+        transport: Optional[Callable[..., Dict[str, Any]]] = None,
+    ):
+        super().__init__(name, config)
+        self.base_url = self.config.get("base_url", "http://localhost:11434/v1")
+        self.model = self.config.get("model")
+        self.max_turns = int(self.config.get("max_turns", 8))
+        self.api_key = self.config.get("api_key")
+        self._transport = transport
+
+    def is_available(self) -> bool:
+        """Endpoint-backed adapter: available whenever a model is configured."""
+        return bool(self.model)
+
+    @staticmethod
+    def _system_prompt() -> str:
+        return (
+            "You are an autonomous software engineering agent completing a scoped unit task. "
+            "The user message contains the task objective and constraints.\n"
+            "TOOL RULES:\n"
+            "- Use the provided tools (read_file, write_file, replace_lines, execute_command) "
+            "to inspect and modify the workspace.\n"
+            "- Prefer acting through tools over printing code blocks.\n"
+            "- When the task is complete, reply with ONLY a short plain-text final summary and no tool call.\n"
+            "SCOPE LIMITS:\n"
+            "- Only read or write files inside the workspace paths allowed by the task.\n"
+            "- Never attempt to escape the workspace or access paths outside it.\n"
+            "- Do not run git commands, deploys, or anything mutating files outside the workspace."
+        )
+
+    def _http_transport(
+        self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], timeout_s: int
+    ) -> Dict[str, Any]:
+        url = f"{str(self.base_url).rstrip('/')}/chat/completions"
+        headers = {"content-type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        payload = {"model": self.model, "messages": messages, "tools": tools}
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # nosec B310
+                raw = resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode("utf-8", errors="replace")[:500]
+            except OSError:
+                pass
+            raise RuntimeError(f"HTTP {e.code} from local LLM endpoint: {detail or e.reason}") from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"connection failed to local LLM endpoint: {e.reason}") from e
+        return json.loads(raw)
+
+    def _extract_native_tool_calls(self, message: Dict[str, Any]) -> List[Dict[str, Any]]:
+        calls: List[Dict[str, Any]] = []
+        for tc in message.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            fn = tc.get("function") or {}
+            name = fn.get("name")
+            arguments = fn.get("arguments", {})
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    arguments = {}
+            if not isinstance(arguments, dict):
+                arguments = {}
+            if name:
+                calls.append({"id": tc.get("id") or f"call_{len(calls)}", "name": name, "arguments": arguments})
+        return calls
+
+    @staticmethod
+    def _invoke_tool(registry: Any, call: Dict[str, Any]) -> str:
+        from .local_tool_calling import ToolCallingError
+
+        try:
+            result = registry.execute_call(call["name"], call["arguments"])
+        except ToolCallingError as e:
+            return f"TOOL ERROR: {e}"
+        except Exception as e:
+            return f"TOOL ERROR: {e}"
+        if isinstance(result, dict):
+            return json.dumps(result)
+        return str(result)
+
+    @staticmethod
+    def _open_journal(workspace_root: str, task_id: str) -> str:
+        run_dir = os.path.join(workspace_root, "scratch", "orchestrator_runs", task_id)
+        os.makedirs(run_dir, exist_ok=True)
+        return os.path.join(run_dir, "worker_output.log")
+
+    @staticmethod
+    def _append_journal(log_path: str, turn: int, exit_code: int, stdout_text: str, stderr_text: str) -> None:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"=== TURN {turn} ===\n")
+            f.write(f"EXIT CODE: {exit_code}\n")
+            f.write("--- STDOUT ---\n")
+            f.write(stdout_text)
+            f.write("\n--- STDERR ---\n")
+            f.write(stderr_text)
+            f.write("\n")
+
+    def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
+        if not self.model:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "LocalToolWorkerAdapter requires a 'model' config value",
+                "approach": "error",
+            }
+        from .local_tool_calling import LocalToolRegistry, build_default_registry
+
+        scope = self.config.get("workspace_scope") or {"allow": ["."], "deny": []}
+        registry = build_default_registry(workspace_root, scope)
+        tools = registry.get_openai_tools()
+        messages: List[Dict[str, Any]] = [
+            {"role": "system", "content": self._system_prompt()},
+            {"role": "user", "content": prompt},
+        ]
+        transport = self._transport or (lambda msgs, tls: self._http_transport(msgs, tls, timeout))
+        journal_path = self._open_journal(workspace_root, task_id)
+        repair_nudged = False
+
+        try:
+            for turn in range(1, self.max_turns + 1):
+                data = transport(messages, tools)
+                choice = (data.get("choices") or [{}])[0]
+                message = choice.get("message", {}) if isinstance(choice, dict) else {}
+                content = message.get("content") or ""
+                calls = self._extract_native_tool_calls(message)
+                native = bool(calls)
+                if not calls:
+                    calls = [
+                        {"id": f"call_{idx}", "name": parsed["name"], "arguments": parsed.get("arguments") or {}}
+                        for idx, parsed in enumerate(LocalToolRegistry.parse_tool_calls(content))
+                    ]
+
+                if not calls:
+                    if str(content).strip():
+                        self._append_journal(journal_path, turn, 0, f"FINAL ANSWER:\n{content}", "")
+                        return {
+                            "exit_code": 0,
+                            "stdout": content,
+                            "stderr": "",
+                            "approach": "local_tool_calling",
+                        }
+                    if not repair_nudged:
+                        repair_nudged = True
+                        self._append_journal(
+                            journal_path,
+                            turn,
+                            1,
+                            "GARBAGE TURN: no usable tool call or final answer; sending repair nudge",
+                            "no usable model response",
+                        )
+                        messages.append({"role": "assistant", "content": content})
+                        messages.append({"role": "user", "content": REPAIR_NUDGE})
+                        continue
+                    self._append_journal(
+                        journal_path,
+                        turn,
+                        1,
+                        "GARBAGE TURN persists after repair nudge; aborting",
+                        "no usable model response after repair nudge",
+                    )
+                    return {
+                        "exit_code": 1,
+                        "stdout": "",
+                        "stderr": "model produced no usable tool call or final answer after repair nudge",
+                        "approach": "error",
+                    }
+
+                if native:
+                    messages.append(message)
+                else:
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": content,
+                            "tool_calls": [
+                                {
+                                    "id": c["id"],
+                                    "type": "function",
+                                    "function": {"name": c["name"], "arguments": json.dumps(c["arguments"])},
+                                }
+                                for c in calls
+                            ],
+                        }
+                    )
+
+                summary_lines = []
+                for call in calls:
+                    result_text = self._invoke_tool(registry, call)
+                    summary_lines.append(
+                        f"{call['name']}({json.dumps(call['arguments'], sort_keys=True)}) -> {result_text[:500]}"
+                    )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call["id"],
+                            "name": call["name"],
+                            "content": result_text,
+                        }
+                    )
+                self._append_journal(journal_path, turn, 0, "\n".join(summary_lines), "")
+        except Exception as e:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Local tool-calling execution error: {e}",
+                "approach": "error",
+            }
+
+        self._append_journal(
+            journal_path, self.max_turns, 1, "MAX TURNS reached without final answer", "max_turns exceeded"
+        )
+        return {
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": f"Local tool-calling worker hit max_turns ({self.max_turns}) without a final answer",
+            "approach": "error",
+            "success": False,
+            "reason": "max_turns",
+        }
+
+
 class WorkerRegistry:
     """Registry to register and resolve custom worker adapters dynamically."""
 
@@ -383,6 +778,8 @@ class WorkerRegistry:
         "aider": AiderWorkerAdapter("aider"),
         "omniroute": OmnirouteWorkerAdapter("omniroute"),
         "codex": CodexWorkerAdapter("codex"),
+        "local-tool": LocalToolWorkerAdapter("local-tool"),
+        "docker": DockerWorkerAdapter("docker"),
     }
 
     @classmethod

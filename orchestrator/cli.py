@@ -11,6 +11,7 @@ Commands:
 """
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -591,8 +592,28 @@ def cmd_approve(args):
     print(f"To execute: lil run-approved {goal_id}")
 
 
+@contextlib.contextmanager
+def _worktree_env_scope(args):
+    """Enable worktree sandboxing for the command duration only (no env leakage)."""
+    _prev = os.environ.get("LETITLOOP_WORKTREE_SANDBOX")
+    if getattr(args, "worktree", False):
+        os.environ["LETITLOOP_WORKTREE_SANDBOX"] = "1"
+    try:
+        yield
+    finally:
+        if _prev is None:
+            os.environ.pop("LETITLOOP_WORKTREE_SANDBOX", None)
+        else:
+            os.environ["LETITLOOP_WORKTREE_SANDBOX"] = _prev
+
+
 def cmd_run_approved(args):
     """Execute an approved plan."""
+    with _worktree_env_scope(args):
+        return _cmd_run_approved_inner(args)
+
+
+def _cmd_run_approved_inner(args):
     goal_id = args.goal_id or _latest_goal_id()
     if not goal_id:
         print("error: no goal_id specified and no existing goals found in run directory.", file=sys.stderr)
@@ -772,21 +793,23 @@ def cmd_plan_check(args):
 
 
 def cmd_supervise(args):
-    goal = _load_goal(args.goal_id)
-    plan = _load_plan(goal.goal_id)
-    run_dir = _run_dir(goal.goal_id)
-    supervisor = Supervisor(goal, plan, workspace_root=WORKSPACE_ROOT, run_dir=run_dir)
-    res = supervisor.execute_plan()
+    with _worktree_env_scope(args):
+        goal = _load_goal(args.goal_id)
+        plan = _load_plan(goal.goal_id)
+        run_dir = _run_dir(goal.goal_id)
+        supervisor = Supervisor(goal, plan, workspace_root=WORKSPACE_ROOT, run_dir=run_dir)
+        res = supervisor.execute_plan()
     print(f"Supervision complete for goal {goal.goal_id} (status: {goal.status})")
     _print_json(res)
 
 
 def cmd_supervise_resume(args):
-    goal = _load_goal(args.goal_id)
-    plan = _load_plan(goal.goal_id)
-    run_dir = _run_dir(goal.goal_id)
-    supervisor = Supervisor(goal, plan, workspace_root=WORKSPACE_ROOT, run_dir=run_dir)
-    res = supervisor.resume_plan()
+    with _worktree_env_scope(args):
+        goal = _load_goal(args.goal_id)
+        plan = _load_plan(goal.goal_id)
+        run_dir = _run_dir(goal.goal_id)
+        supervisor = Supervisor(goal, plan, workspace_root=WORKSPACE_ROOT, run_dir=run_dir)
+        res = supervisor.resume_plan()
     print(f"Resume complete for goal {goal.goal_id} (status: {goal.status})")
     _print_json(res)
 
@@ -1453,10 +1476,52 @@ def cmd_trace(args):
 
 def cmd_dashboard(args):
     """Render rich terminal UI dashboard for active run directory."""
-    from .tui import print_dashboard
+    from .tui import LiveDashboard, print_dashboard
 
     run_dir = getattr(args, "run_dir", DEFAULT_RUN_DIR)
+    live = bool(getattr(args, "live", False))
+    once = bool(getattr(args, "once", False))
+    if live or once:
+        interval = float(getattr(args, "interval", 2.0) or 2.0)
+        LiveDashboard(run_dir, interval=interval).run(once=once)
+        return
     print_dashboard(run_dir)
+
+
+def cmd_serve(args):
+    """Serve orchestrator lifecycle events over SSE (GET /events, GET /health)."""
+    import time as _time
+
+    from .events import get_bus
+    from .sse_server import SSEServer
+    from .webhooks import (
+        WebhookDispatcher,
+        attach_webhooks,
+        load_webhook_configs,
+        load_webhook_configs_from_env,
+    )
+
+    host = getattr(args, "host", "127.0.0.1")
+    port = int(getattr(args, "port", 8080))
+    explicit = getattr(args, "webhooks_json", "") or ""
+    configs = load_webhook_configs(explicit) if explicit else load_webhook_configs_from_env()
+    detach = None
+    if configs:
+        detach = attach_webhooks(get_bus(), WebhookDispatcher(configs))
+        print(f"[serve] attached {len(configs)} webhook endpoint(s)")
+    server = SSEServer(host=host, port=port, bus=get_bus())
+    server.start()
+    print(f"[serve] SSE stream ready at http://{host}:{server.bound_port}/events (Ctrl+C to stop)")
+    try:
+        while True:
+            _time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
+        if detach is not None:
+            detach()
+        print("[serve] shutdown complete")
 
 
 def cmd_install_skill(args):
@@ -1538,6 +1603,11 @@ def main():
     )
     p_run_approved.add_argument("goal_id", nargs="?", default=None, help="Goal ID")
     p_run_approved.add_argument("--force", action="store_true", help="Force acquire lock if stale")
+    p_run_approved.add_argument(
+        "--worktree",
+        action="store_true",
+        help="Run contract attempts inside ephemeral git worktree sandboxes (merge back only on PASS)",
+    )
 
     p_plan_preview = sub.add_parser("plan-preview", help="Show plan preview for a goal")
     p_plan_preview.add_argument("goal_id", help="Goal ID")
@@ -1557,9 +1627,19 @@ def main():
 
     p_supervise = sub.add_parser("supervise", help="Supervise and execute contracts for a Goal")
     p_supervise.add_argument("goal_id", help="Goal ID")
+    p_supervise.add_argument(
+        "--worktree",
+        action="store_true",
+        help="Run contract attempts inside ephemeral git worktree sandboxes (merge back only on PASS)",
+    )
 
     p_sup_resume = sub.add_parser("supervise-resume", help="Resume supervision for a partially-executed Goal")
     p_sup_resume.add_argument("goal_id", help="Goal ID")
+    p_sup_resume.add_argument(
+        "--worktree",
+        action="store_true",
+        help="Run contract attempts inside ephemeral git worktree sandboxes (merge back only on PASS)",
+    )
 
     p_sup_status = sub.add_parser("supervise-status", help="Show goal supervise status")
     p_sup_status.add_argument("goal_id", help="Goal ID")
@@ -1647,7 +1727,24 @@ def main():
     p_dryrun = sub.add_parser("dry-run", help="Simulate plan execution without real worker calls")
     p_dryrun.add_argument("goal_id", help="Goal ID")
 
-    sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
+    p_dash = sub.add_parser("dashboard", help="Render rich terminal UI dashboard")
+    p_dash.add_argument("--live", action="store_true", help="Continuously refresh the dashboard until quit")
+    p_dash.add_argument(
+        "--interval",
+        type=float,
+        default=2.0,
+        help="Refresh interval in seconds for --live mode (default: 2.0)",
+    )
+    p_dash.add_argument("--once", action="store_true", help="Render a single dashboard frame and exit")
+
+    p_serve = sub.add_parser("serve", help="Stream lifecycle events over SSE (GET /events)")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
+    p_serve.add_argument("--port", type=int, default=8080, help="Bind port (default: 8080)")
+    p_serve.add_argument(
+        "--webhooks-json",
+        default="",
+        help="Path to webhook configs JSON (overrides LETITLOOP_WEBHOOKS_JSON)",
+    )
 
     p_trace = sub.add_parser("trace", help="Render step-by-step reasoning and verification trace for a goal")
     p_trace.add_argument("goal_id", nargs="?", default=None, help="Goal ID (defaults to latest)")
@@ -1678,6 +1775,7 @@ def main():
         "status": cmd_status,
         "doctor": cmd_doctor,
         "dashboard": cmd_dashboard,
+        "serve": cmd_serve,
         "trace": cmd_trace,
         "install-skill": cmd_install_skill,
         "install_skill": cmd_install_skill,

@@ -592,6 +592,8 @@ class State:
 
     @classmethod
     def from_dict(cls, d, journal_dir=None):
+        if not isinstance(d, dict) or not isinstance(d.get("task_id"), str) or not d["task_id"]:
+            raise StateError("snapshot missing required 'task_id' field")
         return cls(
             task_id=d["task_id"],
             status=d.get("status", "DRAFTED"),
@@ -611,6 +613,13 @@ class State:
         return f"<State {self.task_id} status={self.status} attempt={self.attempt}>"
 
 
+def _require_task_id(d: dict) -> str:
+    task_id = d.get("task_id") if isinstance(d, dict) else None
+    if not isinstance(task_id, str) or not task_id:
+        raise StateError("snapshot missing required 'task_id' field")
+    return task_id
+
+
 def _migrate_legacy_snapshot(d: dict, journal_dir: str) -> State:
     """Convert a pre-0.5 snapshot (no seq/hash_head) into an event-sourced State.
 
@@ -619,7 +628,7 @@ def _migrate_legacy_snapshot(d: dict, journal_dir: str) -> State:
     The INIT is appended to the WAL so subsequent events chain correctly.
     """
     state = State(
-        task_id=d["task_id"],
+        task_id=_require_task_id(d),
         status=d.get("status", "DRAFTED"),
         attempt=d.get("attempt", 1),
         changed_approaches=list(d.get("changed_approaches", [])),

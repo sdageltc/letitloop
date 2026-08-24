@@ -1,118 +1,172 @@
-"""Supervisor executor: executes multi-contract plans in topological dependency order."""
+"""Core - extracted verbatim from the former monolithic supervisor.py."""
 
-import hashlib
-import hmac
-import json
-import os
-import re
-import sys
-import threading
-import time
-from typing import Any, Dict, List, Optional
-
-from . import audit as audit_mod
-from . import budget as budget_mod
-from . import checkpoint as cp
-from . import evidence as ev
-from . import feedback as fb
-from . import impossibility as imp
-from . import limits as lm
-from . import lock as lk
-from . import memory_bridge as mb_mod
-from . import metrics as metrics_mod
-from . import reconcile as rec
-from . import scope as sc
-from . import worker_pool as wp
-from .contract import load_contract, validate_contract_against_plan
-from .exceptions import IllegalTransitionError, StateError
-from .failure import (
-    FAILURE_CLASS_TASK_CRASHED,
-    MAX_SAME_CLASS_STRIKES,
-    annotate_worker_result,
-    classify_failure,
-    count_consecutive_same_class,
-    require_divergent_retry,
+from orchestrator import dag_validator as dv
+from orchestrator.dag_validator import DagValidationError
+from orchestrator.events import get_bus
+from orchestrator.supervisor._shared import (
+    DEFAULT_RUN_DIR as DEFAULT_RUN_DIR,
 )
-from .goal import ContractGraph, Goal, Plan
-from .preflight import run_preflight
-from .state import create_initial_state, load_state, save_state
-from .verifier import run_verification
-from .worker import run_worker
+from orchestrator.supervisor._shared import (
+    FAILURE_CLASS_TASK_CRASHED as FAILURE_CLASS_TASK_CRASHED,
+)
+from orchestrator.supervisor._shared import (
+    MAX_SAME_CLASS_STRIKES as MAX_SAME_CLASS_STRIKES,
+)
+from orchestrator.supervisor._shared import (
+    WORKSPACE_ROOT as WORKSPACE_ROOT,
+)
+from orchestrator.supervisor._shared import (
+    Any as Any,
+)
+from orchestrator.supervisor._shared import (
+    ContractGraph as ContractGraph,
+)
+from orchestrator.supervisor._shared import (
+    Dict as Dict,
+)
+from orchestrator.supervisor._shared import (
+    Goal as Goal,
+)
+from orchestrator.supervisor._shared import (
+    IllegalTransitionError as IllegalTransitionError,
+)
+from orchestrator.supervisor._shared import (
+    List as List,
+)
+from orchestrator.supervisor._shared import (
+    Optional as Optional,
+)
+from orchestrator.supervisor._shared import (
+    Plan as Plan,
+)
+from orchestrator.supervisor._shared import (
+    StateError as StateError,
+)
+from orchestrator.supervisor._shared import (
+    _pid_alive as _pid_alive,
+)
+from orchestrator.supervisor._shared import (
+    _retry_fingerprints as _retry_fingerprints,
+)
+from orchestrator.supervisor._shared import (
+    annotate_worker_result as annotate_worker_result,
+)
+from orchestrator.supervisor._shared import (
+    audit_mod as audit_mod,
+)
+from orchestrator.supervisor._shared import (
+    budget_mod as budget_mod,
+)
+from orchestrator.supervisor._shared import (
+    classify_failure as classify_failure,
+)
+from orchestrator.supervisor._shared import (
+    count_consecutive_same_class as count_consecutive_same_class,
+)
+from orchestrator.supervisor._shared import (
+    cp as cp,
+)
+from orchestrator.supervisor._shared import (
+    create_initial_state as create_initial_state,
+)
+from orchestrator.supervisor._shared import (
+    ev as ev,
+)
+from orchestrator.supervisor._shared import (
+    fb as fb,
+)
+from orchestrator.supervisor._shared import (
+    hashlib as hashlib,
+)
+from orchestrator.supervisor._shared import (
+    hmac as hmac,
+)
+from orchestrator.supervisor._shared import (
+    imp as imp,
+)
+from orchestrator.supervisor._shared import (
+    json as json,
+)
+from orchestrator.supervisor._shared import (
+    lk as lk,
+)
+from orchestrator.supervisor._shared import (
+    lm as lm,
+)
+from orchestrator.supervisor._shared import (
+    load_contract as load_contract,
+)
+from orchestrator.supervisor._shared import (
+    load_state as load_state,
+)
+from orchestrator.supervisor._shared import (
+    mb_mod as mb_mod,
+)
+from orchestrator.supervisor._shared import (
+    metrics_mod as metrics_mod,
+)
+from orchestrator.supervisor._shared import (
+    os as os,
+)
+from orchestrator.supervisor._shared import (
+    re as re,
+)
+from orchestrator.supervisor._shared import (
+    rec as rec,
+)
+from orchestrator.supervisor._shared import (
+    require_divergent_retry as require_divergent_retry,
+)
+from orchestrator.supervisor._shared import (
+    run_preflight as run_preflight,
+)
+from orchestrator.supervisor._shared import (
+    run_verification as run_verification,
+)
+from orchestrator.supervisor._shared import (
+    run_worker as run_worker,
+)
+from orchestrator.supervisor._shared import (
+    save_state as save_state,
+)
+from orchestrator.supervisor._shared import (
+    sc as sc,
+)
+from orchestrator.supervisor._shared import (
+    sys as sys,
+)
+from orchestrator.supervisor._shared import (
+    threading as threading,
+)
+from orchestrator.supervisor._shared import (
+    time as time,
+)
+from orchestrator.supervisor._shared import (
+    validate_contract_against_plan as validate_contract_against_plan,
+)
+from orchestrator.supervisor._shared import (
+    wp as wp,
+)
+from orchestrator.supervisor.cleanup import CleanupMixin
+from orchestrator.supervisor.recovery import RecoveryMixin
+from orchestrator.supervisor.reporting import ReportingMixin
+from orchestrator.worktree import WorktreeManager
 
-WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DEFAULT_RUN_DIR = os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs")
+_SANDBOX_PASS_STATUSES = ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
 
 
-def _pid_alive(pid: int) -> bool:
-    """Cross-platform liveness check for a process id (no signal sent)."""
-    if not pid or pid <= 0:
-        return False
-    if sys.platform == "win32":
-        try:
-            import ctypes
-
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not handle:
-                return False
-            ctypes.windll.kernel32.CloseHandle(handle)
-            return True
-        except (AttributeError, OSError, TypeError, ValueError):
-            return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True  # exists but owned by another user
-    except OSError:
-        return False
-    return True
+def _worktree_sandbox_requested(contract) -> bool:
+    """Sandbox when LETITLOOP_WORKTREE_SANDBOX=1 or contract.worker.worktree is 'sandbox'/True."""
+    if os.environ.get("LETITLOOP_WORKTREE_SANDBOX") == "1":
+        return True
+    worker = getattr(contract, "worker", None)
+    flag = worker.get("worktree") if isinstance(worker, dict) else None
+    return flag in ("sandbox", True)
 
 
-def _retry_fingerprints(state, failure_class: str, attempt: int):
-    """Fingerprint a retry from failure class + normalized stderr digest.
+class Supervisor(RecoveryMixin, ReportingMixin, CleanupMixin):
+    """Deterministic plan executor (public surface unchanged)."""
 
-    the fingerprint is attempt-INVARIANT
-    so identical failures produce the same fingerprint across retries.
-    Perpetual-loop r4: raw stderr is collision-prone (timestamps/PIDs/hex/abs
-    paths differ run-to-run) — normalize those away before hashing, and fold
-    in exit_code + last exception class for discrimination. Returns
-    (strategy_fingerprint, prior_fingerprint).
-    """
-    last_result = state.worker_results[-1] if state.worker_results else {}
-    stderr = str(last_result.get("stderr", "") or "")
-    normalized = re.sub(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}", "<TS>", stderr)
-    normalized = re.sub(r"\bpid(?:=|\s+)\d+\b", "pid=<PID>", normalized, flags=re.I)
-    normalized = re.sub(r"0x[0-9a-fA-F]{6,}", "0x<HEX>", normalized)
-    normalized = re.sub(r"(?i)[a-z]:[\\/][^\s\"']+", "<PATH>", normalized)
-    normalized = re.sub(r"(?i)([a-z0-9_/\\-]+/)+[a-z0-9_\\-]+\.(?:py|js|ts|exe|cmd|bat)", "<F>", normalized)
-    # POSIX paths are not stripped by the drive-letter regex above; normalize
-    # them too so retry fingerprints are stable across platforms (QC 2026-08-01).
-    normalized = re.sub(r"(?i)/(?:home|tmp|usr|var|opt|etc|root|mnt|run)/[^\s\"']*", "<POSIX>", normalized)
-    exit_code = last_result.get("exit_code")
-    exc_class = ""
-    # QC 2026-08-01: the root-cause exception is at the BOTTOM of a Python
-    # traceback; re.search grabs the first Error mention (often a log line or
-    # docstring) and mislabels the class. Take the LAST match instead.
-    matches = re.findall(r"\b(\w+Error|Exception)\b", stderr)
-    if matches:
-        exc_class = matches[-1]
-    stderr_digest = hashlib.sha256(
-        f"{exit_code}:{exc_class}:{normalized}".encode("utf-8", errors="replace")
-    ).hexdigest()[:8]
-    strategy_fingerprint = hashlib.sha256(f"{failure_class}:{stderr_digest}".encode("utf-8")).hexdigest()[:8]
-    prior_fingerprint = ""
-    retry_metadata = state.data.get("retry_metadata", [])
-    if isinstance(retry_metadata, list):
-        for metadata in reversed(retry_metadata):
-            if isinstance(metadata, dict) and metadata.get("strategy_fingerprint"):
-                prior_fingerprint = str(metadata["strategy_fingerprint"])
-                break
-    return strategy_fingerprint, prior_fingerprint
-
-
-class Supervisor:
     """Supervisor to manage execution of a Goal and its multi-contract Plan."""
 
     def __init__(
@@ -157,6 +211,38 @@ class Supervisor:
         self.budget_guard = budget_mod.BudgetGuard(max_tokens=max_tokens, max_cost_usd=max_cost_usd)
         # Durable memory bridge
         self.memory_bridge = mb_mod.MemoryBridge(os.path.join(self.run_dir, "memory_bridge.jsonl"))
+
+    def _emit(self, event_type: str, **kw) -> None:
+        """Publish a lifecycle event on the process-wide bus; never raises."""
+        try:
+            get_bus().publish(event_type, **kw)
+        except Exception:
+            pass
+
+    def _short_fail_reason(self, task_id: str) -> str:
+        try:
+            state_file = self._state_path(task_id)
+            if os.path.isfile(state_file):
+                st = load_state(state_file, journal_dir=self._task_run_dir(task_id))
+                reason = st.data.get("crash_reason") or st.data.get("last_failure_class") or ""
+                return str(reason)[:120] if reason else str(st.status)
+        except Exception:
+            pass
+        return ""
+
+    def _record_terminal(self, task_id: str, status: str) -> None:
+        """Record final contract status in metrics; emit contract.failed on terminal-fail paths."""
+        try:
+            self.metrics_coll.record_contract_status(status)
+        except Exception:
+            pass
+        if str(status).upper() in ("FAILED", "CRASHED", "ESCALATED"):
+            self._emit(
+                "contract.failed",
+                goal_id=self.goal.goal_id,
+                task_id=task_id,
+                reason=self._short_fail_reason(task_id),
+            )
 
     def _task_run_dir(self, task_id: str) -> str:
         return os.path.join(self.run_dir, task_id)
@@ -323,7 +409,7 @@ class Supervisor:
             pass
 
         self.graph.update_status(task_id, final_status)
-        print(f"[supervisor] TASK CRASHED: {task_id} — {type(exception).__name__}: {exception}", file=sys.stderr)
+        print(f"[supervisor] TASK CRASHED: {task_id} â€” {type(exception).__name__}: {exception}", file=sys.stderr)
 
     def _force_complete_task(
         self,
@@ -355,7 +441,7 @@ class Supervisor:
             )
             self._safe_save(state, state_file)
             self.graph.mark_complete(task_id)
-            print(f"[supervisor] FORCE_COMPLETE: {task_id} — {reason}", file=sys.stderr)
+            print(f"[supervisor] FORCE_COMPLETE: {task_id} â€” {reason}", file=sys.stderr)
             return "FORCE_COMPLETE"
         except Exception as e:
             print(f"[supervisor] force_complete failed for {task_id}: {e}", file=sys.stderr)
@@ -448,7 +534,7 @@ class Supervisor:
             except (OSError, json.JSONDecodeError):
                 return "FAILED"
 
-            from .qc_overrule import verify_overrule
+            from orchestrator.qc_overrule import verify_overrule
 
             valid, errors = verify_overrule(evidence, secret, verification_evidence)
             if not valid:
@@ -515,49 +601,44 @@ class Supervisor:
     def _execute_single_contract(self, task_id: str) -> str:
         """Execute preflight -> work -> verify for a single task contract.
 
-        Wrapped in a fault barrier — any unexpected exception is caught,
+        Wrapped in a fault barrier â€” any unexpected exception is caught,
         recorded as a structured failure, and the task is marked BLOCKED.
         """
         try:
-            return self._execute_single_contract_impl(task_id)
+            status = self._execute_single_contract_impl(task_id)
         except Exception as e:
+            self._prune_leftover_sandbox(task_id)
             self._record_task_exception(task_id, e)
-            return "CRASHED"
+            status = "CRASHED"
+        self._record_terminal(task_id, status)
+        return status
 
-    def _auto_clean_undeclared_outputs(self, contract, state):
-        """AUT-002: delete newly-created undeclared files before a retry.
+    def _sandbox_registry_add(self, task_id: str, manager: "WorktreeManager", handle) -> None:
+        reg = getattr(self, "_active_sandboxes", None)
+        if reg is None:
+            reg = {}
+            self._active_sandboxes = reg
+        with self._shared_lock:
+            reg[task_id] = (manager, handle)
 
-        A worker that leaves a temp helper script (despite the brief
-        forbidding extra files) currently poisons the retry — the leftover
-        file trips undeclared_outputs again. Delete only NEWLY-CREATED
-        outside-scope/denied files; never modified pre-existing files.
-        Records what was removed for the audit trail.
-        """
-        undeclared = state.data.get("undeclared_outputs", [])
-        if not isinstance(undeclared, list):
+    def _sandbox_registry_pop(self, task_id: str):
+        reg = getattr(self, "_active_sandboxes", None)
+        if not reg:
+            return None
+        with self._shared_lock:
+            return reg.pop(task_id, None)
+
+    def _prune_leftover_sandbox(self, task_id: str) -> None:
+        """Exception-path cleanup: discard any sandbox still open for task_id."""
+        entry = self._sandbox_registry_pop(task_id)
+        if entry is None:
             return
-        declared = {o.get("path", "") for o in (contract.outputs or [])}
-        cleaned = []
-        for v in undeclared:
-            if not isinstance(v, dict):
-                continue
-            if not v.get("created_new"):
-                continue  # never auto-delete modified pre-existing files
-            if v.get("violation_type") not in ("outside_scope", "denied_new"):
-                continue
-            path = str(v.get("path", ""))
-            if not path or path in declared:
-                continue
-            full = path if os.path.isabs(path) else os.path.join(self.workspace_root, path)
-            try:
-                if os.path.isfile(full):
-                    os.remove(full)
-                    cleaned.append(path)
-                    print(f"[supervisor] auto-cleaned undeclared file: {path}", file=sys.stderr)
-            except OSError:
-                pass
-        if cleaned:
-            state.patch_data({"auto_cleaned_undeclared_outputs": cleaned})
+        manager, handle = entry
+        try:
+            manager.prune_on_fail(handle)
+            print(f"[worktree] pruned leftover sandbox for {task_id}", file=sys.stderr)
+        except Exception as prune_exc:
+            print(f"[worktree] leftover prune failed for {task_id}: {prune_exc}", file=sys.stderr)
 
     def _execute_single_contract_impl(self, task_id: str) -> str:
         """Core implementation of single-contract execution with retry and QC loops."""
@@ -638,7 +719,7 @@ class Supervisor:
         # Recover stale WORKING state (supervisor or worker died mid-work).
         # Lease-based recovery (2026-07-31): when we entered WORKING we recorded
         # the owning supervisor PID. On resume, a WORKING task whose lease owner
-        # is a DIFFERENT, now-dead pid means the previous supervisor crashed —
+        # is a DIFFERENT, now-dead pid means the previous supervisor crashed â€”
         # crash the task and let the retry budget requeue it. A live owner (or
         # our own pid on resume) keeps the existing worker_results check.
         if state.status == "WORKING":
@@ -656,6 +737,38 @@ class Supervisor:
                 self._safe_save(state, state_file)
                 self.graph.update_status(task_id, "CRASHED")
 
+        # Ephemeral worktree sandboxing (issue #15): opt-in via env or
+        # contract flag. When active, worker + verifiers for THIS contract
+        # run against an isolated git worktree; changes merge into the base
+        # branch only on overall PASS. Never crashes the contract.
+        sandbox_manager = None
+        sandbox_handle = None
+        exec_root = self.workspace_root
+        if _worktree_sandbox_requested(contract):
+            try:
+                _mgr = WorktreeManager(workspace_root=self.workspace_root)
+                _attempt = int(getattr(state, "attempt", 1) or 1)
+                _handle = _mgr.sandbox_create(task_id, attempt=_attempt)
+                if _handle is None:
+                    print(f"[worktree] not a git repo; running {task_id} unsandboxed", file=sys.stderr)
+                else:
+                    sandbox_manager = _mgr
+                    sandbox_handle = _handle
+                    exec_root = _handle.path
+                    self._sandbox_registry_add(task_id, _mgr, _handle)
+                    print(
+                        f"[worktree] sandboxed {task_id} at {_handle.path} (branch {_handle.branch})",
+                        file=sys.stderr,
+                    )
+            except Exception as wt_exc:
+                sandbox_manager = None
+                sandbox_handle = None
+                exec_root = self.workspace_root
+                print(
+                    f"[worktree] sandbox unavailable for {task_id}: {wt_exc}; falling back to unsandboxed",
+                    file=sys.stderr,
+                )
+
         # 2. Work + Verify + QC retry loop
         while state.attempt <= max_attempts:
             if state.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS", "ESCALATED", "BLOCKED", "CANCELLED"):
@@ -672,10 +785,11 @@ class Supervisor:
             ):
                 if state.attempt >= max_attempts:
                     # AUT-003: EVERY exhausted failure state escalates with an
-                    # impossibility artifact — no silent terminal
+                    # impossibility artifact â€” no silent terminal
                     # VERIFICATION_FAILED that leaves the goal unexplained.
                     state.transition("ESCALATED", reason=f"max attempts ({max_attempts}) reached")
                     imp.write_impossibility(contract, state, self.goal.goal_id, self.workspace_root)
+                    self._emit("impossibility.generated", goal_id=self.goal.goal_id, task_id=task_id)
                     self.graph.update_status(task_id, "ESCALATED")
                     break
                 state.increment_attempt()
@@ -686,7 +800,7 @@ class Supervisor:
                 approach_desc = f"auto-retry from {retry_trigger}"
                 # AUT-002: repair nondeterministic worker slips (leaving an
                 # undeclared helper file) by deleting newly-created
-                # undeclared files before the retry — never modified
+                # undeclared files before the retry â€” never modified
                 # pre-existing files.
                 if state.status == "VERIFICATION_FAILED":
                     self._auto_clean_undeclared_outputs(contract, state)
@@ -713,6 +827,7 @@ class Supervisor:
                 # detect that the previous supervisor died mid-work.
                 state.patch_data({"worker_lease": {"pid": os.getpid(), "ts": time.time()}})
                 self._safe_save(state, state_file)
+                self._emit("contract.working", goal_id=self.goal.goal_id, task_id=task_id)
 
                 allowed = contract.workspace_scope.get("allow", [])
                 denied = contract.workspace_scope.get("deny", [])
@@ -749,7 +864,7 @@ class Supervisor:
                     contract.worker["_prior_fingerprint"] = str(_latest.get("prior_fingerprint", "") or "")
                     worker_result = run_worker(
                         contract,
-                        self.workspace_root,
+                        exec_root,
                         task_dir,
                         previous_failures=previous_failures,
                         supervisor_attempt=state.attempt,
@@ -769,23 +884,28 @@ class Supervisor:
                 self._safe_save(state, state_file)
 
             # Post-worker scope check. Exclude the supervisor's OWN run-state
-            # tree (state.json, journals, sibling task dirs) — those are
+            # tree (state.json, journals, sibling task dirs) â€” those are
             # orchestrator artifacts, not worker output. Parallel-mode fix.
+            # Worktree-sandboxed attempts skip the host scan entirely: worker
+            # writes land inside the sandbox (whose undeclared_outputs
+            # verifier check enforces scope there), and scanning the host
+            # would otherwise flag files physically nested under
+            # .letitloop/worktrees/.
             scope_violations = []
-            if state.worker_results:
+            if state.worker_results and sandbox_handle is None:
                 scope_result = sc.check_scope(
                     contract, self.workspace_root, task_dir, exclude_dir=self.run_dir, task_id=task_id
                 )
                 if not scope_result.passed:
                     print(
-                        f"[supervisor] SCOPE VIOLATION in {task_id} — {len(scope_result.violations)} issue(s)",
+                        f"[supervisor] SCOPE VIOLATION in {task_id} â€” {len(scope_result.violations)} issue(s)",
                         file=sys.stderr,
                     )
                     for v in scope_result.violations:
                         print(f"  [{v.violation_type}] {v.path}", file=sys.stderr)
                     state.patch_data({"scope_violations": [v.to_dict() for v in scope_result.violations]})
                     # Parallel-mode fix (2026-07-31): a sibling task's declared
-                    # output is NOT an undeclared file — filter it out before
+                    # output is NOT an undeclared file â€” filter it out before
                     # treating violations as scope enforcement failures.
                     plan_outputs = set()
                     for _plan_c in self.plan.contracts:
@@ -860,14 +980,14 @@ class Supervisor:
                 ]
                 contract.acceptance_checks = base_checks + injected_checks
 
-                all_passed, v_results, evidence_path = run_verification(contract, self.workspace_root, task_dir)
+                all_passed, v_results, evidence_path = run_verification(contract, exec_root, task_dir)
 
                 # If scope violations found, force verification failure and update evidence
                 if scope_violations:
                     all_passed = False
-                    # AUT-019: append a REAL VerifierResult, never a lambda —
+                    # AUT-019: append a REAL VerifierResult, never a lambda â€”
                     # downstream code calls .to_dict() on these results.
-                    from .verifier import VerifierResult
+                    from orchestrator.verifier import VerifierResult
 
                     v_results.append(
                         VerifierResult(
@@ -903,6 +1023,7 @@ class Supervisor:
 
                 if all_passed:
                     state.transition("VERIFIED", reason="supervisor verify passed")
+                    self._emit("contract.verified", goal_id=self.goal.goal_id, task_id=task_id)
                     qc_required = contract.qc.get("required", False)
                     if state.data.get("worker_exit_nonzero"):
                         qc_required = True
@@ -915,14 +1036,12 @@ class Supervisor:
                     self._safe_save(state, state_file)
 
                     output_paths = [
-                        os.path.join(self.workspace_root, out["path"])
-                        if not os.path.isabs(out["path"])
-                        else out["path"]
+                        os.path.join(exec_root, out["path"]) if not os.path.isabs(out["path"]) else out["path"]
                         for out in contract.outputs
                     ]
                     v_results_dicts = [r.to_dict() for r in v_results]
-                    from .quality_plan import QualityPlan, quality_plan_for_contract, validate_quality_plan
-                    from .quality_plane import run_quality_plane
+                    from orchestrator.quality_plan import QualityPlan, quality_plan_for_contract, validate_quality_plan
+                    from orchestrator.quality_plane import run_quality_plane
 
                     qp = None
                     if getattr(contract, "quality_plan", None):
@@ -960,7 +1079,7 @@ class Supervisor:
                     self.metrics_coll.end_phase("qc", task_id)
                     print(
                         f"[supervisor] QC for {task_id}: {verdict.status} score={verdict.score:.2f}"
-                        f" issues={len(verdict.issues)} — {verdict.reason}",
+                        f" issues={len(verdict.issues)} â€” {verdict.reason}",
                         file=sys.stderr,
                     )
 
@@ -978,6 +1097,7 @@ class Supervisor:
                             self._safe_save(state, state_file)
                             break
                         state.transition("QC_PASSED", reason=verdict.reason)
+                        self._emit("contract.qc_passed", goal_id=self.goal.goal_id, task_id=task_id)
                         if state.data.get("worker_exit_nonzero"):
                             state.transition("DEGRADED_PASS", reason="QC passed with degraded worker exit")
                         else:
@@ -1028,6 +1148,34 @@ class Supervisor:
                     self.graph.update_status(task_id, "VERIFICATION_FAILED")
                     self._safe_save(state, state_file)
                     continue
+
+        # Sandbox resolution: fold isolated changes into the base branch only
+        # on overall PASS; discard them otherwise. Worktree errors never fail
+        # the task itself.
+        if sandbox_handle is not None:
+            if state.status in _SANDBOX_PASS_STATUSES:
+                try:
+                    merged = sandbox_manager.merge_on_pass(sandbox_handle)
+                except Exception as merge_exc:
+                    merged = False
+                    print(f"[worktree] merge error for {task_id}: {merge_exc}", file=sys.stderr)
+                if merged:
+                    print(f"[worktree] merged {task_id} into base branch", file=sys.stderr)
+                else:
+                    print(f"[worktree] merge declined for {task_id}; pruning sandbox", file=sys.stderr)
+                    try:
+                        sandbox_manager.prune_on_fail(sandbox_handle)
+                    except Exception as prune_exc:
+                        print(f"[worktree] prune error for {task_id}: {prune_exc}", file=sys.stderr)
+            else:
+                try:
+                    sandbox_manager.prune_on_fail(sandbox_handle)
+                except Exception as prune_exc:
+                    print(f"[worktree] prune error for {task_id}: {prune_exc}", file=sys.stderr)
+            self._sandbox_registry_pop(task_id)
+            sandbox_handle = None
+            sandbox_manager = None
+            exec_root = self.workspace_root
 
         # Clean up scratch_dir (helper artifacts) on terminal success
         if state.status in ("COMPLETE", "complete", "FORCE_COMPLETE", "DEGRADED_PASS"):
@@ -1141,134 +1289,13 @@ class Supervisor:
                     pass
         return True
 
-    def _save_plan(self):
-        """Persist plan.json to disk so graph statuses survive restarts."""
-        plan_path = os.path.join(self.run_dir, "plan.json")
-        try:
-            with open(plan_path, "w", encoding="utf-8") as f:
-                json.dump(self.plan.to_dict(), f, indent=2, ensure_ascii=False)
-        except OSError:
-            pass
-
-    def _recover_graph_from_state_files(self):
-        """Recover task statuses from state files for resumption after interruption.
-
-        On fresh start, all plan contracts are DRAFTED. After interruption, state files
-        contain actual statuses. This method syncs graph nodes from state files so the
-        supervisor can resume correctly (skips completed tasks, retries failed ones).
-        """
-        for task_id in self.graph.nodes:
-            state_path = self._state_path(task_id)
-            if os.path.isfile(state_path):
-                try:
-                    state = load_state(state_path, journal_dir=self._task_run_dir(task_id))
-                    actual_status = state.status
-                    # Orphan sweep (autonomy fix 2026-07-31): a WORKING task
-                    # whose lease owner is a different, now-dead supervisor pid
-                    # means the previous run crashed mid-work. Crash + requeue it
-                    # here so it becomes ready again (fix 3's execution-time
-                    # check would never fire — WORKING tasks aren't "ready").
-                    if actual_status == "WORKING":
-                        lease = state.data.get("worker_lease")
-                        lease_dead = (
-                            isinstance(lease, dict)
-                            and isinstance(lease.get("pid"), int)
-                            and lease["pid"] != os.getpid()
-                            and not _pid_alive(lease["pid"])
-                        )
-                        if lease_dead:
-                            state.transition("CRASHED", reason="recovered: orphaned WORKING (lease owner dead)")
-                            state.patch_data({"crash_reason": "recovered: orphaned WORKING (lease owner dead)"})
-                            self._safe_save(state, state_path)
-                            actual_status = "CRASHED"
-                    self.graph.update_status(task_id, actual_status)
-                    self.results[task_id] = {"status": actual_status}
-                except (
-                    OSError,
-                    json.JSONDecodeError,
-                    ValueError,
-                    KeyError,
-                    StateError,
-                    AttributeError,
-                    RuntimeError,
-                ) as e:
-                    print(f"[supervisor] State load failed during graph recovery for {task_id}: {e}", file=sys.stderr)
-                    self.graph.update_status(task_id, "CRASHED")
-                    self.results[task_id] = {"status": "CRASHED"}
-
-    def _get_contract_for_task(self, task_id: str) -> Optional[Any]:
-        """Retrieve the Contract object for a task_id."""
-        c_info = next((c for c in self.plan.contracts if c.get("task_id") == task_id), None)
-        if not c_info:
-            return None
-        contract_path, _ = self._get_contract_path_and_dict(c_info)
-        if not contract_path or not os.path.isfile(contract_path):
-            c_dict = c_info.get("contract") or c_info
-            from .contract import Contract
-
-            try:
-                return Contract.from_dict(c_dict, workspace_root=self.workspace_root)
-            except (KeyError, ValueError, TypeError, AttributeError) as e:
-                print(f"[supervisor] Contract parsing error for {task_id}: {e}", file=sys.stderr)
-                return None
-        contract, _ = load_contract(contract_path, workspace_root=self.workspace_root)
-        return contract
-
-    def _escalate_stalled_nodes(self):
-        """ESCALATE non-terminal nodes after a no-progress iteration and write
-        impossibility artifacts — an unattended run must always end in a
-        terminal, auditable state (autonomy fix 2026-07-31)."""
-        from .state import load_state
-
-        terminal = (
-            "COMPLETE",
-            "complete",
-            "DEGRADED_PASS",
-            "FORCE_COMPLETE",
-            "ESCALATED",
-            "BLOCKED",
-            "CANCELLED",
-            "FAILED",
-            "failed",
-        )
-        for task_id, node in list(self.graph.nodes.items()):
-            if node.get("status", "") in terminal:
-                continue
-            state_file = self._state_path(task_id)
-            if not os.path.isfile(state_file):
-                continue
-            try:
-                state = load_state(state_file, journal_dir=self._task_run_dir(task_id))
-            except (OSError, json.JSONDecodeError, ValueError, KeyError):
-                continue
-            reason = "stall: no progress in supervision loop"
-            try:
-                state.transition("ESCALATED", reason=reason)
-            except IllegalTransitionError:
-                try:
-                    state.transition("CRASHED", reason=reason)
-                except IllegalTransitionError:
-                    # Legal-transition dead end (e.g. READY/DRAFTED) — privileged
-                    # escalation so the run still ends in a terminal, auditable state.
-                    state.force_escalate(reason=reason)
-            contract = self._get_contract_for_task(task_id)
-            if contract is not None:
-                try:
-                    imp.write_impossibility(
-                        contract=contract,
-                        state=state,
-                        goal_id=self.goal.goal_id,
-                        workspace_root=self.workspace_root,
-                    )
-                except (OSError, ValueError, KeyError, AttributeError):
-                    pass
-            self._safe_save(state, state_file)
-            self.graph.update_status(task_id, "ESCALATED")
-            with self._shared_lock:
-                self.results[task_id] = {"status": "ESCALATED"}
-
     def execute_plan(self, force: Optional[bool] = None) -> Dict[str, str]:
         """Execute plan under the goal lock (safe for direct CLI entry)."""
+        try:
+            dv.raise_if_invalid(self.plan.contracts)
+        except DagValidationError as e:
+            print(f"[supervisor] INVALID DAG: {e}", file=sys.stderr)
+            raise
         force_lock = force if force is not None else getattr(self, "force", False)
         try:
             lk.acquire_lock(self.goal.goal_id, self.run_dir, force=force_lock)
@@ -1276,11 +1303,26 @@ class Supervisor:
             print(f"[supervisor] LOCK HELD: {e}", file=sys.stderr)
             self.goal.status = "FAILED"
             return {}
+        self._emit("goal.started", goal_id=self.goal.goal_id)
+        results: Dict[str, str] = {}
         try:
-            return self._execute_plan()
+            results = self._execute_plan()
+            return results
         finally:
             lk.release_lock(self.run_dir)
             print(f"[supervisor] lock released for {self.goal.goal_id}", file=sys.stderr)
+            try:
+                completed = sum(
+                    1 for s in results.values() if str(s).upper() in ("COMPLETE", "DEGRADED_PASS", "FORCE_COMPLETE")
+                )
+                self._emit(
+                    "goal.completed",
+                    goal_id=self.goal.goal_id,
+                    completed=completed,
+                    failed=len(results) - completed,
+                )
+            except Exception:
+                pass
 
     def _execute_plan(self) -> Dict[str, str]:
         """Execute all contracts in plan according to dependency order.
@@ -1341,7 +1383,7 @@ class Supervisor:
                 if not progress_made:
                     # Stall-escalation (2026-07-31): no task advanced this
                     # iteration. Do not exit leaving non-terminal nodes without
-                    # a decisive outcome — escalate them with impossibility
+                    # a decisive outcome â€” escalate them with impossibility
                     # artifacts so an unattended run always ends in a terminal,
                     # auditable state.
                     self._escalate_stalled_nodes()
@@ -1377,7 +1419,7 @@ class Supervisor:
         )
 
         # AUT-004: a goal whose contracts all completed must be COMPLETE even
-        # if the wall-clock limit was breached AFTER the final batch — the
+        # if the wall-clock limit was breached AFTER the final batch â€” the
         # completion result wins over the limit signal.
         if all_completed:
             self.goal.status = "COMPLETE"
@@ -1452,6 +1494,7 @@ class Supervisor:
                         self._safe_save(state, state_file)
                         self.graph.update_status(task_id, "ESCALATED")
                         res[task_id] = "ESCALATED"
+                        self._record_terminal(task_id, "ESCALATED")
                         audit_mod.record_action(
                             self.run_dir,
                             "failsafe_escalation",
@@ -1471,6 +1514,7 @@ class Supervisor:
                             workspace_root=self.workspace_root,
                             failure_class=fclass,
                         )
+                        self._emit("impossibility.generated", goal_id=self.goal.goal_id, task_id=task_id)
                         fb_rec = fb.collect_feedback(task_id, self.goal.goal_id, state)
                         if fb_rec:
                             fb.store_feedback(self.goal.goal_id, self.run_dir, [fb_rec])
@@ -1485,6 +1529,8 @@ class Supervisor:
                         self._safe_save(state, state_file)
                         self.graph.update_status(task_id, "ESCALATED")
                         res[task_id] = "ESCALATED"
+                        self._record_terminal(task_id, "ESCALATED")
+                        self.metrics_coll.record_three_strike_escalation()
                         imp.write_impossibility(
                             contract,
                             state,
@@ -1492,6 +1538,7 @@ class Supervisor:
                             workspace_root=self.workspace_root,
                             failure_class=fclass,
                         )
+                        self._emit("impossibility.generated", goal_id=self.goal.goal_id, task_id=task_id)
                         fb_rec = fb.collect_feedback(task_id, self.goal.goal_id, state)
                         if fb_rec:
                             fb.store_feedback(self.goal.goal_id, self.run_dir, [fb_rec])
@@ -1501,7 +1548,8 @@ class Supervisor:
                         if not require_divergent_retry(state, changed_approach):
                             state.force_escalate(reason="non-divergent retry approach")
                             res[task_id] = "ESCALATED"
-                            print(f"[supervisor] {task_id} ESCALATED — non-divergent retry approach", file=sys.stderr)
+                            self._record_terminal(task_id, "ESCALATED")
+                            print(f"[supervisor] {task_id} ESCALATED â€” non-divergent retry approach", file=sys.stderr)
                             imp.write_impossibility(
                                 contract,
                                 state,
@@ -1509,6 +1557,7 @@ class Supervisor:
                                 workspace_root=self.workspace_root,
                                 failure_class=fclass,
                             )
+                            self._emit("impossibility.generated", goal_id=self.goal.goal_id, task_id=task_id)
                             continue
                         state.record_approach(changed_approach)
                     state.transition("RETRY_PENDING", reason="supervisor retrying contract")
@@ -1540,7 +1589,7 @@ class Supervisor:
 
     def adaptively_replan(self) -> Optional[Plan]:
         """Invoke evidence-aware replanner to split or adjust failed tasks."""
-        from . import replanner as rep_mod
+        from orchestrator import replanner as rep_mod
 
         try:
             results = dict(self.results)
@@ -1558,87 +1607,6 @@ class Supervisor:
         except (ValueError, KeyError, OSError, json.JSONDecodeError, TypeError) as e:
             print(f"[supervisor] Replanning error: {e}", file=sys.stderr)
         return None
-
-    def resume_plan(self) -> Dict[str, str]:
-        """Resume a partially executed plan from persistent state.
-
-        Loads existing state from disk, reconstructs graph statuses,
-        rehydrates evidence store, then continues execution of remaining
-        tasks. Idempotent — safe to call on fully-complete plans.
-        """
-        try:
-            lk.acquire_lock(self.goal.goal_id, self.run_dir)
-        except lk.LockHeldError as e:
-            print(f"[supervisor] LOCK HELD: {e}", file=sys.stderr)
-            self.goal.status = "FAILED"
-            return {}
-        print(f"[supervisor] lock acquired for {self.goal.goal_id}", file=sys.stderr)
-
-        try:
-            print(f"[supervisor] resuming plan for goal {self.goal.goal_id}", file=sys.stderr)
-
-            # Reconstruct graph statuses and evidence_store from disk
-            for c_info in self.plan.contracts:
-                task_id = c_info["task_id"]
-                state_file = self._state_path(task_id)
-                if os.path.isfile(state_file):
-                    state = load_state(state_file)
-                    if state.status in ("PAUSED", "paused"):
-                        state.transition("READY", reason="resuming paused task")
-                        self._safe_save(state, state_file)
-                    self.graph.update_status(task_id, state.status)
-                    self.results[task_id] = {"status": state.status}
-
-                    # Rehydrate evidence_store from completed contracts
-                    if state.status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE"):
-                        contract_path, contract_dict = self._get_contract_path_and_dict(c_info)
-                        contract, _ = load_contract(contract_path, workspace_root=self.workspace_root)
-                        if contract:
-                            self.evidence_store[task_id] = [
-                                os.path.join(self.workspace_root, out["path"])
-                                if not os.path.isabs(out["path"])
-                                else out["path"]
-                                for out in contract.outputs
-                            ]
-
-            # Try ledger first, fall back to contract inspection
-            ledger = ev.load_ledger(self.run_dir)
-            if ledger:
-                self.evidence_store = ev.rebuild_evidence_store(ledger)
-
-            # Reconciliation gate — detect tampering / missing outputs before resume
-            report = rec.run_reconciliation(
-                self.goal.goal_id,
-                self.plan,
-                self.workspace_root,
-                self.run_dir,
-            )
-            if not report.passed:
-                print(
-                    f"[supervisor] RECONCILIATION ISSUES detected — {report.failed_tasks} problem(s)", file=sys.stderr
-                )
-                # Reset failed/tampered tasks to RETRY_PENDING or DRAFTED
-                for issue in report.issues:
-                    if issue.task_id in self.graph.nodes:
-                        self.graph.update_status(issue.task_id, "RETRY_PENDING")
-                        state_file = self._state_path(issue.task_id)
-                        if os.path.isfile(state_file):
-                            st = load_state(state_file)
-                            st.transition("RETRY_PENDING", reason=f"reconciliation failure: {issue.issue_type}")
-                            self._safe_save(st, state_file)
-                for iss in report.issues:
-                    print(f"  [{iss.issue_type}] {iss.task_id}: {iss.path or '(no path)'}", file=sys.stderr)
-            else:
-                print(
-                    f"[supervisor] reconciliation OK — {report.checked_tasks}/{report.total_tasks} tasks clean",
-                    file=sys.stderr,
-                )
-
-            self.goal.status = "EXECUTING"
-            return self._execute_plan()
-        finally:
-            lk.release_lock(self.run_dir)
-            print(f"[supervisor] lock released for {self.goal.goal_id}", file=sys.stderr)
 
     def pause_plan(self, reason: str = "operator pause") -> Dict[str, str]:
         """Pause all currently active (non-terminal, non-idle) tasks."""
@@ -1709,105 +1677,4 @@ class Supervisor:
             "contract_title": contract_dict.get("title", ""),
             "contract_objective": contract_dict.get("objective", ""),
             "task_dir": task_dir,
-        }
-
-    def _print_run_summary(self) -> None:
-        """Print a clear run summary with QC status per task."""
-        completed = sum(
-            1
-            for r in self.results.values()
-            if r.get("status") in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
-        )
-        failed = sum(
-            1
-            for r in self.results.values()
-            if r.get("status") in ("FAILED", "failed", "BLOCKED", "CRASHED", "ESCALATED")
-        )
-        total = len(self.results)
-        print(f"\n{'=' * 60}", file=sys.stderr)
-        print(f"  GOAL: {self.goal.goal_id}", file=sys.stderr)
-        print(f"  STATUS: {self.goal.status}", file=sys.stderr)
-        print(f"  CONTRACTS: {completed}/{total} completed, {failed}/{total} failed", file=sys.stderr)
-        print(f"{'=' * 60}", file=sys.stderr)
-        for tid, res in sorted(self.results.items()):
-            icon = "OK" if res.get("status") in ("COMPLETE", "complete", "DEGRADED_PASS") else "FAIL"
-            qc_requested = "no"
-            qc_executed = "no"
-            qc_verdict = "MISSING"
-            state_file = self._state_path(tid)
-            if os.path.isfile(state_file):
-                try:
-                    s = load_state(state_file)
-                    if s.qc_was_executed:
-                        qc_executed = "yes"
-                    if any("QC" in e.get("to", "") for e in s.events):
-                        qc_requested = "yes"
-                    if "qc_verdict" in s.evidence:
-                        vp = s.evidence["qc_verdict"]
-                        if os.path.isfile(vp):
-                            with open(vp, "r", encoding="utf-8") as _f:
-                                vd = json.load(_f)
-                            qc_verdict = vd.get("status", "MISSING")
-                except (OSError, json.JSONDecodeError, KeyError, AttributeError, ValueError, RuntimeError):
-                    pass
-            print(
-                f"  [{icon}] {tid}: {res.get('status', '?'):20s}  QC(req={qc_requested} exec={qc_executed} v={qc_verdict})",
-                file=sys.stderr,
-            )
-        print(f"{'=' * 60}\n", file=sys.stderr)
-
-    def aggregate_results(self) -> Dict[str, Any]:
-        """Collect all contract outputs, statuses, and evidence paths into a single dict."""
-        contract_summaries = {}
-        for c_info in self.plan.contracts:
-            task_id = c_info["task_id"]
-            state_file = self._state_path(task_id)
-            if os.path.isfile(state_file):
-                state = load_state(state_file)
-                contract_path, _ = self._get_contract_path_and_dict(c_info)
-                contract, _ = load_contract(contract_path, workspace_root=self.workspace_root)
-                outputs = [out["path"] for out in contract.outputs] if contract else []
-                contract_summaries[task_id] = {
-                    "status": state.status,
-                    "attempt": state.attempt,
-                    "evidence": state.evidence,
-                    "worker_results": state.worker_results,
-                    "outputs": outputs,
-                }
-                if (
-                    state.status in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
-                    and task_id not in self.evidence_store
-                    and contract
-                ):
-                    self.evidence_store[task_id] = [
-                        os.path.join(self.workspace_root, out["path"])
-                        if not os.path.isabs(out["path"])
-                        else out["path"]
-                        for out in contract.outputs
-                    ]
-            else:
-                contract_summaries[task_id] = {
-                    "status": c_info.get("status", "DRAFTED"),
-                    "attempt": 0,
-                    "evidence": {},
-                    "worker_results": [],
-                    "outputs": [],
-                }
-
-        completed_count = sum(
-            1
-            for s in contract_summaries.values()
-            if s["status"] in ("COMPLETE", "complete", "DEGRADED_PASS", "FORCE_COMPLETE")
-        )
-        return {
-            "goal_id": self.goal.goal_id,
-            "goal_title": self.goal.title,
-            "goal_status": self.goal.status,
-            "contracts": contract_summaries,
-            "evidence_store": {tid: paths for tid, paths in self.evidence_store.items()},
-            "summary": {
-                "total": len(self.plan.contracts),
-                "completed": completed_count,
-                "failed": len(self.plan.contracts) - completed_count,
-            },
         }
