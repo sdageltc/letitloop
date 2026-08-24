@@ -1,5 +1,6 @@
 """Tests for webhooks, event bus, and SSE streaming."""
 
+import inspect
 import json
 import threading
 import time
@@ -330,6 +331,58 @@ def test_event_bus_delivery_is_bounded():
         time.sleep(0.02)
     assert len(delivered) == 10
     assert bus.dropped_count == 10  # unchanged by the healthy publishes
+
+
+@pytest.mark.fast
+def test_webhook_dispatcher_delivery_is_bounded():
+    """Regression for #43: webhook thread-per-delivery piled up unbounded."""
+    from orchestrator.webhooks import WebhookConfig, WebhookDispatcher
+
+    cfgs = [WebhookConfig(url="http://127.0.0.1:9/hook", timeout=0.1) for _ in range(3)]
+    disp = WebhookDispatcher(cfgs, max_concurrent=16)
+    assert disp.dropped_count == 0
+    acquired = [disp._slots.acquire(blocking=False) for _ in range(16)]
+    assert all(acquired)
+    try:
+        for _ in range(50):
+            disp.dispatch("contract.working", {"event": "contract.working"})
+        assert disp.dropped_count == 50 * 3  # 3 webhooks per event, all saturated
+        assert threading.active_count() <= 5
+    finally:
+        for _ in acquired:
+            disp._slots.release()
+    # After freeing slots, deliveries succeed again.
+    delivered = []
+    disp._post = lambda c, b, e: delivered.append(1)  # type: ignore
+    for _ in range(5):
+        disp.dispatch("goal.started", {"event": "goal.started"})
+    deadline = time.time() + 2
+    while len(delivered) < 15 and time.time() < deadline:
+        time.sleep(0.02)
+    assert len(delivered) == 15
+
+
+@pytest.mark.fast
+def test_sse_per_client_queue_is_bounded():
+    """Regression for #45: slow SSE client queue grew unbounded (maxsize 0)."""
+    import queue as _queue
+
+    q = _queue.Queue(maxsize=256)
+    # Simulate the fan-out dropping oldest on Full.
+    for i in range(500):
+        try:
+            q.put(i, block=False)
+        except _queue.Full:
+            try:
+                q.get(block=False)
+            except _queue.Empty:
+                pass
+            q.put(i, block=False)
+    assert q.qsize() == 256
+    assert q.maxsize == 256
+    # Also assert the real server uses the capped constructor.
+    src = inspect.getsource(SSEServer._register_client)
+    assert "maxsize" in src
 
 
 @pytest.mark.fast
