@@ -104,26 +104,41 @@ def build_implementer_prompt(
         )
         parts.append("")
 
+    def _truncate_feedback(fb: str, max_chars: int = 600) -> str:
+        if not fb or len(fb) <= max_chars:
+            return fb
+        head = fb[: max_chars // 2]
+        tail = fb[-max_chars // 2 :]
+        return f"{head}\n... [truncated] ...\n{tail}"
+
     if critic_feedback:
         parts.append("CRITIC FEEDBACK FROM LAST TURN:")
-        parts.append(f"  {critic_feedback}")
+        parts.append(f"  {_truncate_feedback(critic_feedback)}")
         parts.append("")
 
     if verifier_feedback:
         parts.append("VERIFIER FEEDBACK FROM LAST TURN:")
-        parts.append(f"  {verifier_feedback}")
+        parts.append(f"  {_truncate_feedback(verifier_feedback)}")
         parts.append("")
 
     parts.extend(
         [
             f"SUPERVISOR ATTEMPT {supervisor_attempt}; TURN {current_turn} of {max_turns}.",
             "",
-            "OUTPUT SCHEMA:",
+            "OUTPUT SCHEMA (Search/Replace Delta Blocks):",
+            "To edit existing code, return ONLY Search/Replace delta blocks:",
+            "<<<<<<< SEARCH",
+            "[exact lines from original file to replace]",
+            "=======",
+            "[new replacement lines]",
+            ">>>>>>> REPLACE",
+            "",
+            "Alternatively, for brand-new files only, return JSON:",
             "[",
-            '  {"path": "relative/path.ext", "content": "complete file content"},',
+            '  {"path": "relative/path.ext", "content": "complete file content"}',
             "]",
             "",
-            "Return ONLY valid JSON in the above format. No markdown. No commentary.",
+            "Return ONLY the requested output format. No markdown commentary outside fences.",
             "",
             "[CONTEXT_COMPLETE]",
         ]
