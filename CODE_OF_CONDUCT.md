@@ -59,8 +59,8 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-[oguzhankayanbusiness@gmail.com](mailto:oguzhankayanbusiness@gmail.com).
+reported to the project maintainer via LinkedIn at
+[https://www.linkedin.com/in/oguzhankayan/](https://www.linkedin.com/in/oguzhankayan/).
 
 All complaints will be reviewed and investigated promptly and fairly.
 

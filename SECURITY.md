@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within letitloop, please report it via [GitHub Security Advisories](https://github.com/sdageltc/letitloop/security/advisories) or email **oguzhankayanbusiness@gmail.com**. All security vulnerabilities will be promptly addressed.
+If you discover a security vulnerability within letitloop, please report it via [GitHub Security Advisories](https://github.com/sdageltc/letitloop/security/advisories) or reach out directly on LinkedIn at [https://www.linkedin.com/in/oguzhankayan/](https://www.linkedin.com/in/oguzhankayan/). All security vulnerabilities will be promptly addressed.
 
 Please include the following information in your report:
 
@@ -110,7 +110,7 @@ if not report.passed:
 For security-related inquiries, please contact:
 
 - GitHub Security Advisories: https://github.com/sdageltc/letitloop/security/advisories
-- Email: oguzhankayanbusiness@gmail.com
+- LinkedIn: https://www.linkedin.com/in/oguzhankayan/
 
 ## Acknowledgments
 
