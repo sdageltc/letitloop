@@ -161,7 +161,6 @@ Following the Michael Nygard ADR convention, all core design invariants and arch
 | [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md) | **Deterministic AST, Regex & Exit-Code Verification Gates** | `accepted` |
 | [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md) | **Zero-API-Key Headless Agent CLI Wrapper Failovers** | `accepted` |
 | [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md) | **Format-Aware Acceptance Check & Markdown Injection** | `accepted` |
-| [**ADR-0008**](docs/adr/0008-scope-freeze-and-sunset-criteria.md) | **Scope Freeze, Tripartite Spinoff & Sunset Criteria** | `accepted` |
 
 ---
 
