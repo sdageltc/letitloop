@@ -45,6 +45,15 @@
         },
         "method": {
           "const": "tools/list"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "cursor": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -323,4 +332,3 @@
     }
   ]
 }
-

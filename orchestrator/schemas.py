@@ -197,7 +197,15 @@ def mcp_schema() -> dict[str, Any]:
             },
             {
                 "type": "object",
-                "properties": {**base, "method": {"const": "tools/list"}},
+                "properties": {
+                    **base,
+                    "method": {"const": "tools/list"},
+                    "params": {
+                        "type": "object",
+                        "properties": {"cursor": {"type": "string"}},
+                        "additionalProperties": False,
+                    },
+                },
                 "required": ["jsonrpc", "id", "method"],
                 "additionalProperties": False,
             },
