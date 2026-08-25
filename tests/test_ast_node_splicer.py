@@ -48,3 +48,22 @@ def test_splice_rejects_signature_drift_and_type_mutations():
     bad_default = "def target_func(x: int, flag: bool) -> int:\n    return x\n"
     with pytest.raises(ValueError, match="Signature drift detected"):
         splice_ast_function(source, "target_func", bad_default, enforce_strict_signature=True)
+
+def test_splice_class_method_preserves_class_indentation():
+    source = """class MyService:
+    def __init__(self):
+        self.count = 0
+
+    def compute(self, a: int, b: int) -> int:
+        # Original compute
+        return a + b
+"""
+    new_method = """def compute(self, a: int, b: int) -> int:
+    # Optimized compute
+    return (a + b) * 2"""
+
+    spliced = splice_ast_function(source, "compute", new_method, enforce_strict_signature=True)
+    
+    assert "    def compute(self, a: int, b: int) -> int:" in spliced
+    assert "        return (a + b) * 2" in spliced
+    assert "class MyService:" in spliced

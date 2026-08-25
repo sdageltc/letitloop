@@ -70,8 +70,28 @@ def splice_ast_function(
     start_line = start_lineno - 1
     end_line = orig_node.end_lineno
     
+    # Calculate original indentation prefix
+    orig_start_line = source_lines[start_line]
+    indent_len = len(orig_start_line) - len(orig_start_line.lstrip())
+    indent_prefix = orig_start_line[:indent_len]
+
+    # Format replacement code with matching base indentation
+    rep_lines = replacement_code.strip().splitlines()
+    if rep_lines:
+        rep_base_indent = len(rep_lines[0]) - len(rep_lines[0].lstrip())
+        formatted_lines = []
+        for line in rep_lines:
+            if line.strip():
+                # If replacement line is less indented than base, align it
+                stripped = line[rep_base_indent:] if line.startswith(" " * rep_base_indent) else line.lstrip()
+                formatted_lines.append(indent_prefix + stripped + "\n")
+            else:
+                formatted_lines.append("\n")
+        rep_formatted = "".join(formatted_lines)
+    else:
+        rep_formatted = "\n"
+
     before = source_lines[:start_line]
     after = source_lines[end_line:]
-    rep_formatted = replacement_code.strip() + "\n"
     
     return "".join(before) + rep_formatted + "".join(after)

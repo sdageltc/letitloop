@@ -32,3 +32,5 @@ ENV/
 *.wal.jsonl
 .DS_Store
 Thumbs.db
+
+*.metadata.json
