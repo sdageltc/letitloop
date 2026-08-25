@@ -71,6 +71,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.21",
+    "pytest-xdist>=3.0",
     "jsonschema>=4.0.0",
     "ruff>=0.1.0",
     "bandit>=1.7.5",
@@ -111,7 +112,7 @@ orchestrator = ["*.md"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra --strict-markers --tb=short"
+addopts = "-ra --strict-markers --tb=short -n auto --dist=loadscope -p no:benchmark -p no:opik -p no:langflow_sdk -p no:langsmith -p no:typeguard"
 testpaths = ["tests"]
 markers = [
     "fast: Pure logic tests, no live worker or subprocess",

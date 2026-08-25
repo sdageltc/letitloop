@@ -101,10 +101,22 @@ class TestCliIntegration:
     @pytest.mark.fast
     @pytest.mark.integration
     @pytest.mark.proof
+    @pytest.mark.fast
+    @pytest.mark.integration
+    @pytest.mark.proof
     @REQUIRES_PROVIDER
     def test_happy_path(self, tmp_path):
         tid = "cli-happy"
-        c = dict(BASE_CONTRACT, task_id=tid, objective="Write scratch/test_cli/output.txt with content ok")
+        out_path = f"scratch/test_cli/output_{tid}.txt"
+        c = dict(
+            BASE_CONTRACT,
+            task_id=tid,
+            objective=f"Write {out_path} with content ok",
+            outputs=[{"path": out_path}],
+            acceptance_checks=[
+                {"id": "output_exists", "kind": "file_exists", "path": out_path, "expected": True},
+            ],
+        )
         rel = _write_contract(c, f"{tid}.json")
 
         _run_cli(tmp_path, "create", rel)
@@ -114,7 +126,10 @@ class TestCliIntegration:
         _run_cli(tmp_path, "work", tid, timeout=180)
 
         # manually create the expected output for verification
-        _make_output_file(tid)
+        out_dir = os.path.join(PROJECT_ROOT, "scratch", "test_cli")
+        os.makedirs(out_dir, exist_ok=True)
+        with open(os.path.join(out_dir, f"output_{tid}.txt"), "w") as f:
+            f.write("ok")
 
         _run_cli(tmp_path, "verify", tid)
 
@@ -131,17 +146,18 @@ class TestCliIntegration:
         # retry — no real API key required, fully reproducible.
         monkeypatch.setenv("FAKE_WORKER", "RETRY")
         tid = "cli-repair"
+        out_path = f"scratch/test_cli/output_{tid}.txt"
         c = dict(
             BASE_CONTRACT,
             task_id=tid,
-            objective="Write scratch/test_cli/output.txt containing exactly '42'",
-            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            objective=f"Write {out_path} containing exactly '42'",
+            outputs=[{"path": out_path}],
             acceptance_checks=[
-                {"id": "c1", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {"id": "c1", "kind": "file_exists", "path": out_path, "expected": True},
                 {
                     "id": "c2",
                     "kind": "content_exact",
-                    "path": "scratch/test_cli/output.txt",
+                    "path": out_path,
                     "expected": "FAKE_WORKER_OUTPUT",
                 },
             ],
@@ -155,7 +171,7 @@ class TestCliIntegration:
         # corrupt output: write wrong content
         out_dir = os.path.join(PROJECT_ROOT, "scratch", "test_cli")
         os.makedirs(out_dir, exist_ok=True)
-        with open(os.path.join(out_dir, "output.txt"), "w") as f:
+        with open(os.path.join(out_dir, f"output_{tid}.txt"), "w") as f:
             f.write("wrong")
 
         r = _run_cli(tmp_path, "verify", tid, expect_fail=True)
@@ -179,18 +195,19 @@ class TestCliIntegration:
     @REQUIRES_PROVIDER
     def test_escalation(self, tmp_path):
         tid = "cli-escalation"
+        out_path = f"scratch/test_cli/output_{tid}.txt"
         c = dict(
             BASE_CONTRACT,
             task_id=tid,
-            objective="write output.txt containing 'IMPOSSIBLE'",
+            objective=f"write {out_path} containing 'IMPOSSIBLE'",
             worker={"model": MODEL, "max_attempts": 1},
-            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            outputs=[{"path": out_path}],
             acceptance_checks=[
-                {"id": "c1", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {"id": "c1", "kind": "file_exists", "path": out_path, "expected": True},
                 {
                     "id": "c2",
                     "kind": "content_exact",
-                    "path": "scratch/test_cli/output.txt",
+                    "path": out_path,
                     "expected": "THIS IS IMPOSSIBLE BY DESIGN",
                 },
             ],
@@ -204,7 +221,7 @@ class TestCliIntegration:
         # write wrong content so verify fails
         out_dir = os.path.join(PROJECT_ROOT, "scratch", "test_cli")
         os.makedirs(out_dir, exist_ok=True)
-        with open(os.path.join(out_dir, "output.txt"), "w") as f:
+        with open(os.path.join(out_dir, f"output_{tid}.txt"), "w") as f:
             f.write("not-expected")
 
         r = _run_cli(tmp_path, "verify", tid, expect_fail=True)
@@ -333,17 +350,19 @@ class TestFakeWorker:
     def test_fake_worker_happy(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "1")
         tid = "fake-happy"
+        out_path = f"scratch/test_cli/output_{tid}.txt"
+        _remove_output_file(tid)
         c = dict(
             BASE_CONTRACT,
             task_id=tid,
-            objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
-            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            objective=f"Write {out_path} with content FAKE_WORKER_OUTPUT",
+            outputs=[{"path": out_path}],
             acceptance_checks=[
-                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {"id": "exists", "kind": "file_exists", "path": out_path, "expected": True},
                 {
                     "id": "content",
                     "kind": "content_exact",
-                    "path": "scratch/test_cli/output.txt",
+                    "path": out_path,
                     "expected": "FAKE_WORKER_OUTPUT",
                 },
             ],
@@ -362,17 +381,19 @@ class TestFakeWorker:
     def test_fake_worker_repair(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "RETRY")
         tid = "fake-repair"
+        out_path = f"scratch/test_cli/output_{tid}.txt"
+        _remove_output_file(tid)
         c = dict(
             BASE_CONTRACT,
             task_id=tid,
-            objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
-            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            objective=f"Write {out_path} with content FAKE_WORKER_OUTPUT",
+            outputs=[{"path": out_path}],
             acceptance_checks=[
-                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {"id": "exists", "kind": "file_exists", "path": out_path, "expected": True},
                 {
                     "id": "content",
                     "kind": "content_exact",
-                    "path": "scratch/test_cli/output.txt",
+                    "path": out_path,
                     "expected": "FAKE_WORKER_OUTPUT",
                 },
             ],
@@ -396,18 +417,20 @@ class TestFakeWorker:
     def test_fake_worker_escalation(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "FAIL")
         tid = "fake-escalation"
+        out_path = f"scratch/test_cli/output_{tid}.txt"
+        _remove_output_file(tid)
         c = dict(
             BASE_CONTRACT,
             task_id=tid,
-            objective="Write scratch/test_cli/output.txt with content FAKE_WORKER_OUTPUT",
+            objective=f"Write {out_path} with content FAKE_WORKER_OUTPUT",
             worker={"model": MODEL, "max_attempts": 1},
-            outputs=[{"path": "scratch/test_cli/output.txt"}],
+            outputs=[{"path": out_path}],
             acceptance_checks=[
-                {"id": "exists", "kind": "file_exists", "path": "scratch/test_cli/output.txt", "expected": True},
+                {"id": "exists", "kind": "file_exists", "path": out_path, "expected": True},
                 {
                     "id": "content",
                     "kind": "content_exact",
-                    "path": "scratch/test_cli/output.txt",
+                    "path": out_path,
                     "expected": "FAKE_WORKER_OUTPUT",
                 },
             ],

@@ -783,8 +783,11 @@ def _load_goal(goal_id_or_path):
         goal_id_or_path,
         os.path.join(WORKSPACE_ROOT, goal_id_or_path),
         os.path.join(_run_dir(goal_id_or_path), "goal.json"),
+        os.path.join(DEFAULT_RUN_DIR, goal_id_or_path, "goal.json"),
+        os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs", goal_id_or_path, "goal.json"),
         os.path.join(WORKSPACE_ROOT, "orchestrator", "fixtures", f"{goal_id_or_path}.json"),
         os.path.join(WORKSPACE_ROOT, "orchestrator", "fixtures", goal_id_or_path),
+        os.path.join(WORKSPACE_ROOT, "orchestrator", "fixtures", "generated", f"{goal_id_or_path}.json"),
     ]
     for cand in candidates:
         if os.path.isfile(cand):
@@ -1698,6 +1701,8 @@ def cmd_heal(args):
         max_iterations=max_iters,
         run_ruff=not no_ruff,
         run_pytest=not no_pytest,
+        target_file=getattr(args, "target", None),
+        fast_only=getattr(args, "fast", False),
     )
     test_args = getattr(args, "test_args", None)
     result = healer.heal(test_args=test_args.split() if test_args else None)
@@ -1968,6 +1973,10 @@ def main():
     p_heal.add_argument("--no-ruff", action="store_true", help="Skip ruff linting")
     p_heal.add_argument("--no-pytest", action="store_true", help="Skip pytest test execution")
     p_heal.add_argument("--test-args", help="Arguments to pass to pytest (e.g. 'tests/test_cli.py -q')")
+    p_heal.add_argument(
+        "--target", help="Specific source file to target (e.g. 'orchestrator/state.py' auto-maps to test_state.py)"
+    )
+    p_heal.add_argument("--fast", action="store_true", help="Run only fast unit tests (-m fast)")
     p_heal.add_argument("--json", action="store_true", help="Output results in JSON format")
 
     p_watchdog = sub.add_parser("watchdog", help="Cloud CI Watchdog daemon triage for remote repository failures")

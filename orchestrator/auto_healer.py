@@ -3,8 +3,9 @@
 Provides:
 - AST repair and import normalization
 - Automated ruff lint and format execution
+- Smart target test file resolution for fast inner loops
 - Pytest test failure parsing and targeted repair passes
-- Local pre-push verification gates
+- Multi-core verification pre-push gates
 """
 
 from __future__ import annotations
@@ -41,17 +42,49 @@ class HealResult:
 class AutoHealer:
     """Deterministic, bounded self-repair engine for Python codebases."""
 
+    DEFAULT_PLUGIN_SUPPRESSIONS = [
+        "-p",
+        "no:opik",
+        "-p",
+        "no:langflow_sdk",
+        "-p",
+        "no:langsmith",
+        "-p",
+        "no:typeguard",
+    ]
+
     def __init__(
         self,
         workspace_dir: str | Path,
         max_iterations: int = 3,
         run_ruff: bool = True,
         run_pytest: bool = True,
+        target_file: Optional[str | Path] = None,
+        fast_only: bool = False,
     ):
         self.workspace_dir = Path(workspace_dir).resolve()
         self.max_iterations = max_iterations
         self.run_ruff = run_ruff
         self.run_pytest = run_pytest
+        self.target_file = Path(target_file) if target_file else None
+        self.fast_only = fast_only
+
+    def resolve_target_test_file(self) -> Optional[Path]:
+        """Map target source file to corresponding test file if it exists."""
+        if not self.target_file:
+            return None
+
+        target_name = self.target_file.stem
+        # e.g., orchestrator/state.py -> tests/test_state.py
+        candidate = self.workspace_dir / "tests" / f"test_{target_name}.py"
+        if candidate.is_file():
+            return candidate
+
+        # e.g., tests/test_state.py directly
+        if self.target_file.is_file() and "test_" in self.target_file.name:
+            return self.target_file.resolve()
+
+        return None
 
     def check_linter(self) -> tuple[int, str, str]:
         """Run ruff check on workspace."""
@@ -83,8 +116,23 @@ class AutoHealer:
         return res_fix.returncode, res_fix.stdout + "\n" + res_fmt.stdout, res_fix.stderr + "\n" + res_fmt.stderr
 
     def check_tests(self, test_args: Optional[List[str]] = None) -> tuple[int, str, str]:
-        """Run pytest on workspace."""
-        cmd = [sys.executable, "-m", "pytest"] + (test_args or ["-q"])
+        """Run targeted or full pytest on workspace with plugin suppression."""
+        args: List[str] = []
+
+        if test_args:
+            args.extend(test_args)
+        else:
+            mapped_test = self.resolve_target_test_file()
+            if mapped_test:
+                args.append(str(mapped_test.relative_to(self.workspace_dir)))
+                args.append("-q")
+            elif self.fast_only:
+                args.extend(["-m", "fast", "-q"])
+            else:
+                args.append("-q")
+
+        # Always inject telemetry suppression to prevent recursive coldstart latencies
+        cmd = [sys.executable, "-m", "pytest"] + args + self.DEFAULT_PLUGIN_SUPPRESSIONS
         res = subprocess.run(
             cmd,
             cwd=self.workspace_dir,
