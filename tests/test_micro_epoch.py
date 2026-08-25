@@ -3,9 +3,10 @@ tests/test_micro_epoch.py
 Unit tests for the Write-Ahead Log (WAL) Micro-Epoch Manager.
 """
 
-from pathlib import Path
-import tempfile
 import json
+import tempfile
+from pathlib import Path
+
 from orchestrator.micro_epoch import MicroEpochManager
 
 

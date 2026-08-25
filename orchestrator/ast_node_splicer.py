@@ -1,5 +1,6 @@
 import ast
-from typing import Dict, Any
+from typing import Any, Dict
+
 
 def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> Dict[str, Any]:
     args = func_node.args
@@ -9,7 +10,7 @@ def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFuncti
     kwonly_types = [ast.unparse(a.annotation) if a.annotation else None for a in args.kwonlyargs]
     decorators = [ast.unparse(d) for d in func_node.decorator_list]
     returns = ast.unparse(func_node.returns) if func_node.returns else None
-    
+
     return {
         "pos_args": pos_args,
         "pos_types": pos_types,
@@ -24,35 +25,33 @@ def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFuncti
         "is_async": isinstance(func_node, ast.AsyncFunctionDef),
     }
 
+
 def splice_ast_function(
-    source_code: str, 
-    target_name: str, 
-    replacement_code: str, 
-    enforce_strict_signature: bool = True
+    source_code: str, target_name: str, replacement_code: str, enforce_strict_signature: bool = True
 ) -> str:
     source_tree = ast.parse(source_code)
     replacement_tree = ast.parse(replacement_code)
-    
+
     # 1. Locate replacement node
     rep_node = None
     for node in ast.walk(replacement_tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
             rep_node = node
             break
-            
+
     if not rep_node:
         raise ValueError(f"Replacement code does not contain function definition for '{target_name}'")
-        
+
     # 2. Locate original node
     orig_node = None
     for node in ast.walk(source_tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
             orig_node = node
             break
-            
+
     if not orig_node:
         raise ValueError(f"Target function '{target_name}' was not found in source AST.")
-        
+
     # 3. Validate signature invariance
     if enforce_strict_signature:
         orig_sig = extract_comprehensive_signature(orig_node)
@@ -69,7 +68,7 @@ def splice_ast_function(
     source_lines = source_code.splitlines(keepends=True)
     start_line = start_lineno - 1
     end_line = orig_node.end_lineno
-    
+
     # Calculate original indentation prefix
     orig_start_line = source_lines[start_line]
     indent_len = len(orig_start_line) - len(orig_start_line.lstrip())
@@ -93,5 +92,5 @@ def splice_ast_function(
 
     before = source_lines[:start_line]
     after = source_lines[end_line:]
-    
+
     return "".join(before) + rep_formatted + "".join(after)

@@ -3,11 +3,12 @@ tests/test_live_evolution.py
 Integration tests for the unified LiveEvolutionEngine with mock LLM.
 """
 
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
-from orchestrator.live_evolution_engine import LiveEvolutionEngine
+
 from orchestrator.feasibility_gate import FeasibilityVerdict
+from orchestrator.live_evolution_engine import LiveEvolutionEngine
 
 
 def test_live_evolution_engine_cycle_success():
@@ -44,8 +45,13 @@ def process_value(x: int) -> int:
             requires_research=False,
         )
 
-        with patch("orchestrator.live_evolution_engine.CognitiveFeasibilityGate.deliberate", return_value=approved_feasibility), \
-             patch("orchestrator.live_evolution_engine.call_llm", return_value=mock_delta):
+        with (
+            patch(
+                "orchestrator.live_evolution_engine.CognitiveFeasibilityGate.deliberate",
+                return_value=approved_feasibility,
+            ),
+            patch("orchestrator.live_evolution_engine.call_llm", return_value=mock_delta),
+        ):
             res = engine.execute_live_optimization_cycle(
                 module_path="core.py",
                 optimization_goal="Double return value",
@@ -53,6 +59,4 @@ def process_value(x: int) -> int:
             )
             assert res["is_success"] is True
             assert "process_value" in res["diff_summary"]
-            assert (
-                "return x * 2" in mod_file.read_text(encoding="utf-8")
-            )  # Physical disk write-back
+            assert "return x * 2" in mod_file.read_text(encoding="utf-8")  # Physical disk write-back

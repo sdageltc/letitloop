@@ -10,9 +10,9 @@ from unittest.mock import patch
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 
-from orchestrator.research import AdaptiveResearchCoordinator
-from orchestrator.feasibility_gate import CognitiveFeasibilityGate, FeasibilityVerdict
+from orchestrator.feasibility_gate import FeasibilityVerdict
 from orchestrator.live_evolution_engine import LiveEvolutionEngine
+from orchestrator.research import AdaptiveResearchCoordinator
 from orchestrator.sensory_radar import SensoryRadar
 
 
@@ -57,7 +57,7 @@ def main():
         risk_score=0.95,
         requires_research=False,
     )
-    
+
     print("  Testing Deferral Gate (High Risk Protection)...")
     with patch("orchestrator.feasibility_gate.CognitiveFeasibilityGate.deliberate", return_value=deferred_verdict):
         deferred_res = engine.execute_live_optimization_cycle(

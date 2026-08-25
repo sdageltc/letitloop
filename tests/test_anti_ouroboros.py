@@ -3,7 +3,6 @@ tests/test_anti_ouroboros.py
 Unit tests for the Fail-Closed Anti-Ouroboros Gate.
 """
 
-import pytest
 from orchestrator.anti_ouroboros import AntiOuroborosGate
 
 

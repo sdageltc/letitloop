@@ -125,11 +125,14 @@ def parse_llm_artifacts(
 
     # Tier 0: Search/Replace Delta Blocks
     from .patch_applier import SearchReplacePatchParser
+
     sr_chunks = SearchReplacePatchParser.parse_chunks(text)
     if sr_chunks:
         if len(expected_paths) == 1:
             p = expected_paths[0]
-            _accept(ParsedArtifact(path=p, content=text, language=_detect_language(p), parser_tier="T0_SearchReplaceDelta"))
+            _accept(
+                ParsedArtifact(path=p, content=text, language=_detect_language(p), parser_tier="T0_SearchReplaceDelta")
+            )
             return ParseResult(ok=True, artifacts=artifacts, raw_length=raw_length)
 
     # Tier 1: JSON array

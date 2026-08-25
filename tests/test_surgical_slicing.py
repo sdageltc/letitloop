@@ -5,10 +5,9 @@ Unit tests for Neighborhood Context Extractor and AST Invariant Validator.
 
 import tempfile
 from pathlib import Path
-import pytest
-from orchestrator.surgical_extractor import SurgicalContextExtractor
-from orchestrator.ast_splicer import ASTInvariantValidator
 
+from orchestrator.ast_splicer import ASTInvariantValidator
+from orchestrator.surgical_extractor import SurgicalContextExtractor
 
 SAMPLE_MODULE = """
 import os
@@ -21,7 +20,7 @@ DEFAULT_TIMEOUT = 30.0
 @dataclass
 class EngineState:
     running: bool = False
-    
+
     @property
     def is_active(self) -> bool:
         return self.running
@@ -75,7 +74,9 @@ def test_ast_invariant_validator_success():
 
 def test_ast_invariant_validator_catches_param_change():
     original = SAMPLE_MODULE
-    modified = SAMPLE_MODULE.replace("def standalone_helper(a: int, b: int = 10", "def standalone_helper(a: int, c: int = 10")
+    modified = SAMPLE_MODULE.replace(
+        "def standalone_helper(a: int, b: int = 10", "def standalone_helper(a: int, c: int = 10"
+    )
     res = ASTInvariantValidator.validate(original, modified, "standalone_helper")
     assert res.valid is False
     assert any("Positional parameters altered" in v for v in res.violations)

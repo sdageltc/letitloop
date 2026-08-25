@@ -4,7 +4,8 @@ Unit tests for the Cognitive Feasibility Gate.
 """
 
 from unittest.mock import patch
-from orchestrator.feasibility_gate import CognitiveFeasibilityGate, FeasibilityVerdict
+
+from orchestrator.feasibility_gate import CognitiveFeasibilityGate
 
 
 def test_feasibility_gate_approves_reducible_hotspot():

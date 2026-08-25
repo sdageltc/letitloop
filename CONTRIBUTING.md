@@ -183,11 +183,12 @@ python -m pytest tests -k "worker"
 import pytest
 from orchestrator.worker import run_worker
 
+
 @pytest.mark.integration
 def test_worker_with_mock(monkeypatch):
     """Test worker with mocked LLM calls."""
     monkeypatch.setenv("FAKE_WORKER", "1")
-    
+
     result = run_worker(contract, workspace_root, run_dir)
     assert result["success"] is True
 ```

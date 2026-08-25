@@ -3,9 +3,10 @@ tests/test_sensory_radar.py
 Unit tests for SensoryRadar hotspot discovery and task generation.
 """
 
-from pathlib import Path
 import tempfile
-from orchestrator.sensory_radar import SensoryRadar, SensoryTask
+from pathlib import Path
+
+from orchestrator.sensory_radar import SensoryRadar
 
 
 def test_sensory_radar_scans_hotspots():

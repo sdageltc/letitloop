@@ -4,10 +4,11 @@ AST-driven Neighborhood Context Extractor.
 """
 
 from __future__ import annotations
+
 import ast
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -56,7 +57,9 @@ class SurgicalContextExtractor:
         return NeighborhoodContext(
             target_node_id=f"{file_path}::{target_symbol}",
             target_name=target_symbol,
-            target_type="method" if enclosing_class else ("async_function" if isinstance(target_node, ast.AsyncFunctionDef) else "function"),
+            target_type="method"
+            if enclosing_class
+            else ("async_function" if isinstance(target_node, ast.AsyncFunctionDef) else "function"),
             enclosing_class=enclosing_class.name if enclosing_class else None,
             start_line=start_line,
             end_line=end_line,

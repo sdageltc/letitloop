@@ -1,5 +1,7 @@
 import pytest
+
 from orchestrator.ast_node_splicer import splice_ast_function
+
 
 def test_comment_and_docstring_retention():
     source_code = '''# Header license comment
@@ -29,7 +31,7 @@ def calculate_metrics(a: int, b: int = 10) -> int:
 '''
 
     spliced = splice_ast_function(source_code, "calculate_metrics", replacement_code, enforce_strict_signature=True)
-    
+
     # Assert header comments remain
     assert "# Header license comment" in spliced
     assert "# Author: Oguzhan Kayan" in spliced
@@ -38,22 +40,25 @@ def calculate_metrics(a: int, b: int = 10) -> int:
     assert "# Pre-function comment" in spliced
     assert "# Post-function trailing comment" in spliced
     assert "result = (a * 2) + (b - a)" in spliced
-    assert "@pytest.mark.skip(reason=\"not ready\")" in spliced
+    assert '@pytest.mark.skip(reason="not ready")' in spliced
+
 
 def test_signature_drift_rejection():
-    source_code = '''
+    source_code = """
 def target_func(x: int, y: str = "default") -> bool:
     return True
-'''
+"""
     # Modifying default value or dropping argument
-    bad_replacement = '''
+    bad_replacement = """
 def target_func(x: int, y: str = "different") -> bool:
     return False
-'''
-    # If parameters change
-    bad_param_replacement = '''
+"""
+    with pytest.raises(ValueError, match="Signature drift detected"):
+        splice_ast_function(source_code, "target_func", bad_replacement, enforce_strict_signature=True)
+
+    bad_param_replacement = """
 def target_func(x: int, z: str = "default") -> bool:
     return False
-'''
+"""
     with pytest.raises(ValueError, match="Signature drift detected"):
         splice_ast_function(source_code, "target_func", bad_param_replacement, enforce_strict_signature=True)

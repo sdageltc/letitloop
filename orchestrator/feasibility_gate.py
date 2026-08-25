@@ -4,10 +4,10 @@ Cognitive Feasibility & Architectural Deliberation Gate.
 """
 
 from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
 
 from orchestrator.llm import call_llm
 

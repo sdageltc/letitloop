@@ -4,9 +4,10 @@ Fail-closed mutation novelty and complexity evaluator.
 """
 
 from __future__ import annotations
+
 import ast
-import difflib
 from dataclasses import dataclass
+
 from orchestrator.elasticity_governor import DynamicElasticityGovernor
 
 
@@ -33,7 +34,7 @@ class AntiOuroborosGate:
 
         try:
             orig_ast = ast.parse(original_code)
-        except SyntaxError as e:
+        except SyntaxError:
             return OuroborosVerdict(
                 is_approved=False,
                 reason="REJECT_ORIGINAL_SYNTAX_ERROR",
@@ -43,7 +44,7 @@ class AntiOuroborosGate:
 
         try:
             mod_ast = ast.parse(modified_code)
-        except SyntaxError as e:
+        except SyntaxError:
             return OuroborosVerdict(
                 is_approved=False,
                 reason="REJECT_SYNTAX_ERROR",

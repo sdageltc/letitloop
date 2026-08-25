@@ -1537,17 +1537,19 @@ def cmd_install_skill(args):
     print("========================================================")
     for name, path in installed:
         print(f"[OK] {name:<22} -> {path}")
+
+
 def cmd_bench(args):
     """Execute or inspect agent durability benchmarks (DCP-1.0)."""
     import subprocess
+
     framework = getattr(args, "framework", "letitloop")
     signal = getattr(args, "signal", "SIGKILL")
     print(f"Executing Durability Conformance Benchmark for '{framework}' (Signal: {signal})...")
-    
+
     try:
         res = subprocess.run(
-            [sys.executable, "-m", "harness.runner", "--framework", framework, "--signal", signal],
-            capture_output=False
+            [sys.executable, "-m", "harness.runner", "--framework", framework, "--signal", signal], capture_output=False
         )
         sys.exit(res.returncode)
     except Exception as e:
@@ -1830,7 +1832,9 @@ def main():
     p_bench.add_argument("--signal", default="SIGKILL", help="Fault signal to inject (default: SIGKILL)")
 
     p_action = sub.add_parser("action", help="Generate or inspect LetItLoop GitHub Action for Proof-Carrying CI")
-    p_action.add_argument("--init", action="store_true", help="Generate .github/workflows/letitloop-verify.yml workflow file")
+    p_action.add_argument(
+        "--init", action="store_true", help="Generate .github/workflows/letitloop-verify.yml workflow file"
+    )
 
     cmds = {
         "bench": cmd_bench,

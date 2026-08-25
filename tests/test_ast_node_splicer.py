@@ -1,6 +1,7 @@
-import ast
 import pytest
+
 from orchestrator.ast_node_splicer import splice_ast_function
+
 
 def test_splice_function_preserves_surrounding_comments_and_formatting():
     source = """# Global configuration constant
@@ -25,15 +26,16 @@ def another_helper():
     return x * 10"""
 
     spliced = splice_ast_function(source, "target_func", new_func_code, enforce_strict_signature=True)
-    
+
     assert "return x * 10" in spliced
     assert "# Global configuration constant" in spliced
     assert "# Important helper comment" in spliced
     assert "# Trailing file comment" in spliced
 
+
 def test_splice_rejects_signature_drift_and_type_mutations():
     source = "def target_func(x: int, flag: bool = True) -> int:\n    return x\n"
-    
+
     # 1. Parameter name change
     bad_name = "def target_func(y: int, flag: bool = True) -> int:\n    return y\n"
     with pytest.raises(ValueError, match="Signature drift detected"):
@@ -49,6 +51,7 @@ def test_splice_rejects_signature_drift_and_type_mutations():
     with pytest.raises(ValueError, match="Signature drift detected"):
         splice_ast_function(source, "target_func", bad_default, enforce_strict_signature=True)
 
+
 def test_splice_class_method_preserves_class_indentation():
     source = """class MyService:
     def __init__(self):
@@ -63,7 +66,7 @@ def test_splice_class_method_preserves_class_indentation():
     return (a + b) * 2"""
 
     spliced = splice_ast_function(source, "compute", new_method, enforce_strict_signature=True)
-    
+
     assert "    def compute(self, a: int, b: int) -> int:" in spliced
     assert "        return (a + b) * 2" in spliced
     assert "class MyService:" in spliced

@@ -4,6 +4,7 @@ Human-in-the-Loop (HITL) Architectural Proposal Ledger & Escalation Manager.
 """
 
 from __future__ import annotations
+
 import json
 import re
 import time
@@ -59,12 +60,12 @@ class ArchitecturalProposal:
 - **McCabe Complexity Score**: {self.complexity_score:.1f}
 - **Status**: `{self.status}`
 - **Risk Score**: {self.risk_score:.2f} ({self.deliberation_verdict})
-- **Created**: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.created_at))}
+- **Created**: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.created_at))}
 
 ---
 
 ## 1. Feasibility Deliberation & Protection Rationale
-> **Verdict**: `{self.deliberation_verdict}` (Risk Score: {self.risk_score:.2f})  
+> **Verdict**: `{self.deliberation_verdict}` (Risk Score: {self.risk_score:.2f})
 > **Rationale**: {self.rationale}
 
 ## 2. Recommended Refactoring Strategy
@@ -93,9 +94,7 @@ class ProposalLedger:
 
     def __init__(self, workspace_root: Path):
         self.workspace_root = workspace_root
-        self.proposals_dir = (
-            workspace_root / "scratch" / "evolution_state" / "proposals"
-        )
+        self.proposals_dir = workspace_root / "scratch" / "evolution_state" / "proposals"
         self.proposals_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -128,9 +127,7 @@ class ProposalLedger:
                             "title": getattr(item, "title", "Web Finding"),
                             "summary": getattr(item, "summary", ""),
                             "source_url": getattr(item, "source_url", ""),
-                            "provider_name": getattr(
-                                item, "provider_name", "Research"
-                            ),
+                            "provider_name": getattr(item, "provider_name", "Research"),
                         }
                     )
                 elif isinstance(item, dict):
@@ -162,9 +159,7 @@ class ProposalLedger:
         json_path = self.proposals_dir / f"{proposal.proposal_id}.json"
         md_path = self.proposals_dir / f"{proposal.proposal_id}.md"
 
-        json_path.write_text(
-            json.dumps(proposal.to_dict(), indent=2), encoding="utf-8"
-        )
+        json_path.write_text(json.dumps(proposal.to_dict(), indent=2), encoding="utf-8")
         md_path.write_text(proposal.to_markdown(), encoding="utf-8")
 
     def get_proposal(self, proposal_id: str) -> Optional[ArchitecturalProposal]:
@@ -177,9 +172,7 @@ class ProposalLedger:
         except Exception:
             return None
 
-    def list_proposals(
-        self, status_filter: Optional[str] = None
-    ) -> List[ArchitecturalProposal]:
+    def list_proposals(self, status_filter: Optional[str] = None) -> List[ArchitecturalProposal]:
         proposals: List[ArchitecturalProposal] = []
         for json_file in sorted(self.proposals_dir.glob("*.json")):
             try:
