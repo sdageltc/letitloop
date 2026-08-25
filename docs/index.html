@@ -395,13 +395,13 @@
       <a href="index.html" class="brand">
         <img src="assets/logo.png" alt="LetItLoop Logo" width="34" height="34" style="border-radius: 8px; object-fit: contain;" />
         <span>LetItLoop</span>
-        <span class="brand-badge">v0.2.0</span>
+        <span class="brand-badge">v0.3.0</span>
       </a>
       <div class="nav-links">
         <a href="#ecosystem" class="nav-link">Ecosystem</a>
         <a href="#code" class="nav-link">Quickstart</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link">Durability Bench</a>
-        <a href="https://sdageltc.github.io/letitloop-action/" class="nav-link">CI Action Gate</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link">Durability Bench (DCP-2.0)</a>
+        <a href="https://sdageltc.github.io/letitloop-action/" class="nav-link">CI Action Gate (v1.0.3)</a>
         <a href="https://pypi.org/project/letitloop/" target="_blank" class="nav-link" style="color: #60a5fa;">PyPI</a>
         <a href="https://github.com/sdageltc/letitloop" target="_blank" class="btn-nav-gh">⭐ GitHub</a>
       </div>
@@ -413,15 +413,15 @@
         <img src="assets/logo.png" alt="LetItLoop Brand Icon" width="80" height="80" style="border-radius: 16px; box-shadow: 0 0 35px rgba(56, 189, 248, 0.4); border: 1px solid rgba(56, 189, 248, 0.5);" />
       </div>
       <div class="hero-eyebrow">
-        <span>🛡️ Deterministic Verification Control Loop</span>
+        <span>🛡️ Deterministic Verification & Crash-Resilience Engine</span>
       </div>
       <h1>Self-Healing Macro-Tasks<br/>for AI Coding Agents</h1>
       <p>
-        Autonomous control loop solving the central AI failure modes: <strong>2ms Write-Ahead Log crash recovery</strong>, <strong>surgical AST node splicing with 0% comment loss</strong>, and <strong>cryptographic proof gates</strong>.
+        Zero-daemon crash resilience for Python: <strong>@durable decorator engine</strong>, <strong>2ms Write-Ahead Log recovery</strong>, and <strong>cryptographic proof verification gates</strong>.
       </p>
       <div class="hero-cta">
-        <a href="#code" class="btn-primary">Get Started in 60s →</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/" class="btn-secondary">View DCP-1.0 Leaderboard</a>
+        <a href="#code" class="btn-primary">10-Second Quickstart →</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="btn-secondary">View DCP-2.0 Leaderboard</a>
       </div>
       <div>
         <div class="install-box" onclick="copySnippet('pip install letitloop', this)">
@@ -535,15 +535,21 @@ jobs:
           test-command: 'pytest -q'</code></pre>
         </div>
         <div id="tab-python" class="tab-content">
-          <pre><code>from orchestrator.ast_node_splicer import splice_ast_function
+          <pre><code>from letitloop import durable, step, atomic_marker
 
-# Surgical method-level replacement with 0% comment loss
-clean_code = splice_ast_function(
-    source_code=file_content,
-    target_name="MyClass.process_event",
-    replacement_code=generated_snippet,
-    enforce_strict_signature=True
-)</code></pre>
+@durable(goal_id="customer_sync")
+def sync_pipeline(customer_id: str):
+    # Step outputs are automatically cached in append-only WAL
+    profile = step("fetch_profile", crm.get_customer, customer_id)
+    summary = step("generate_summary", llm.summarize, profile)
+    
+    # Side-effect markers prevent duplicate external execution on restart
+    with atomic_marker(f"notify_{customer_id}") as should_run:
+        if should_run:
+            step("send_alert", slack.post_message, summary)
+
+if __name__ == "__main__":
+    sync_pipeline("cust_9981")</code></pre>
         </div>
       </div>
     </section>
@@ -551,7 +557,7 @@ clean_code = splice_ast_function(
     <!-- Benchmark Comparison Table -->
     <section id="benchmarks">
       <div class="section-header">
-        <h2>Why Durability Bench (DCP-1.0)?</h2>
+        <h2>Why Durability Bench (DCP-2.0)?</h2>
         <p>Comparing operational crash resilience against single-shot industry benchmarks.</p>
       </div>
       <div class="table-wrapper">
