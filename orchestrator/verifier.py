@@ -10,7 +10,8 @@ import re
 import shlex
 import subprocess
 import sys
-from typing import Dict, Optional, Tuple
+from collections import OrderedDict
+from typing import Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
 
@@ -358,14 +359,21 @@ _SECRET_KEY_HEADER = re.compile(
 )
 
 
-_AST_CACHE: Dict[str, Tuple[bool, str]] = {}
+_AST_CACHE: "OrderedDict[str, Tuple[bool, str]]" = OrderedDict()
+_AST_CACHE_MAX = 2048
 
 
 def fast_ast_verify(source_code: str, filename: str = "") -> Tuple[bool, str]:
-    """Tier-0 in-memory AST syntax validation with sub-millisecond hash caching (<0.1ms)."""
+    """Tier-0 in-memory AST syntax validation with sub-millisecond hash caching (<0.1ms).
+
+    Bounded LRU: the oldest entry is evicted at capacity instead of clearing the
+    whole cache, so hot files stay cached across large verification batches.
+    """
     h = hashlib.sha256(source_code.encode("utf-8", errors="replace")).hexdigest()
-    if h in _AST_CACHE:
-        return _AST_CACHE[h]
+    cached = _AST_CACHE.get(h)
+    if cached is not None:
+        _AST_CACHE.move_to_end(h)
+        return cached
     try:
         ast.parse(source_code, filename=filename or "<memory>")
         res = (True, "Python syntax valid")
@@ -373,8 +381,8 @@ def fast_ast_verify(source_code: str, filename: str = "") -> Tuple[bool, str]:
         res = (False, f"Python SyntaxError line {e.lineno}: {e.msg}")
     except Exception as e:
         res = (False, f"AST parse failed: {e}")
-    if len(_AST_CACHE) > 2048:
-        _AST_CACHE.clear()
+    while len(_AST_CACHE) >= _AST_CACHE_MAX:
+        _AST_CACHE.popitem(last=False)
     _AST_CACHE[h] = res
     return res
 
