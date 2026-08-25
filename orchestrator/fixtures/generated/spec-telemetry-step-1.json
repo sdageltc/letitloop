@@ -1,0 +1,62 @@
+{
+  "task_id": "spec-telemetry-step-1",
+  "title": "Step 1: Inspect planner and TUI components for spec synthesis and telemetry hooks",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Analyze orchestrator/planner.py and orchestrator/tui.py to identify spec synthesis data structures, telemetry event dispatchers, and existing test coverage.",
+  "worker": {
+    "model": "gemini:gemini-3.7-flash",
+    "max_attempts": 2,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/spec_telemetry/step1_architecture_spec.json"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-step1-output",
+      "kind": "content_regex",
+      "path": "scratch/spec_telemetry/step1_architecture_spec.json",
+      "expected": "\"spec_synthesis\""
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "planner_analysis",
+      "tui_telemetry_analysis",
+      "test_plan"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "empty_spec",
+      "missing_event_schema"
+    ],
+    "minimum_score": 0.8
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "task_id": "self-evolution-checkpoint-rollback",
+  "title": "Step 3: Resilient Checkpoint Auto-Rollback in orchestrator/checkpoint.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement resilient auto-rollback logic in orchestrator/checkpoint.py to restore dirty workspace files and WAL state back to the last verified checkpoint if checks fail after max attempts.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/self_evolution/checkpoint_rollback.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-rollback-func",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/checkpoint_rollback.py",
+      "expected": "def auto_rollback\\("
+    },
+    {
+      "id": "check-wal-restore",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/checkpoint_rollback.py",
+      "expected": "restore_wal_state"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "CheckpointManager",
+      "auto_rollback",
+      "restore_wal_state",
+      "revert_dirty_files"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "unhandled_wal_corruption",
+      "missing_dirty_file_revert"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

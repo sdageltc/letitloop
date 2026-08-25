@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sdageltc/letitloop/raw/main/schemas/mcp.schema.json",
+  "title": "letitloop MCP stdio request",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "method": {
+          "const": "initialize"
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "method": {
+          "const": "tools/list"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "cursor": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "method": {
+          "const": "tools/call"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "properties": {
+                "name": {
+                  "const": "create_goal"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "goal_id": {
+                      "type": "string",
+                      "description": "Unique alphanumeric goal ID"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "High-level goal title"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Detailed goal specification"
+                    }
+                  },
+                  "required": [
+                    "goal_id",
+                    "title"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "load_contract_file"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "contract_path": {
+                      "type": "string",
+                      "description": "Relative or absolute path to contract JSON"
+                    }
+                  },
+                  "required": [
+                    "contract_path"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "run_contract_verification"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "contract_path": {
+                      "type": "string",
+                      "description": "Path to contract JSON file"
+                    },
+                    "task_id": {
+                      "type": "string",
+                      "description": "Optional task identifier"
+                    }
+                  },
+                  "required": [
+                    "contract_path"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "run_quality_review"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "contract_path": {
+                      "type": "string",
+                      "description": "Path to contract JSON"
+                    },
+                    "lens": {
+                      "type": "string",
+                      "description": "Quality lens to evaluate",
+                      "enum": [
+                        "code_correctness",
+                        "security_hardening",
+                        "documentation_clarity",
+                        "test_completeness"
+                      ],
+                      "default": "code_correctness"
+                    }
+                  },
+                  "required": [
+                    "contract_path"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "execute_supervisor_plan"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "goal_id": {
+                      "type": "string",
+                      "description": "Goal ID to execute"
+                    },
+                    "contracts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "List of contract dictionaries defining the DAG"
+                    },
+                    "parallel": {
+                      "type": "boolean",
+                      "description": "Enable parallel worker pool execution",
+                      "default": false
+                    },
+                    "max_workers": {
+                      "type": "integer",
+                      "description": "Maximum concurrent workers",
+                      "default": 2
+                    }
+                  },
+                  "required": [
+                    "goal_id",
+                    "contracts"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "inspect_task_state"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "task_id": {
+                      "type": "string",
+                      "description": "Task identifier to inspect"
+                    },
+                    "run_dir": {
+                      "type": "string",
+                      "description": "Optional custom run directory"
+                    }
+                  },
+                  "required": [
+                    "task_id"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "reconcile_workspace_state"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {
+                    "goal_id": {
+                      "type": "string",
+                      "description": "Goal ID to reconcile"
+                    },
+                    "contracts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "List of plan contract dicts"
+                    }
+                  },
+                  "required": [
+                    "goal_id",
+                    "contracts"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "properties": {
+                "name": {
+                  "const": "get_system_health"
+                },
+                "arguments": {
+                  "type": "object",
+                  "properties": {}
+                }
+              },
+              "required": [
+                "name",
+                "arguments"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

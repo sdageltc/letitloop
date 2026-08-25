@@ -1,0 +1,62 @@
+{
+  "task_id": "spec-telemetry-step-4",
+  "title": "Step 4: Execute test suite and verify spec synthesis and live telemetry",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Run full unit and integration tests verifying automated spec synthesis in planner.py and live telemetry updates in tui.py.",
+  "worker": {
+    "model": "gemini:gemini-3.7-flash",
+    "max_attempts": 2,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/spec_telemetry/step4_verification_report.json"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-step4-output",
+      "kind": "content_regex",
+      "path": "scratch/spec_telemetry/step4_verification_report.json",
+      "expected": "\"status\":\\s*\"(PASSED|passed|SUCCESS|success)\""
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "planner_tests",
+      "tui_tests",
+      "integration_summary"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "test_failure",
+      "incomplete_coverage"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

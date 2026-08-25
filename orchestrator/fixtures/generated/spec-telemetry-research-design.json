@@ -1,0 +1,64 @@
+{
+  "task_id": "spec-telemetry-research-design",
+  "title": "Step 1: Research and design spec synthesis and live telemetry architecture",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Analyze orchestrator/planner.py and orchestrator/tui.py interfaces to specify contract schemas for automated spec synthesis and telemetry stream rendering.",
+  "worker": {
+    "model": "gemini:gemini-3.7-flash",
+    "max_attempts": 2,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/spec_telemetry_design.md"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-design-doc-exists",
+      "kind": "content_regex",
+      "path": "scratch/spec_telemetry_design.md",
+      "expected": ".*Spec Synthesis.*Live Telemetry.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "Spec Synthesis Architecture",
+      "Live Telemetry Protocol",
+      "Interface Contracts",
+      "Verification Strategy"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.4,
+      "correctness": 0.4,
+      "feasibility": 0.2
+    },
+    "hard_failures": [
+      "missing_spec_synthesis_contract",
+      "missing_telemetry_stream_definition"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

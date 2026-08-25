@@ -1,0 +1,62 @@
+{
+  "task_id": "goal-orch-step-3",
+  "title": "Step 3: Implement live telemetry in tui.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement real-time telemetry streaming, metric counters, and status rendering in orchestrator/tui.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator_enhancements/tui_telemetry.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-3",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator_enhancements/tui_telemetry.py",
+      "expected": "telemetry|render_metrics|update_stream"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "telemetry_stream",
+      "ui_refresh_loop",
+      "metric_aggregators"
+    ],
+    "quality_dimensions": {
+      "correctness": 0.5,
+      "responsiveness": 0.5
+    },
+    "hard_failures": [
+      "blocking_render_loop",
+      "syntax_error"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

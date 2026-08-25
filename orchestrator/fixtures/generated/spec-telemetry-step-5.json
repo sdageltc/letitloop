@@ -1,0 +1,62 @@
+{
+  "task_id": "spec-telemetry-step-5",
+  "title": "Step 5: Full test execution and verification report",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Execute the test suite and verify test results, documenting empirical verification proof and test pass status.",
+  "worker": {
+    "model": "gemini:gemini-3.7-flash",
+    "max_attempts": 2,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/spec_telemetry/step5_verification_report.md"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-verification-report",
+      "kind": "content_regex",
+      "path": "scratch/spec_telemetry/step5_verification_report.md",
+      "expected": "(?s).*PASSED.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "Execution Summary",
+      "Test Results",
+      "Empirical Verification Proof"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.4,
+      "correctness": 0.6
+    },
+    "hard_failures": [
+      "Failing tests",
+      "Missing empirical execution logs"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

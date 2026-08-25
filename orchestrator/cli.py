@@ -29,6 +29,7 @@ from .handoff import build_handoff
 from .plan_preview import render_plan_preview, write_plan_preview
 from .preferences import apply_preferences_to_goal, collect_preferences
 from .preflight import run_preflight
+from .schemas import get_schema
 from .state import (
     IllegalTransitionError,
     create_initial_state,
@@ -69,9 +70,6 @@ def _version_string():
     if sha:
         return f"letitloop {version} ({sha})"
     return f"letitloop {version}"
-
-
-
 
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -1642,6 +1640,11 @@ jobs:
         print("  uses: sdageltc/letitloop-action@v1")
 
 
+def cmd_schema(args):
+    """Print bundled canonical JSON Schemas."""
+    _print_json(get_schema(args.kind))
+
+
 def main():
     global DEFAULT_RUN_DIR
     parser = argparse.ArgumentParser(
@@ -1883,7 +1886,16 @@ def main():
         "--init", action="store_true", help="Generate .github/workflows/letitloop-verify.yml workflow file"
     )
 
+    p_schema = sub.add_parser("schema", help="Print a bundled JSON Schema")
+    p_schema.add_argument(
+        "--kind",
+        choices=["contract", "goal", "mcp"],
+        default="contract",
+        help="Schema kind to output (default: contract)",
+    )
+
     cmds = {
+        "schema": cmd_schema,
         "bench": cmd_bench,
         "action": cmd_action,
         "create": cmd_create,

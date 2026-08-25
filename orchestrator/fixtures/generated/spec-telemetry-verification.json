@@ -1,0 +1,58 @@
+{
+  "task_id": "spec-telemetry-verification",
+  "title": "Step 4: Full test verification for spec synthesis and live telemetry",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Create and execute unit and integration test suite in scratch/test_spec_telemetry_verification.py validating end-to-end spec generation and live telemetry rendering.",
+  "worker": {
+    "model": "gemini:gemini-3.7-flash",
+    "max_attempts": 2,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/test_spec_telemetry_verification.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-verification-suite",
+      "kind": "content_regex",
+      "path": "scratch/test_spec_telemetry_verification.py",
+      "expected": "def test_.*spec_synthesis.*def test_.*telemetry.*"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "failing_tests",
+      "syntax_error"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "spec-telemetry-step-3",
+  "title": "Step 3: Implement live telemetry streaming in orchestrator/tui.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Integrate real-time telemetry streaming and state visualization updates into orchestrator/tui.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/spec_telemetry/step3_tui_impl.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-step3-output",
+      "kind": "content_regex",
+      "path": "scratch/spec_telemetry/step3_tui_impl.py",
+      "expected": "telemetry|render_telemetry"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "telemetry_handler",
+      "ui_rendering",
+      "event_listener"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.4,
+      "correctness": 0.6
+    },
+    "hard_failures": [
+      "syntax_error",
+      "blocking_render_loop"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

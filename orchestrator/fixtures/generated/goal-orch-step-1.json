@@ -1,0 +1,63 @@
+{
+  "task_id": "goal-orch-step-1",
+  "title": "Step 1: Inspect orchestrator components and test environment",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Analyze current implementations of planner.py, tui.py, checkpoint.py, and existing test suites to establish integration interfaces and constraints.",
+  "worker": {
+    "model": "openai:gpt-5.6-luna",
+    "max_attempts": 2,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator_enhancements/inspection_report.json"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-1",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator_enhancements/inspection_report.json",
+      "expected": "planner.*tui.*checkpoint"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "planner_analysis",
+      "tui_analysis",
+      "checkpoint_analysis",
+      "test_baseline"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "missing_component_analysis",
+      "invalid_json"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

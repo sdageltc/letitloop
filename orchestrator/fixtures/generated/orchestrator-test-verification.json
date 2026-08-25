@@ -1,0 +1,62 @@
+{
+  "task_id": "orchestrator-test-verification",
+  "title": "Implement and execute test suite for planner, TUI, and checkpoint modules",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Write comprehensive unit and integration tests covering spec synthesis, live telemetry updates, and auto-rollback behaviors with full verification assertions.",
+  "worker": {
+    "model": "gemini:gemini-3.7-flash",
+    "max_attempts": 2,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/tests/test_orchestrator_features.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-test-coverage",
+      "kind": "content_regex",
+      "path": "scratch/tests/test_orchestrator_features.py",
+      "expected": "def test_spec_synthesis.*def test_live_telemetry.*def test_auto_rollback"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "test_spec_synthesis",
+      "test_live_telemetry",
+      "test_auto_rollback"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "Failing unit tests",
+      "Incomplete test coverage of target features"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

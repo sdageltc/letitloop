@@ -1,0 +1,70 @@
+{
+  "task_id": "self-evolution-step-3",
+  "title": "Step 3: In-Memory AST Auto-Formatter in Verifier",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement an in-memory AST auto-formatter in orchestrator/verifier.py that strips unused imports and formats Python syntax prior to running deterministic verification checks.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/self_evolution/verifier_formatter.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-ast-strip-imports",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/verifier_formatter.py",
+      "expected": "strip_unused_imports|remove_unused_imports"
+    },
+    {
+      "id": "check-in-memory-format",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/verifier_formatter.py",
+      "expected": "format_python_ast|format_in_memory"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "import_stripper",
+      "ast_transformer",
+      "in_memory_formatter",
+      "verifier_hook"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "destructive_ast_transformation",
+      "missing_import_stripper"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}
