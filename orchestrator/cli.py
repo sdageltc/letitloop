@@ -26,6 +26,7 @@ from .handoff import build_handoff
 from .plan_preview import render_plan_preview, write_plan_preview
 from .preferences import apply_preferences_to_goal, collect_preferences
 from .preflight import run_preflight
+from .schemas import get_schema
 from .state import (
     IllegalTransitionError,
     create_initial_state,
@@ -74,6 +75,10 @@ def _save(state):
 
 def _print_json(obj):
     print(json.dumps(obj, indent=2, ensure_ascii=False))
+
+
+def cmd_schema(args):
+    _print_json(get_schema(args.kind))
 
 
 def cmd_create(args):
@@ -1552,6 +1557,9 @@ def main():
     p_create = sub.add_parser("create", help="Validate contract and create task state")
     p_create.add_argument("contract", help="path to contract JSON (relative to workspace root)")
 
+    p_schema = sub.add_parser("schema", help="Print a bundled JSON Schema")
+    p_schema.add_argument("--kind", choices=["contract", "goal", "mcp"], default="contract")
+
     p_preflight = sub.add_parser("preflight", help="Run preflight checks")
     p_preflight.add_argument("task_id", help="task ID")
 
@@ -1764,6 +1772,7 @@ def main():
     )
 
     cmds = {
+        "schema": cmd_schema,
         "create": cmd_create,
         "preflight": cmd_preflight,
         "work": cmd_work,

@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sdageltc/letitloop/raw/main/schemas/contract.schema.json",
+  "title": "letitloop task contract",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFTED",
+        "drafted"
+      ]
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "human_required",
+        "qc_required"
+      ]
+    },
+    "workspace_scope": {
+      "type": "object",
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scratch_dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "allow",
+        "deny"
+      ],
+      "additionalProperties": false
+    },
+    "objective": {
+      "type": "string"
+    },
+    "worker": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "model",
+        "max_attempts"
+      ],
+      "additionalProperties": true
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "acceptance_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "command",
+              "content_exact",
+              "content_regex",
+              "contradiction_count",
+              "edge_case_count",
+              "file_exists",
+              "hygiene",
+              "json_schema",
+              "min_size",
+              "novel_artifact",
+              "render",
+              "required_sections",
+              "schema_count",
+              "syntax",
+              "test_spec_count"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          },
+          "expected": {},
+          "schema": {}
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "command",
+                    "content_exact",
+                    "content_regex",
+                    "min_size"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "expected"
+              ]
+            }
+          }
+        ],
+        "additionalProperties": true
+      }
+    },
+    "qc": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "lens": {
+          "type": "string",
+          "enum": [
+            "architecture_audit",
+            "code_correctness",
+            "config_safety",
+            "content_quality",
+            "document_quality",
+            "migration_safety",
+            "plan_correctness",
+            "research_quality",
+            "strategic_review"
+          ]
+        }
+      },
+      "required": [
+        "required",
+        "lens"
+      ],
+      "additionalProperties": true
+    },
+    "quality_spec": {
+      "type": "object",
+      "properties": {
+        "required_sections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "quality_dimensions": {
+          "type": "object"
+        },
+        "hard_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "minimum_counts": {
+          "type": "object"
+        },
+        "minimum_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "quality_plan": {
+      "type": "object"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "files"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "required_mcp_servers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "next_action": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "title",
+    "status",
+    "risk_tier",
+    "workspace_scope",
+    "objective",
+    "worker",
+    "outputs",
+    "acceptance_checks",
+    "qc"
+  ],
+  "additionalProperties": false
+}
+

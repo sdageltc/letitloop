@@ -111,6 +111,25 @@ pip install git+https://github.com/sdageltc/letitloop.git
 lil install-skill --all
 ```
 
+Generate editor-ready schemas for contracts, goals, or MCP requests:
+
+```bash
+lil schema --kind contract > contract.schema.json
+```
+
+For VS Code, point a JSON file pattern at the checked-in schema:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/contracts/*.json"],
+      "url": "./schemas/contract.schema.json"
+    }
+  ]
+}
+```
+
 ---
 
 ### Skill-Only Protocol vs. Full Python Engine

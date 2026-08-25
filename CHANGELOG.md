@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [Unreleased]
+
+### Added
+- JSON Schemas for contract, goal, and MCP request files, plus `lil schema --kind contract|goal|mcp` for editor integration.
+
 ## [0.1.0] - 2026-08-17
 
 ### 🚀 Added

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sdageltc/letitloop/raw/main/schemas/goal.schema.json",
+  "title": "letitloop goal",
+  "type": "object",
+  "properties": {
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "constraints": {
+      "type": "object"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "CANCELLED",
+        "COMPLETE",
+        "DRAFTED",
+        "EXECUTING",
+        "FAILED",
+        "PAUSED",
+        "PLANNED",
+        "cancelled",
+        "complete",
+        "drafted",
+        "executing",
+        "failed",
+        "paused",
+        "planned"
+      ]
+    }
+  },
+  "required": [
+    "goal_id",
+    "title",
+    "description"
+  ],
+  "additionalProperties": false
+}
+
