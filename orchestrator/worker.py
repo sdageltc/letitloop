@@ -200,13 +200,29 @@ def _materialize_outputs(contract, workspace_root, stdout):
     expected_paths = [
         o.get("path", "") for o in getattr(contract, "outputs", []) if isinstance(o, dict) and o.get("path")
     ]
+
+    def _contained_in_workspace(candidate: str) -> bool:
+        """Fail-closed containment: artifact paths must stay inside the workspace."""
+        base = os.path.realpath(os.path.abspath(workspace_root))
+        cand = candidate if os.path.isabs(candidate) else os.path.join(base, candidate)
+        cand = os.path.realpath(os.path.abspath(cand))
+        base_norm = os.path.normcase(base) if os.name == "nt" else base
+        cand_norm = os.path.normcase(cand) if os.name == "nt" else cand
+        try:
+            return os.path.commonpath([base_norm, cand_norm]) == base_norm
+        except ValueError:
+            return False
+
     try:
-        from .hybrid_parser import parse_llm_artifacts
+        from .parsing import parse_llm_artifacts
 
         parse_res = parse_llm_artifacts(stdout, expected_paths)
         if parse_res.ok and parse_res.artifacts:
             for art in parse_res.artifacts:
                 full_path = os.path.join(workspace_root, art.path) if not os.path.isabs(art.path) else art.path
+                if not _contained_in_workspace(full_path):
+                    _safe_stderr(f"[worker] refusing out-of-workspace artifact path {art.path!r}")
+                    continue
                 try:
                     os.makedirs(os.path.dirname(full_path), exist_ok=True)
                     with open(full_path, "w", encoding="utf-8") as f:
@@ -225,6 +241,9 @@ def _materialize_outputs(contract, workspace_root, stdout):
             continue
         out_path = out["path"]
         full_path = os.path.join(workspace_root, out_path) if not os.path.isabs(out_path) else out_path
+        if not _contained_in_workspace(full_path):
+            _safe_stderr(f"[worker] refusing out-of-workspace output path {out_path!r}")
+            continue
         try:
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             with open(full_path, "w", encoding="utf-8") as f:

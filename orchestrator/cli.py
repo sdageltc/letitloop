@@ -628,6 +628,31 @@ def cmd_approve(args):
     print(f"To execute: lil run-approved {goal_id}")
 
 
+def cmd_goals(args=None):
+    """List all goals in the run directory with their current status."""
+    goals = []
+    if os.path.isdir(DEFAULT_RUN_DIR):
+        for d in sorted(os.listdir(DEFAULT_RUN_DIR)):
+            goal_file = os.path.join(DEFAULT_RUN_DIR, d, "goal.json")
+            if os.path.isfile(goal_file):
+                status = "UNKNOWN"
+                title = ""
+                try:
+                    with open(goal_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    status = data.get("status", "UNKNOWN")
+                    title = data.get("title", "")
+                except (OSError, ValueError):
+                    pass
+                goals.append((d, status, title))
+    if not goals:
+        print(f"No goals found in {DEFAULT_RUN_DIR}")
+        return
+    print(f"{len(goals)} goal(s) in {DEFAULT_RUN_DIR}:")
+    for gid, status, title in goals:
+        print(f"  {gid:<40} {status:<12} {title}")
+
+
 @contextlib.contextmanager
 def _worktree_env_scope(args):
     """Enable worktree sandboxing for the command duration only (no env leakage)."""
@@ -1860,6 +1885,8 @@ def main():
         help="Path to webhook configs JSON (overrides LETITLOOP_WEBHOOKS_JSON)",
     )
 
+    sub.add_parser("goals", help="List all goals in the run directory with status")
+
     p_trace = sub.add_parser("trace", help="Render step-by-step reasoning and verification trace for a goal")
     p_trace.add_argument("goal_id", nargs="?", default=None, help="Goal ID (defaults to latest)")
 
@@ -1895,6 +1922,7 @@ def main():
     )
 
     cmds = {
+        "goals": cmd_goals,
         "schema": cmd_schema,
         "bench": cmd_bench,
         "action": cmd_action,
