@@ -98,4 +98,3 @@ def process_data(x: int) -> int:
     # The top-level function must be updated
     assert "# Top-level main function updated" in spliced
     assert "return x * 100" in spliced
-
