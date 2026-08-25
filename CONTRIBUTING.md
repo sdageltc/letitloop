@@ -16,7 +16,7 @@ Thank you for your interest in contributing to letitloop! This document provides
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code. Please report unacceptable behavior via LinkedIn at [https://www.linkedin.com/in/oguzhankayan/](https://www.linkedin.com/in/oguzhankayan/).
+This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code. Please report unacceptable behavior to sdageltc@users.noreply.github.com.
 
 ## Getting Started
 
@@ -290,7 +290,7 @@ By contributing to letitloop, you agree that your contributions will be licensed
 If you have questions about contributing, feel free to:
 
 1. Open a [discussion](https://github.com/sdageltc/letitloop/discussions)
-2. Reach out on LinkedIn at [https://www.linkedin.com/in/oguzhankayan/](https://www.linkedin.com/in/oguzhankayan/)
+2. Open an [issue](https://github.com/sdageltc/letitloop/issues)
 3. Check out our [documentation](https://github.com/sdageltc/letitloop#readme)
 
 Thank you for contributing to letitloop!
