@@ -1,0 +1,37 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '🚀 Features & Enhancements'
+    labels:
+      - 'feature'
+      - 'enhancement'
+  - title: '🐛 Bug Fixes & Durability Patches'
+    labels:
+      - 'fix'
+      - 'bug'
+  - title: '⚡ Performance & Benchmarks'
+    labels:
+      - 'performance'
+      - 'benchmark'
+  - title: '🛡️ Security & Conformance'
+    labels:
+      - 'security'
+      - 'conformance'
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/sdageltc/letitloop/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

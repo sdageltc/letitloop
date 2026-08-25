@@ -78,7 +78,7 @@ class ScopeCheckResult:
         }
 
 
-_IGNORED_DIRS = {".opencode", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", "generated"}
+_IGNORED_DIRS = {".opencode", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", "generated", ".bench_wal", "scratch"}
 _IGNORED_EXTS = {".pyc", ".pyo", ".pyd"}
 
 

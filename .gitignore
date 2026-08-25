@@ -37,3 +37,4 @@ Thumbs.db
 scratch/
 .opencode/
 *.log
+.bench_wal/
