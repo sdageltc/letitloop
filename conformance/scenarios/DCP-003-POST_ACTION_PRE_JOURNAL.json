@@ -1,0 +1,7 @@
+{
+  "id": "DCP-003-POST_ACTION_PRE_JOURNAL",
+  "name": "Post-Action Pre-Journal SIGKILL",
+  "phase": "POST_ACTION_PRE_JOURNAL",
+  "description": "Fault injected after action finishes but before WAL event is appended.",
+  "expected_recovery": "AT_LEAST_ONCE_REPLAY"
+}
