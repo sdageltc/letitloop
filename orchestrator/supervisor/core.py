@@ -211,6 +211,14 @@ class Supervisor(RecoveryMixin, ReportingMixin, CleanupMixin):
         self.budget_guard = budget_mod.BudgetGuard(max_tokens=max_tokens, max_cost_usd=max_cost_usd)
         # Durable memory bridge
         self.memory_bridge = mb_mod.MemoryBridge(os.path.join(self.run_dir, "memory_bridge.jsonl"))
+        # Opt-in durable event stream (LETITLOOP_TELEMETRY=1): persist lifecycle
+        # events to run_dir/telemetry.jsonl for audit/replay.
+        self._detach_telemetry = None
+        if os.environ.get("LETITLOOP_TELEMETRY") == "1" and self.run_dir:
+            from orchestrator.events import get_bus
+            from orchestrator.telemetry import attach_telemetry
+
+            self._detach_telemetry = attach_telemetry(get_bus(), self.run_dir)
 
     def _emit(self, event_type: str, **kw) -> None:
         """Publish a lifecycle event on the process-wide bus; never raises."""

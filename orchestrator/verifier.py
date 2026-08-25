@@ -10,6 +10,8 @@ import re
 import shlex
 import subprocess
 import sys
+from collections import OrderedDict
+import hashlib
 from typing import Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
@@ -358,23 +360,35 @@ _SECRET_KEY_HEADER = re.compile(
 )
 
 
-_AST_CACHE: dict = {}
-
-
-@functools.lru_cache(maxsize=2048)
-def _cached_ast_parse(source_code: str, filename: str = "") -> Tuple[bool, str]:
-    try:
-        ast.parse(source_code, filename=filename or "<memory>")
-        return (True, "Python syntax valid")
-    except SyntaxError as e:
-        return (False, f"Python SyntaxError line {e.lineno}: {e.msg}")
-    except Exception as e:
-        return (False, f"AST parse failed: {e}")
+_AST_CACHE: "OrderedDict[str, Tuple[bool, str]]" = OrderedDict()
+_AST_CACHE_MAX = 2048
 
 
 def fast_ast_verify(source_code: str, filename: str = "") -> Tuple[bool, str]:
-    """Tier-0 in-memory AST syntax validation with C-level LRU caching (<0.1ms)."""
-    return _cached_ast_parse(source_code, filename)
+    """Tier-0 in-memory AST syntax validation with sub-millisecond hash caching (<0.1ms).
+
+    Bounded LRU: the oldest entry is evicted at capacity instead of clearing the
+    whole cache, so hot files stay cached across large verification batches.
+    """
+    h = hashlib.sha256(source_code.encode("utf-8", errors="replace")).hexdigest()
+    cached = _AST_CACHE.get(h)
+    if cached is not None:
+        _AST_CACHE.move_to_end(h)
+        return cached
+    try:
+        ast.parse(source_code, filename=filename or "<memory>")
+        res = (True, "Python syntax valid")
+    except SyntaxError as e:
+        res = (False, f"Python SyntaxError line {e.lineno}: {e.msg}")
+    except Exception as e:
+        res = (False, f"AST parse failed: {e}")
+    while len(_AST_CACHE) >= _AST_CACHE_MAX:
+        _AST_CACHE.popitem(last=False)
+    _AST_CACHE[h] = res
+    return res
+
+
+_cached_ast_parse = fast_ast_verify
 
 
 def _run_syntax_check(path, expected_language, workspace_root, optional=False):

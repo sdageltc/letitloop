@@ -146,6 +146,18 @@ def run_env_doctor(run_dir: Optional[str] = None, check_connectivity: bool = Fal
             is_warning=True,
         )
 
+    # 4b. Local Ollama engine (local-first path; probe only with --probe)
+    if check_connectivity:
+        ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+        if _probe_endpoint(ollama_url):
+            print_status(True, f"Ollama: reachable at {ollama_url} (local-model engine OK)")
+        else:
+            print_status(
+                False,
+                f"Ollama: not detected at {ollama_url} (local-model engine unavailable; start with `ollama serve`)",
+                is_warning=True,
+            )
+
     # 5. Architecture & Living ADR Registry
     adr_dir = os.path.join(os.getcwd(), "docs", "adr")
     if os.path.isdir(adr_dir):
