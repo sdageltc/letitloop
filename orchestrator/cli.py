@@ -1678,7 +1678,9 @@ def cmd_watchdog(args):
     print(f"Monitoring Repository: {repo}")
     print(f"Recent Failed Runs Found: {len(failures)}")
     for f in failures:
-        print(f"  - Run #{f.get('databaseId')}: [{f.get('headBranch')}] {f.get('workflowName')} ({f.get('conclusion')})")
+        print(
+            f"  - Run #{f.get('databaseId')}: [{f.get('headBranch')}] {f.get('workflowName')} ({f.get('conclusion')})"
+        )
     sys.exit(0)
 
 

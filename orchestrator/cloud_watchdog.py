@@ -127,9 +127,8 @@ class CloudCIWatchdog:
 
             if heal_res.success:
                 result.repaired = True
-                result.repair_summary = (
-                    f"Successfully repaired in {heal_res.iterations} iteration(s): "
-                    + ", ".join(heal_res.fixes_applied)
+                result.repair_summary = f"Successfully repaired in {heal_res.iterations} iteration(s): " + ", ".join(
+                    heal_res.fixes_applied
                 )
                 if not dry_run:
                     # Push verified fix
