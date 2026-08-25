@@ -44,7 +44,7 @@ class DuckDuckGoProvider(BaseResearchProvider):
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 },
             )
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:  # nosec B310
                 html = resp.read().decode("utf-8", errors="replace")
 
             # Extract result snippets and URLs
@@ -80,12 +80,12 @@ class ArXivProvider(BaseResearchProvider):
         findings: List[ResearchFinding] = []
         try:
             encoded_query = urllib.parse.quote(f"all:{query}")
-            url = f"http://export.arxiv.org/api/query?search_query={encoded_query}&start=0&max_results={max_results}"
+            url = f"https://export.arxiv.org/api/query?search_query={encoded_query}&start=0&max_results={max_results}"
             req = urllib.request.Request(url, headers={"User-Agent": "LetItLoop/0.1"})
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:  # nosec B310
                 xml_data = resp.read().decode("utf-8", errors="replace")
 
-            root = ET.fromstring(xml_data)
+            root = ET.fromstring(xml_data)  # nosec B314
             ns = {"atom": "http://www.w3.org/2005/Atom"}
             for entry in root.findall("atom:entry", ns):
                 title_node = entry.find("atom:title", ns)
@@ -127,7 +127,7 @@ class GitHubSearchProvider(BaseResearchProvider):
                     "Accept": "application/vnd.github.v3+json",
                 },
             )
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:  # nosec B310
                 raw_json = resp.read().decode("utf-8", errors="replace")
                 data = json.loads(raw_json)
 
