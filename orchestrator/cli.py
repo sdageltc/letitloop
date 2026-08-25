@@ -90,7 +90,8 @@ IMPOSSIBILITY_LOG = os.path.join(WORKSPACE_ROOT, "scratch", "impossibility_theor
 
 
 def _run_dir(task_id):
-    return os.path.join(DEFAULT_RUN_DIR, task_id)
+    base = os.environ.get("LIL_RUN_DIR", DEFAULT_RUN_DIR)
+    return os.path.join(base, task_id)
 
 
 def _plan_digest(goal_dict: dict, plan_dict: dict) -> str:
