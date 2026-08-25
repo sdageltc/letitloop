@@ -38,6 +38,60 @@ class BaseWorkerAdapter(ABC):
         raise NotImplementedError
 
 
+def run_contained(
+    cmd: List[str],
+    cwd: str,
+    timeout_s: int,
+    input_text: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run a CLI worker with OS containment (Job Object / process group).
+
+    On timeout the whole process tree is killed and the result carries
+    exit_code=124 / approach="timeout" — callers never leak orphan trees.
+    Launch failures (binary missing) map to exit_code=1 / approach="error".
+    """
+    from . import process_guard
+
+    popen_kwargs: Dict[str, Any] = dict(
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=cwd,
+        stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+    )
+    popen_kwargs.update(process_guard.containment_kwargs())
+    try:
+        proc = subprocess.Popen(cmd, **popen_kwargs)  # nosec B603
+    except OSError as e:
+        return {"exit_code": 1, "stdout": "", "stderr": f"failed to launch {cmd[0]}: {e}", "approach": "error"}
+    job = process_guard.attach_containment(proc)
+    try:
+        try:
+            stdout, stderr = proc.communicate(input=input_text, timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            process_guard.kill_process_tree(proc.pid)
+            try:
+                proc.communicate(timeout=5)
+            except Exception:
+                pass
+            return {
+                "exit_code": 124,
+                "stdout": "",
+                "stderr": f"subprocess timed out after {timeout_s}s",
+                "approach": "timeout",
+                "proc": proc,
+            }
+        return {
+            "exit_code": proc.returncode,
+            "stdout": stdout or "",
+            "stderr": stderr or "",
+            "approach": "exec",
+            "proc": proc,
+        }
+    finally:
+        process_guard.close_job_handle(job)
+
+
 class MockWorkerAdapter(BaseWorkerAdapter):
     """Deterministic mock worker for fast testing and dry-run execution."""
 
@@ -135,27 +189,10 @@ class ClaudeCodeWorkerAdapter(BaseWorkerAdapter):
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
         cmd = [self.cli_binary, "-p", prompt, "--dangerously-skip-permissions"]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "claude_code_autonomous",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Claude Code invocation error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout)
+        if res["approach"] == "exec":
+            res["approach"] = "claude_code_autonomous"
+        return res
 
 
 class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
@@ -170,29 +207,10 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
 
         executable = shutil.which(self.cli_binary) or self.cli_binary
         cmd = [executable, "-p", prompt, "--dangerously-skip-permissions"]
-
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-                stdin=subprocess.DEVNULL,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "antigravity_cli_exec",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Antigravity CLI execution error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout, input_text="")
+        if res["approach"] == "exec":
+            res["approach"] = "antigravity_cli_exec"
+        return res
 
 
 class OpenCodeWorkerAdapter(BaseWorkerAdapter):
@@ -204,27 +222,10 @@ class OpenCodeWorkerAdapter(BaseWorkerAdapter):
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
         cmd = [self.cli_binary, "run", "--prompt", prompt, "--workspace", workspace_root]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "opencode_run",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"OpenCode execution error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout)
+        if res["approach"] == "exec":
+            res["approach"] = "opencode_run"
+        return res
 
 
 class HermesWorkerAdapter(BaseWorkerAdapter):
@@ -236,27 +237,10 @@ class HermesWorkerAdapter(BaseWorkerAdapter):
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
         cmd = [self.cli_binary, "exec", "--prompt", prompt, "--path", workspace_root]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "hermes_agent_exec",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Hermes Agent execution error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout)
+        if res["approach"] == "exec":
+            res["approach"] = "hermes_agent_exec"
+        return res
 
 
 class ClineWorkerAdapter(BaseWorkerAdapter):
@@ -268,27 +252,10 @@ class ClineWorkerAdapter(BaseWorkerAdapter):
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
         cmd = [self.cli_binary, "--prompt", prompt, "--cwd", workspace_root, "--yes"]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "cline_autonomous",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Cline execution error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout)
+        if res["approach"] == "exec":
+            res["approach"] = "cline_autonomous"
+        return res
 
 
 class AiderWorkerAdapter(BaseWorkerAdapter):
@@ -300,27 +267,10 @@ class AiderWorkerAdapter(BaseWorkerAdapter):
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
         cmd = [self.cli_binary, "--message", prompt, "--no-git", "--yes-always"]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "aider_pair_programmer",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Aider execution error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout)
+        if res["approach"] == "exec":
+            res["approach"] = "aider_pair_programmer"
+        return res
 
 
 class OmnirouteWorkerAdapter(BaseWorkerAdapter):
@@ -365,27 +315,10 @@ class CodexWorkerAdapter(BaseWorkerAdapter):
 
     def execute(self, prompt: str, workspace_root: str, task_id: str, timeout: int = 600) -> Dict[str, Any]:
         cmd = [self.cli_binary, "exec", "--prompt", prompt, "--path", workspace_root]
-        try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=workspace_root,
-                timeout=timeout,
-            )
-            return {
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "approach": "codex_cli_exec",
-            }
-        except Exception as e:
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": f"Codex CLI execution error: {e}",
-                "approach": "error",
-            }
+        res = run_contained(cmd, workspace_root, timeout)
+        if res["approach"] == "exec":
+            res["approach"] = "codex_cli_exec"
+        return res
 
 
 def _docker_host_path(host_path: str) -> str:
