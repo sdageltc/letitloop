@@ -1,4 +1,10 @@
-"""Thread-safe event bus for goal lifecycle events — async pub/sub with no blocking."""
+"""Thread-safe event bus for goal lifecycle events — async pub/sub with no blocking.
+
+Delivery is bounded: a shared semaphore caps concurrent subscriber invocations so
+a slow consumer cannot turn event bursts into unbounded thread pileups. When the
+cap is saturated, delivery is skipped (counted in ``dropped_count``) rather than
+blocking the control loop - telemetry may drop; execution must not stall.
+"""
 
 import sys
 import threading
@@ -17,17 +23,24 @@ EVENT_TYPES: Tuple[str, ...] = (
 
 Subscriber = Callable[[Dict[str, Any]], None]
 
+DEFAULT_MAX_CONCURRENT_DELIVERIES = 32
+
 
 class EventBus:
     """Publish/subscribe bus delivering each event to matching subscribers.
 
-    Every subscriber invocation runs in its own daemon thread so a slow or
-    broken consumer never blocks the publisher.
+    Subscriber invocations run asynchronously in daemon threads, bounded by
+    ``max_concurrent_deliveries``. When the bound is saturated the delivery is
+    dropped and counted instead of queueing or blocking the publisher.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_concurrent_deliveries: int = DEFAULT_MAX_CONCURRENT_DELIVERIES) -> None:
         self._lock = threading.Lock()
         self._subscribers: List[Tuple[Optional[str], Subscriber]] = []
+        cap = max(1, int(max_concurrent_deliveries))
+        self._capacity = cap
+        self._slots = threading.BoundedSemaphore(cap)
+        self.dropped_count = 0
 
     def subscribe(
         self,
@@ -66,8 +79,16 @@ class EventBus:
         with self._lock:
             targets = [cb for et, cb in self._subscribers if et is None or et == event_type]
         for cb in targets:
+            if not self._slots.acquire(blocking=False):
+                with self._lock:
+                    self.dropped_count += 1
+                print(
+                    f"[events] delivery saturated - dropping event {event_type} (dropped_total={self.dropped_count})",
+                    file=sys.stderr,
+                )
+                continue
             thread = threading.Thread(
-                target=self._invoke,
+                target=self._deliver,
                 args=(cb, envelope),
                 daemon=True,
             )
@@ -79,12 +100,16 @@ class EventBus:
         with self._lock:
             self._subscribers = []
 
-    @staticmethod
-    def _invoke(callback: Subscriber, envelope: Dict[str, Any]) -> None:
+    def _deliver(self, callback: Subscriber, envelope: Dict[str, Any]) -> None:
         try:
             callback(envelope)
         except Exception as exc:
             print(f"[events] subscriber error: {exc}", file=sys.stderr)
+        finally:
+            try:
+                self._slots.release()
+            except ValueError:
+                pass
 
 
 _bus = EventBus()

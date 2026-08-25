@@ -209,8 +209,20 @@ class ProcessGuard:
         self._procs: List[subprocess.Popen] = []
         self._jobs: List[Any] = []
 
+    def _prune_exited_locked(self) -> None:
+        """Drop already-exited children from the registry (caller holds the lock)."""
+        alive = []
+        for proc in self._procs:
+            try:
+                if proc.poll() is None:
+                    alive.append(proc)
+            except Exception:
+                alive.append(proc)
+        self._procs = alive
+
     def register(self, proc: subprocess.Popen, job_handle: Optional[Any] = None) -> subprocess.Popen:
         with self._lock:
+            self._prune_exited_locked()
             self._procs.append(proc)
             if job_handle is not None:
                 self._jobs.append(job_handle)

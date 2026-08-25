@@ -141,3 +141,17 @@ def test_docker_timeout_mapping(tmp_path):
     assert res["exit_code"] == 124
     assert "timed out" in res["stderr"]
     assert res["approach"] == "timeout"
+
+
+def test_docker_volumes_refuse_outside_workspace(tmp_path):
+    """Regression for #44: absolute/parent-traversal allows must not mount outside workspace."""
+    adapter = DockerWorkerAdapter(
+        config={"workspace_scope": {"allow": ["src", "C:\\Windows\\Temp", "/tmp/evil", "../other"], "deny": []}}
+    )
+    volumes = adapter._build_volumes(str(tmp_path))
+    combined = " ".join(volumes).lower()
+    assert "windows\\temp" not in combined and "win" not in combined
+    assert "/tmp/evil" not in combined
+    # Only src (inside workspace) should be rw; root stays ro.
+    assert any(v.endswith(":/workspace/src:rw") for v in volumes)
+    assert volumes[0].endswith(":/workspace:ro")

@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional
 CYCLE = "cycle"
 DANGLING_DEPENDENCY = "dangling_dependency"
 SELF_REFERENCE = "self_reference"
+DUPLICATE_TASK_ID = "duplicate_task_id"
 
 
 class DagValidationError(Exception):
@@ -88,14 +89,22 @@ def validate_contract_dag(contracts: Iterable[Any]) -> List[DagIssue]:
     order: List[str] = []
     deps_of: Dict[str, List[str]] = {}
     id_set = set()
+    duplicate_ids: set = set()
     for item in items:
         tid = _get_field(item, "task_id")
+        if tid in id_set:
+            # Duplicate task_id: later entries would silently overwrite the
+            # first node's edges in the maps below, hiding cycles/self-deps.
+            duplicate_ids.add(tid)
+            continue
         raw_deps = _get_field(item, "depends_on") or []
         deps_of[tid] = list(raw_deps)
         order.append(tid)
         id_set.add(tid)
 
     issues: List[DagIssue] = []
+    for tid in duplicate_ids:
+        issues.append(DagIssue(DUPLICATE_TASK_ID, tid, f"Duplicate contract task_id: {tid} (later entries ignored)"))
     valid_edges: Dict[str, List[str]] = {tid: [] for tid in order}
     for tid in order:
         for dep in deps_of[tid]:
