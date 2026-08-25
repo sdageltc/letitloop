@@ -2,7 +2,7 @@
 name: debugging-failures
 description: Diagnostic and debugging workflow for analyzing letitloop task failures, three-strike impossibility artifacts, WAL journal recovery, and state machine transition errors.
 metadata:
-  author: Oguzhan Kayan (@sdageltc)
+  author: sdageltc (@sdageltc)
   version: "1.0.0"
 compatibility: Cross-platform (CLI diagnostic suite)
 ---

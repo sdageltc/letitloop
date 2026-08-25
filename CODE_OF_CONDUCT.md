@@ -10,4 +10,4 @@ We as members, contributors, and leaders pledge to make participation in our com
 - Accepting responsibility and apologizing to those affected by our mistakes
 
 ## Enforcement
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to `oguzhankan.kayan@gmail.com`. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to `sdageltc@users.noreply.github.com`. All complaints will be reviewed and investigated promptly and fairly.

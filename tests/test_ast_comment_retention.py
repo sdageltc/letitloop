@@ -5,7 +5,7 @@ from orchestrator.ast_node_splicer import splice_ast_function
 
 def test_comment_and_docstring_retention():
     source_code = '''# Header license comment
-# Author: Oguzhan Kayan
+# Author: sdageltc
 
 """Module level docstring with instructions."""
 
@@ -34,7 +34,7 @@ def calculate_metrics(a: int, b: int = 10) -> int:
 
     # Assert header comments remain
     assert "# Header license comment" in spliced
-    assert "# Author: Oguzhan Kayan" in spliced
+    assert "# Author: sdageltc" in spliced
     assert '"""Module level docstring with instructions."""' in spliced
     assert "GLOBAL_CONSTANT = 42 # inline comment" in spliced
     assert "# Pre-function comment" in spliced

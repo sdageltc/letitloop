@@ -14,7 +14,7 @@ Please do not report security vulnerabilities via public GitHub issues.
 
 To report a vulnerability:
 1. Open a private security advisory on GitHub under the repository's **Security** tab, OR
-2. Email the maintainer directly at `oguzhankan.kayan@gmail.com` with:
+2. Email the maintainer directly at `sdageltc@users.noreply.github.com` with:
    - Reproduction steps or proof-of-concept
    - Impact assessment
    - Suggested fix (if available)
