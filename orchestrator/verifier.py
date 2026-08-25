@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-import functools
+import hashlib
 import json
 import os
 import re
@@ -11,7 +11,6 @@ import shlex
 import subprocess
 import sys
 from collections import OrderedDict
-import hashlib
 from typing import Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
