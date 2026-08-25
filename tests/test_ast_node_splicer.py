@@ -70,3 +70,32 @@ def test_splice_class_method_preserves_class_indentation():
     assert "    def compute(self, a: int, b: int) -> int:" in spliced
     assert "        return (a + b) * 2" in spliced
     assert "class MyService:" in spliced
+
+
+def test_splice_nested_closure_disambiguation():
+    """Verify that top-level function is spliced without mutating an identically-named inner closure."""
+    source = """def outer_wrapper():
+    def process_data(x: int) -> int:
+        # Inner closure helper
+        return x + 1
+    return process_data
+
+def process_data(x: int) -> int:
+    # Top-level main function
+    return x * 2
+"""
+    new_top_level = """def process_data(x: int) -> int:
+    # Top-level main function updated
+    return x * 100
+"""
+
+    spliced = splice_ast_function(source, "process_data", new_top_level, enforce_strict_signature=True)
+
+    # The inner closure helper must remain untouched
+    assert "# Inner closure helper" in spliced
+    assert "return x + 1" in spliced
+
+    # The top-level function must be updated
+    assert "# Top-level main function updated" in spliced
+    assert "return x * 100" in spliced
+

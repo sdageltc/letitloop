@@ -358,25 +358,23 @@ _SECRET_KEY_HEADER = re.compile(
 )
 
 
-_AST_CACHE: Dict[str, Tuple[bool, str]] = {}
+import functools
+
+
+@functools.lru_cache(maxsize=2048)
+def _cached_ast_parse(source_code: str, filename: str = "") -> Tuple[bool, str]:
+    try:
+        ast.parse(source_code, filename=filename or "<memory>")
+        return (True, "Python syntax valid")
+    except SyntaxError as e:
+        return (False, f"Python SyntaxError line {e.lineno}: {e.msg}")
+    except Exception as e:
+        return (False, f"AST parse failed: {e}")
 
 
 def fast_ast_verify(source_code: str, filename: str = "") -> Tuple[bool, str]:
-    """Tier-0 in-memory AST syntax validation with sub-millisecond hash caching (<0.1ms)."""
-    h = hashlib.sha256(source_code.encode("utf-8", errors="replace")).hexdigest()
-    if h in _AST_CACHE:
-        return _AST_CACHE[h]
-    try:
-        ast.parse(source_code, filename=filename or "<memory>")
-        res = (True, "Python syntax valid")
-    except SyntaxError as e:
-        res = (False, f"Python SyntaxError line {e.lineno}: {e.msg}")
-    except Exception as e:
-        res = (False, f"AST parse failed: {e}")
-    if len(_AST_CACHE) > 2048:
-        _AST_CACHE.clear()
-    _AST_CACHE[h] = res
-    return res
+    """Tier-0 in-memory AST syntax validation with C-level LRU caching (<0.1ms)."""
+    return _cached_ast_parse(source_code, filename)
 
 
 def _run_syntax_check(path, expected_language, workspace_root, optional=False):
@@ -1070,6 +1068,7 @@ def run_checks(checks, workspace_root):
             result = _run_schema_count_check(path, expected, workspace_root)
         else:
             result = VerifierResult(check_id=check_id, kind=kind, passed=False, message=f"unknown check kind: {kind}")
+        result.check_id = check_id
         status = "PASS" if result.passed else "FAIL"
         print(f"[verify] {result.check_id} ({result.kind}): {status}", file=sys.stderr)
         results.append(result)
