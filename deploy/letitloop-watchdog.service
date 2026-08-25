@@ -1,0 +1,15 @@
+[Unit]
+Description=LetItLoop Cloud CI Watchdog Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/letitloop
+EnvironmentFile=/etc/letitloop/watchdog.env
+ExecStart=/usr/bin/python3 -m orchestrator.cli watchdog --repo sdageltc/letitloop --limit 5
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
