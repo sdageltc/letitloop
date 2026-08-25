@@ -1659,6 +1659,66 @@ jobs:
         print("  uses: sdageltc/letitloop-action@v1")
 
 
+def cmd_watchdog(args):
+    """Execute Cloud CI Watchdog daemon triage on target repo."""
+    from .cloud_watchdog import CloudCIWatchdog
+
+    repo = getattr(args, "repo", "sdageltc/letitloop") or "sdageltc/letitloop"
+    max_iters = getattr(args, "max_iterations", 3) or 3
+    limit = getattr(args, "limit", 5) or 5
+
+    watchdog = CloudCIWatchdog(repo=repo, max_iterations=max_iters)
+    failures = watchdog.list_recent_failures(limit=limit)
+
+    if getattr(args, "json", False):
+        _print_json([f for f in failures])
+        sys.exit(0)
+
+    print("=== LetItLoop Cloud CI Watchdog ===")
+    print(f"Monitoring Repository: {repo}")
+    print(f"Recent Failed Runs Found: {len(failures)}")
+    for f in failures:
+        print(f"  - Run #{f.get('databaseId')}: [{f.get('headBranch')}] {f.get('workflowName')} ({f.get('conclusion')})")
+    sys.exit(0)
+
+
+def cmd_heal(args):
+    """Execute bounded autonomous repair on current codebase."""
+    from .auto_healer import AutoHealer
+
+    target_dir = getattr(args, "dir", ".") or "."
+    max_iters = getattr(args, "max_iterations", 3) or 3
+    no_ruff = getattr(args, "no_ruff", False)
+    no_pytest = getattr(args, "no_pytest", False)
+
+    healer = AutoHealer(
+        workspace_dir=target_dir,
+        max_iterations=max_iters,
+        run_ruff=not no_ruff,
+        run_pytest=not no_pytest,
+    )
+    test_args = getattr(args, "test_args", None)
+    result = healer.heal(test_args=test_args.split() if test_args else None)
+
+    if getattr(args, "json", False):
+        _print_json(result.to_dict())
+        sys.exit(0 if result.success else 1)
+
+    print("=== LetItLoop Autonomous Code Healer ===")
+    print(f"Target Directory: {target_dir}")
+    print(f"Iterations: {result.iterations}/{max_iters}")
+    print(f"Status: {'[PASS] 100% GREEN' if result.success else '[FAIL] UNRESOLVED ERRORS'}")
+    if result.fixes_applied:
+        print("\nFixes Applied:")
+        for fix in result.fixes_applied:
+            print(f"  - {fix}")
+    if result.remaining_errors:
+        print("\nRemaining Errors:")
+        for err in result.remaining_errors:
+            print(f"  - {err}")
+    sys.exit(0 if result.success else 1)
+
+
 def cmd_schema(args):
     """Print bundled canonical JSON Schemas."""
     _print_json(get_schema(args.kind))
@@ -1900,6 +1960,20 @@ def main():
     p_bench.add_argument("--framework", default="letitloop", help="Target framework adapter (default: letitloop)")
     p_bench.add_argument("--signal", default="SIGKILL", help="Fault signal to inject (default: SIGKILL)")
 
+    p_heal = sub.add_parser("heal", help="Bounded autonomous repair on current codebase")
+    p_heal.add_argument("--dir", default=".", help="Target workspace directory (default: .)")
+    p_heal.add_argument("--max-iterations", type=int, default=3, help="Max repair iterations (default: 3)")
+    p_heal.add_argument("--no-ruff", action="store_true", help="Skip ruff linting")
+    p_heal.add_argument("--no-pytest", action="store_true", help="Skip pytest test execution")
+    p_heal.add_argument("--test-args", help="Arguments to pass to pytest (e.g. 'tests/test_cli.py -q')")
+    p_heal.add_argument("--json", action="store_true", help="Output results in JSON format")
+
+    p_watchdog = sub.add_parser("watchdog", help="Cloud CI Watchdog daemon triage for remote repository failures")
+    p_watchdog.add_argument("--repo", default="sdageltc/letitloop", help="Target GitHub repository (owner/repo)")
+    p_watchdog.add_argument("--limit", type=int, default=5, help="Number of recent failed runs to inspect (default: 5)")
+    p_watchdog.add_argument("--max-iterations", type=int, default=3, help="Max repair passes")
+    p_watchdog.add_argument("--json", action="store_true", help="Output results in JSON format")
+
     p_action = sub.add_parser("action", help="Generate or inspect LetItLoop GitHub Action for Proof-Carrying CI")
     p_action.add_argument(
         "--init", action="store_true", help="Generate .github/workflows/letitloop-verify.yml workflow file"
@@ -1921,6 +1995,8 @@ def main():
         "schema": cmd_schema,
         "bench": cmd_bench,
         "action": cmd_action,
+        "heal": cmd_heal,
+        "watchdog": cmd_watchdog,
         "create": cmd_create,
         "preflight": cmd_preflight,
         "work": cmd_work,
