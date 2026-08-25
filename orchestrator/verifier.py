@@ -6,13 +6,13 @@ import ast
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 import time
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
@@ -1122,7 +1122,13 @@ def run_checks(checks, workspace_root):
 class ProofReceipt:
     """Cryptographic proof receipt consumed by letitloop-action and external CI gates."""
 
-    def __init__(self, task_id: str, results: List[VerifierResult], start_time: Optional[float] = None, run_dir: Optional[str] = None):
+    def __init__(
+        self,
+        task_id: str,
+        results: List[VerifierResult],
+        start_time: Optional[float] = None,
+        run_dir: Optional[str] = None,
+    ):
         self.task_id = task_id
         self.timestamp = time.time()
         start = start_time if start_time is not None else self.timestamp
