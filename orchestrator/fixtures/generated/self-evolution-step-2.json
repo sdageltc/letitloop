@@ -1,0 +1,70 @@
+{
+  "task_id": "self-evolution-step-2",
+  "title": "Step 2: Live Token & Cost Telemetry in TUI and CLI",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement turn-level telemetry tracking token consumption, latency, and estimated USD cost across turns for lil trace and lil dashboard.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/self_evolution/telemetry.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-telemetry-metrics",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/telemetry.py",
+      "expected": "class (TokenTelemetry|TelemetryTracker)"
+    },
+    {
+      "id": "check-cost-estimation",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/telemetry.py",
+      "expected": "estimate_cost|calculate_usd_cost"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "pricing_models",
+      "telemetry_tracker",
+      "tui_dashboard_widget",
+      "trace_formatter"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_cost_calculation",
+      "missing_latency_tracker"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

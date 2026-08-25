@@ -1,0 +1,62 @@
+{
+  "task_id": "orchestrator-spec-synthesis",
+  "title": "Implement automated spec synthesis in orchestrator/planner.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement automated spec synthesis functionality to infer quality criteria, required sections, and validation checks from high-level task goals in orchestrator/planner.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/planner.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-spec-synthesis-def",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/planner.py",
+      "expected": "def (synthesize_spec|generate_quality_spec)\\("
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "SpecSynthesisConfig",
+      "synthesize_spec",
+      "validate_synthesized_spec"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "SyntaxError in generated planner code",
+      "Missing spec synthesis implementation"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

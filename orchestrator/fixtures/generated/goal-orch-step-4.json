@@ -1,0 +1,62 @@
+{
+  "task_id": "goal-orch-step-4",
+  "title": "Step 4: Implement checkpoint auto-rollback in checkpoint.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement automated state rollback on contract failure or invariant violation in orchestrator/checkpoint.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator_enhancements/checkpoint_rollback.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-4",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator_enhancements/checkpoint_rollback.py",
+      "expected": "def auto_rollback|def restore_checkpoint"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "snapshot_manager",
+      "rollback_trigger",
+      "consistency_validator"
+    ],
+    "quality_dimensions": {
+      "safety": 0.6,
+      "correctness": 0.4
+    },
+    "hard_failures": [
+      "state_corruption",
+      "syntax_error"
+    ],
+    "minimum_score": 0.9
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

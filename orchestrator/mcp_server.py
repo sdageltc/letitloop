@@ -33,7 +33,8 @@ class LetItLoopMCPServer:
         os.makedirs(self.run_dir, exist_ok=True)
         self.metrics = MetricsCollector()
 
-    def get_tool_definitions(self) -> List[Dict[str, Any]]:
+    @classmethod
+    def get_tool_definitions(cls) -> List[Dict[str, Any]]:
         """Return MCP tool definitions schema."""
         return [
             {

@@ -1,0 +1,62 @@
+{
+  "task_id": "goal-orch-step-2",
+  "title": "Step 2: Implement automated spec synthesis in planner.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement automated specification synthesis logic within orchestrator/planner.py with contract generation and quality spec inference.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator_enhancements/planner_synthesis.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-2",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator_enhancements/planner_synthesis.py",
+      "expected": "def synthesize_spec|class SpecSynthesizer"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "spec_synthesis_logic",
+      "contract_validation",
+      "error_handling"
+    ],
+    "quality_dimensions": {
+      "correctness": 0.6,
+      "maintainability": 0.4
+    },
+    "hard_failures": [
+      "syntax_error",
+      "unhandled_schema_exception"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

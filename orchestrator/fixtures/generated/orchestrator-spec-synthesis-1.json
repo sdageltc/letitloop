@@ -1,0 +1,62 @@
+{
+  "task_id": "orchestrator-spec-synthesis-1",
+  "title": "Step 1: Implement automated spec synthesis in orchestrator/planner.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement automated spec synthesis logic and schema generation in orchestrator/planner.py with minimal code footprint and syntax validity",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/spec_synthesis_planner.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-spec-synth-exists",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/spec_synthesis_planner.py",
+      "expected": "def synthesize_spec|class SpecSynthesizer"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "spec_synthesis_logic",
+      "schema_validation",
+      "error_handling"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_spec_synthesis"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

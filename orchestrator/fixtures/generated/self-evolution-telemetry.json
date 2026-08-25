@@ -1,0 +1,70 @@
+{
+  "task_id": "self-evolution-telemetry",
+  "title": "Step 2: Live Token & Cost Telemetry in orchestrator/tui.py and orchestrator/cli.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement live token usage, latency tracking, and USD cost estimation across execution turns for lil trace and lil dashboard.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/self_evolution/telemetry.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-telemetry-tracker",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/telemetry.py",
+      "expected": "class TokenCostTelemetry"
+    },
+    {
+      "id": "check-cost-calc",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/telemetry.py",
+      "expected": "def calculate_cost\\("
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "TokenCostTelemetry",
+      "track_turn",
+      "calculate_cost",
+      "render_dashboard_telemetry"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_cost_calculation",
+      "missing_latency_tracking"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

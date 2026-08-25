@@ -1,0 +1,62 @@
+{
+  "task_id": "orchestrator-live-telemetry",
+  "title": "Implement live telemetry in orchestrator/tui.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement real-time telemetry streaming, progress tracking, and interactive status rendering in orchestrator/tui.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/tui.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-telemetry-tui-def",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/tui.py",
+      "expected": "class (TelemetryView|LiveTelemetryDisplay)|def update_telemetry\\("
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "TelemetryEvent",
+      "LiveTelemetryDisplay",
+      "update_telemetry"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "SyntaxError in generated TUI code",
+      "Blocking event loop during telemetry update"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

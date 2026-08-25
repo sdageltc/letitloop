@@ -1,0 +1,59 @@
+{
+  "task_id": "tui-live-telemetry-impl",
+  "title": "Step 3: Implement live telemetry in TUI",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement real-time telemetry metrics emission, subscriber handling, and dynamic UI widget rendering in scratch/live_telemetry_tui.py.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/live_telemetry_tui.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-live-telemetry-code",
+      "kind": "content_regex",
+      "path": "scratch/live_telemetry_tui.py",
+      "expected": "class LiveTelemetry|def render_telemetry\\("
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [],
+    "quality_dimensions": {
+      "completeness": 0.4,
+      "correctness": 0.4,
+      "efficiency": 0.2
+    },
+    "hard_failures": [
+      "syntax_error",
+      "blocking_ui_render_loop"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

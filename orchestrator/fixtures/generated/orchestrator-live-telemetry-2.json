@@ -1,0 +1,62 @@
+{
+  "task_id": "orchestrator-live-telemetry-2",
+  "title": "Step 2: Implement live telemetry in orchestrator/tui.py",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement lightweight live telemetry updates, event streaming, and dashboard metrics in orchestrator/tui.py",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/orchestrator/live_telemetry_tui.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-telemetry-exists",
+      "kind": "content_regex",
+      "path": "scratch/orchestrator/live_telemetry_tui.py",
+      "expected": "def render_telemetry|class TelemetryView|emit_telemetry"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "telemetry_stream_listener",
+      "tui_render_cycle",
+      "metric_formatting"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_telemetry_rendering"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}

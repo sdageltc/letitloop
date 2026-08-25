@@ -1,0 +1,70 @@
+{
+  "task_id": "self-evolution-step-1",
+  "title": "Step 1: Automated Spec Synthesis in Planner",
+  "status": "DRAFTED",
+  "risk_tier": "auto",
+  "workspace_scope": {
+    "allow": [
+      "scratch/"
+    ],
+    "deny": [
+      ".agents/",
+      ".claude/",
+      ".opencode/",
+      "AGENTS.md",
+      "memory/"
+    ]
+  },
+  "objective": "Implement automated spec synthesis in orchestrator/planner.py to dynamically infer and synthesize deterministic AST and regex acceptance criteria for underspecified user goals.",
+  "worker": {
+    "model": "hybrid:gemini:gemini-3.7-flash",
+    "max_attempts": 3,
+    "hybrid_critic_model": "openai:gpt-5.6-luna",
+    "hybrid_max_repair_turns": 3,
+    "hybrid_max_tokens": 32000,
+    "hybrid_max_cost_usd": 0.3,
+    "hybrid_max_identical_verdicts": 2
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "scratch/self_evolution/planner_spec_synthesis.py"
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "id": "check-spec-synth-ast",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/planner_spec_synthesis.py",
+      "expected": "def synthesize_acceptance_criteria\\("
+    },
+    {
+      "id": "check-spec-synth-regex",
+      "kind": "content_regex",
+      "path": "scratch/self_evolution/planner_spec_synthesis.py",
+      "expected": "ast\\.parse|content_regex|ast_check"
+    }
+  ],
+  "quality_spec": {
+    "required_sections": [
+      "imports",
+      "spec_synthesis_logic",
+      "ast_rule_generator",
+      "contract_integration"
+    ],
+    "quality_dimensions": {
+      "completeness": 0.5,
+      "correctness": 0.5
+    },
+    "hard_failures": [
+      "syntax_error",
+      "missing_ast_generator",
+      "missing_regex_generator"
+    ],
+    "minimum_score": 0.85
+  },
+  "qc": {
+    "required": true,
+    "lens": "code_correctness"
+  }
+}
