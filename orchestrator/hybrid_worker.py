@@ -363,7 +363,148 @@ def _run_deterministic_loop(
 # ---------------------------------------------------------------
 
 
-def _run_llm_loop(
+def _finalize_hybrid_run(
+    run_dir: str,
+    brief_text: str,
+    trace: List[HybridStep],
+    artifact_paths: List[str],
+    start: float,
+    success: bool,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+    final_message: str,
+) -> Dict[str, Any]:
+    trace_path = _write_trace(run_dir, trace)
+    output_log_path = os.path.join(run_dir, "worker_output.log")
+    with open(output_log_path, "w", encoding="utf-8") as f:
+        f.write("HYBRID MODE (llm)\n")
+        f.write(f"BRIEF\n{brief_text}\n\n")
+        for step in trace:
+            f.write(json.dumps(step.to_dict(), ensure_ascii=False) + "\n")
+        f.write(f"FINAL: {final_message}\n")
+    elapsed = time.time() - start
+    return {
+        "success": success,
+        "stdout": stdout,
+        "stderr": stderr,
+        "exit_code": exit_code,
+        "elapsed_sec": elapsed,
+        "artifact_paths": artifact_paths + [trace_path, output_log_path],
+        "hybrid_trace_path": trace_path,
+        "turns": len(trace),
+    }
+
+
+@dataclass
+class _LLMLoopContext:
+    contract: Any
+    workspace_root: str
+    run_dir: str
+    inner_model: str
+    critic_model: str
+    max_turns: int
+    repair_budget: int
+    timeout_sec: int
+    brief_text: str
+    supervisor_attempt: int
+    ledger: Any
+    budget_guard: Any
+    loop_detector: Any
+    acceptance_summary: str
+    expected_paths: List[str]
+    artifact_paths: List[str] = field(default_factory=list)
+    trace: List[HybridStep] = field(default_factory=list)
+    stderr_parts: List[str] = field(default_factory=list)
+    prior_failures: List[Dict[str, Any]] = field(default_factory=list)
+    critic_feedback: Optional[str] = None
+    verifier_feedback: Optional[str] = None
+    parse_failure_count: int = 0
+    max_parse_failures: int = 2
+    turn: int = 1
+    final_status: str = "failure"
+    start: float = field(default_factory=time.time)
+
+    def budget_snapshot(self) -> Dict[str, Any]:
+        return {
+            "total_tokens": self.ledger.total_tokens,
+            "total_cost_usd": round(self.ledger.total_cost_usd, 6),
+            "calls": self.ledger.call_count,
+        }
+
+    def record_step(
+        self,
+        role: str,
+        action: str,
+        status: str,
+        message: str,
+        parser_tier: str = "",
+        turn: Optional[int] = None,
+    ) -> None:
+        step = HybridStep(
+            turn=self.turn if turn is None else turn,
+            role=role,
+            action=action,
+            status=status,
+            message=message,
+            parser_tier=parser_tier,
+            budget=self.budget_snapshot(),
+        )
+        self.trace.append(step)
+
+    def fail(self, exit_code: int, reason: str) -> Dict[str, Any]:
+        return _finalize_hybrid_run(
+            run_dir=self.run_dir,
+            brief_text=self.brief_text,
+            trace=self.trace,
+            artifact_paths=self.artifact_paths,
+            start=self.start,
+            success=False,
+            exit_code=exit_code,
+            stdout="",
+            stderr=reason,
+            final_message=reason,
+        )
+
+    def succeed(self) -> Dict[str, Any]:
+        return _finalize_hybrid_run(
+            run_dir=self.run_dir,
+            brief_text=self.brief_text,
+            trace=self.trace,
+            artifact_paths=self.artifact_paths,
+            start=self.start,
+            success=True,
+            exit_code=0,
+            stdout="hybrid worker completed",
+            stderr="\n".join(self.stderr_parts),
+            final_message="success",
+        )
+
+
+@dataclass
+class _StageOutcome:
+    action: str
+    data: Any = None
+    exit_dict: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def continue_with(cls, data: Any = None) -> _StageOutcome:
+        return cls("continue", data=data)
+
+    @classmethod
+    def retry(cls) -> _StageOutcome:
+        return cls("retry")
+
+    @classmethod
+    def pass_loop(cls) -> _StageOutcome:
+        return cls("pass")
+
+    @classmethod
+    def fail(cls, exit_dict: Dict[str, Any]) -> _StageOutcome:
+        return cls("fail", exit_dict=exit_dict)
+
+
+def _init_llm_loop_context(
     contract,
     workspace_root: str,
     run_dir: str,
@@ -372,15 +513,10 @@ def _run_llm_loop(
     repair_budget: int,
     timeout_sec: int,
     brief_text: str,
-    supervisor_attempt: int = 1,
-) -> Dict[str, Any]:
-    from .budget import BudgetExhaustedError, BudgetGuard, LoopDetector, UsageLedger
-    from .parsing import parse_llm_artifacts
-    from .prompts import build_critic_prompt, build_implementer_prompt, summarize_acceptance, summarize_verifier_results
-    from .verifier import run_checks
-
-    os.makedirs(run_dir, exist_ok=True)
-    start = time.time()
+    supervisor_attempt: int,
+) -> _LLMLoopContext:
+    from .budget import BudgetGuard, LoopDetector, UsageLedger
+    from .prompts import summarize_acceptance
 
     max_tokens = int(contract.worker.get("hybrid_max_tokens", 100_000))
     max_cost_usd = float(contract.worker.get("hybrid_max_cost_usd", 0.50))
@@ -398,296 +534,256 @@ def _run_llm_loop(
     acceptance_summary = summarize_acceptance(contract.acceptance_checks)
     expected_paths = [out["path"] for out in contract.outputs]
 
-    artifact_paths: List[str] = []
-    trace: List[HybridStep] = []
-    final_status = "failure"
-    stderr_parts: List[str] = []
-    prior_failures: List[Dict[str, Any]] = []
-    critic_feedback: Optional[str] = None
-    verifier_feedback: Optional[str] = None
-    parse_failure_count: int = 0
-    max_parse_failures: int = 2
+    return _LLMLoopContext(
+        contract=contract,
+        workspace_root=workspace_root,
+        run_dir=run_dir,
+        inner_model=inner_model,
+        critic_model=critic_model,
+        max_turns=max_turns,
+        repair_budget=repair_budget,
+        timeout_sec=timeout_sec,
+        brief_text=brief_text,
+        supervisor_attempt=supervisor_attempt,
+        ledger=ledger,
+        budget_guard=budget_guard,
+        loop_detector=loop_detector,
+        acceptance_summary=acceptance_summary,
+        expected_paths=expected_paths,
+    )
 
-    def _budget_snapshot() -> Dict[str, Any]:
-        return {
-            "total_tokens": ledger.total_tokens,
-            "total_cost_usd": round(ledger.total_cost_usd, 6),
-            "calls": ledger.call_count,
-        }
 
-    def _fail(exit_code: int, reason: str) -> Dict[str, Any]:
-        trace_path = _write_trace(run_dir, trace)
-        output_log_path = os.path.join(run_dir, "worker_output.log")
-        with open(output_log_path, "w", encoding="utf-8") as f:
-            f.write("HYBRID MODE (llm)\n")
-            f.write(f"BRIEF\n{brief_text}\n\n")
-            for step in trace:
-                f.write(json.dumps(step.to_dict(), ensure_ascii=False) + "\n")
-            f.write(f"FINAL: {reason}\n")
-        elapsed = time.time() - start
-        return {
-            "success": False,
-            "stdout": "",
-            "stderr": reason,
-            "exit_code": exit_code,
-            "elapsed_sec": elapsed,
-            "artifact_paths": artifact_paths + [trace_path, output_log_path],
-            "hybrid_trace_path": trace_path,
-            "turns": len(trace),
-        }
+def _execute_implementer_stage(ctx: _LLMLoopContext) -> _StageOutcome:
+    from .budget import BudgetExhaustedError
+    from .prompts import build_implementer_prompt
 
-    for turn in range(1, max_turns + 1):
-        # Budget pre-flight check
-        try:
-            budget_guard.check_before_call(estimated_prompt_tokens=5000, estimated_completion_tokens=2000)
-        except BudgetExhaustedError as e:
-            trace.append(HybridStep(turn, "BudgetGuard", "preflight", "fail", str(e), budget=_budget_snapshot()))
-            return _fail(5, f"budget exhausted: {e}")
+    try:
+        ctx.budget_guard.check_before_call(estimated_prompt_tokens=5000, estimated_completion_tokens=2000)
+    except BudgetExhaustedError as e:
+        ctx.record_step("BudgetGuard", "preflight", "fail", str(e))
+        return _StageOutcome.fail(ctx.fail(5, f"budget exhausted: {e}"))
 
-        # --- Implementer ---
-        quality_spec = getattr(contract, "quality_spec", {})
-        implementer_prompt = build_implementer_prompt(
-            title=contract.title,
-            objective=contract.objective,
-            output_paths=expected_paths,
-            acceptance_summary=acceptance_summary,
-            prior_failures=prior_failures if prior_failures else None,
-            critic_feedback=critic_feedback,
-            verifier_feedback=verifier_feedback,
-            max_turns=max_turns,
-            current_turn=turn,
-            quality_spec=quality_spec,
-            supervisor_attempt=supervisor_attempt,
-            strategy_fingerprint=str(contract.worker.get("_strategy_fingerprint", "") or ""),
-            prior_fingerprint=str(contract.worker.get("_prior_fingerprint", "") or ""),
-        )
+    quality_spec = getattr(ctx.contract, "quality_spec", {})
+    implementer_prompt = build_implementer_prompt(
+        title=ctx.contract.title,
+        objective=ctx.contract.objective,
+        output_paths=ctx.expected_paths,
+        acceptance_summary=ctx.acceptance_summary,
+        prior_failures=ctx.prior_failures if ctx.prior_failures else None,
+        critic_feedback=ctx.critic_feedback,
+        verifier_feedback=ctx.verifier_feedback,
+        max_turns=ctx.max_turns,
+        current_turn=ctx.turn,
+        quality_spec=quality_spec,
+        supervisor_attempt=ctx.supervisor_attempt,
+        strategy_fingerprint=str(ctx.contract.worker.get("_strategy_fingerprint", "") or ""),
+        prior_fingerprint=str(ctx.contract.worker.get("_prior_fingerprint", "") or ""),
+    )
 
-        llm_result = _call_llm("Implementer", inner_model, implementer_prompt, workspace_root, timeout_sec)
-        ledger.record("Implementer", inner_model, llm_result["prompt_tokens"], llm_result["completion_tokens"])
+    llm_result = _call_llm("Implementer", ctx.inner_model, implementer_prompt, ctx.workspace_root, ctx.timeout_sec)
+    ctx.ledger.record("Implementer", ctx.inner_model, llm_result["prompt_tokens"], llm_result["completion_tokens"])
 
-        if not llm_result["ok"]:
-            msg = f"LLM call failed (exit={llm_result['exit_code']}): {llm_result['stderr'][:200]}"
-            trace.append(HybridStep(turn, "Implementer", "llm_call", "fail", msg, budget=_budget_snapshot()))
-            stderr_parts.append(msg)
-            prior_failures.append({"message": msg})
-            if loop_detector.record_failure(msg):
-                return _fail(6, f"stuck loop: {msg}")
-            continue
+    if not llm_result["ok"]:
+        msg = f"LLM call failed (exit={llm_result['exit_code']}): {llm_result['stderr'][:200]}"
+        ctx.record_step("Implementer", "llm_call", "fail", msg)
+        ctx.stderr_parts.append(msg)
+        ctx.prior_failures.append({"message": msg})
+        if ctx.loop_detector.record_failure(msg):
+            return _StageOutcome.fail(ctx.fail(6, f"stuck loop: {msg}"))
+        return _StageOutcome.retry()
 
-        trace.append(
-            HybridStep(
-                turn, "Implementer", "llm_call", "pass", "implementer produced output", budget=_budget_snapshot()
-            )
-        )
+    ctx.record_step("Implementer", "llm_call", "pass", "implementer produced output")
+    return _StageOutcome.continue_with(llm_result["raw"])
 
-        # --- Parse ---
-        parse_result = parse_llm_artifacts(llm_result["raw"], expected_paths)
-        if not parse_result.ok:
-            parse_failure_count += 1
-            msg = f"parse failed: {parse_result.error}"
-            trace.append(
-                HybridStep(
-                    turn, "Implementer", "parse_output", "fail", msg, parser_tier="none", budget=_budget_snapshot()
-                )
-            )
-            stderr_parts.append(msg)
-            prior_failures.append({"message": msg})
-            if parse_failure_count >= max_parse_failures:
-                return _fail(7, f"parse failure budget exhausted: {msg}")
-            if loop_detector.record_failure(f"parse:{parse_result.error}"):
-                return _fail(6, "stuck loop: repeated parse failure")
-            continue
 
-        parser_tier = parse_result.artifacts[0].parser_tier if parse_result.artifacts else "?"
-        trace.append(
-            HybridStep(
-                turn,
-                "Parser",
-                "parse_output",
-                "pass",
-                f"parsed via {parser_tier}",
-                parser_tier=parser_tier,
-                budget=_budget_snapshot(),
-            )
-        )
+def _execute_parser_scope_stage(ctx: _LLMLoopContext, raw_text: str) -> _StageOutcome:
+    from .parsing import parse_llm_artifacts
 
-        # --- Write artifacts ---
-        current_artifacts = _write_llm_outputs(contract, workspace_root, parse_result.artifacts)
-        for ap in current_artifacts:
-            if ap not in artifact_paths:
-                artifact_paths.append(ap)
+    parse_result = parse_llm_artifacts(raw_text, ctx.expected_paths)
+    if not parse_result.ok:
+        ctx.parse_failure_count += 1
+        msg = f"parse failed: {parse_result.error}"
+        ctx.record_step("Implementer", "parse_output", "fail", msg, parser_tier="none")
+        ctx.stderr_parts.append(msg)
+        ctx.prior_failures.append({"message": msg})
+        if ctx.parse_failure_count >= ctx.max_parse_failures:
+            return _StageOutcome.fail(ctx.fail(7, f"parse failure budget exhausted: {msg}"))
+        if ctx.loop_detector.record_failure(f"parse:{parse_result.error}"):
+            return _StageOutcome.fail(ctx.fail(6, "stuck loop: repeated parse failure"))
+        return _StageOutcome.retry()
 
-        # --- Scope validation ---
-        scope_ok, scope_reason = _validate_outputs(contract, workspace_root)
-        if not scope_ok:
-            msg = f"scope violation: {scope_reason}"
-            trace.append(
-                HybridStep(
-                    turn, "Critic", "validate_outputs", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()
-                )
-            )
-            return _fail(4, msg)
+    parser_tier = parse_result.artifacts[0].parser_tier if parse_result.artifacts else "?"
+    ctx.record_step("Parser", "parse_output", "pass", f"parsed via {parser_tier}", parser_tier=parser_tier)
 
-        # --- Loop detection ---
-        content_hashes = [a.content for a in parse_result.artifacts]
-        stuck = loop_detector.record_outputs(content_hashes)
-        if stuck:
-            msg = f"stuck loop: {stuck}"
-            trace.append(
-                HybridStep(
-                    turn, "LoopDetector", "check", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()
-                )
-            )
-            return _fail(6, msg)
+    current_artifacts = _write_llm_outputs(ctx.contract, ctx.workspace_root, parse_result.artifacts)
+    for ap in current_artifacts:
+        if ap not in ctx.artifact_paths:
+            ctx.artifact_paths.append(ap)
 
-        # --- Deterministic precheck ---
-        precheck_results = run_checks(contract.acceptance_checks, workspace_root)
-        precheck_passed = all(r.passed for r in precheck_results)
-        if not precheck_passed:
-            verifier_results_dict = [r.to_dict() for r in precheck_results]
-            verifier_feedback = summarize_verifier_results(verifier_results_dict)
-            msg = "deterministic precheck failed"
-            trace.append(
-                HybridStep(
-                    turn, "Verifier", "precheck", "fail", msg, parser_tier=parser_tier, budget=_budget_snapshot()
-                )
-            )
-            stderr_parts.append(msg)
-            prior_failures.append({"message": msg, "verifier": verifier_results_dict})
-            if loop_detector.record_failure(f"precheck:{msg}"):
-                return _fail(6, "stuck loop: repeated precheck failure")
-            continue
+    scope_ok, scope_reason = _validate_outputs(ctx.contract, ctx.workspace_root)
+    if not scope_ok:
+        msg = f"scope violation: {scope_reason}"
+        ctx.record_step("Critic", "validate_outputs", "fail", msg, parser_tier=parser_tier)
+        return _StageOutcome.fail(ctx.fail(4, msg))
 
-        trace.append(
-            HybridStep(
-                turn,
-                "Verifier",
-                "precheck",
-                "pass",
-                "deterministic checks passed",
-                parser_tier=parser_tier,
-                budget=_budget_snapshot(),
-            )
-        )
+    content_hashes = [a.content for a in parse_result.artifacts]
+    stuck = ctx.loop_detector.record_outputs(content_hashes)
+    if stuck:
+        msg = f"stuck loop: {stuck}"
+        ctx.record_step("LoopDetector", "check", "fail", msg, parser_tier=parser_tier)
+        return _StageOutcome.fail(ctx.fail(6, msg))
 
-        # --- Critic ---
-        artifact_summaries = [{"path": a.path, "content": a.content} for a in parse_result.artifacts]
+    return _StageOutcome.continue_with((parse_result.artifacts, parser_tier))
+
+
+def _execute_precheck_stage(ctx: _LLMLoopContext, parser_tier: str) -> _StageOutcome:
+    from .prompts import summarize_verifier_results
+    from .verifier import run_checks
+
+    precheck_results = run_checks(ctx.contract.acceptance_checks, ctx.workspace_root)
+    precheck_passed = all(r.passed for r in precheck_results)
+    if not precheck_passed:
         verifier_results_dict = [r.to_dict() for r in precheck_results]
+        ctx.verifier_feedback = summarize_verifier_results(verifier_results_dict)
+        msg = "deterministic precheck failed"
+        ctx.record_step("Verifier", "precheck", "fail", msg, parser_tier=parser_tier)
+        ctx.stderr_parts.append(msg)
+        ctx.prior_failures.append({"message": msg, "verifier": verifier_results_dict})
+        if ctx.loop_detector.record_failure(f"precheck:{msg}"):
+            return _StageOutcome.fail(ctx.fail(6, "stuck loop: repeated precheck failure"))
+        return _StageOutcome.retry()
 
-        quality_spec = getattr(contract, "quality_spec", {})
-        critic_prompt = build_critic_prompt(
-            title=contract.title,
-            objective=contract.objective,
-            output_paths=expected_paths,
-            acceptance_summary=acceptance_summary,
-            artifact_summaries=artifact_summaries,
-            verifier_results=verifier_results_dict,
-            quality_spec=quality_spec,
-        )
+    ctx.record_step("Verifier", "precheck", "pass", "deterministic checks passed", parser_tier=parser_tier)
+    return _StageOutcome.continue_with(precheck_results)
 
-        critic_result = _call_llm("Critic", critic_model, critic_prompt, workspace_root, timeout_sec)
-        ledger.record("Critic", critic_model, critic_result["prompt_tokens"], critic_result["completion_tokens"])
 
-        critic_verdict = ""
-        if critic_result["ok"]:
-            try:
-                parsed = json.loads(critic_result["raw"])
-                if isinstance(parsed, dict):
-                    critic_verdict = parsed.get("status", "FAIL")
-                    critic_feedback = parsed.get("implementer_guidance", "no guidance provided")
-                else:
-                    critic_verdict = "FAIL"
-                    critic_feedback = "critic output was not a JSON object"
-            except (json.JSONDecodeError, ValueError):
-                critic_verdict = "FAIL"
-                critic_feedback = "critic output was not valid JSON"
-        else:
-            critic_verdict = "FAIL"
-            critic_feedback = critic_result["stderr"][:300] or "critic LLM call failed"
+def _parse_critic_payload(critic_result: Dict[str, Any]) -> Tuple[str, str]:
+    if not critic_result.get("ok"):
+        return "FAIL", critic_result.get("stderr", "")[:300] or "critic LLM call failed"
+    try:
+        parsed = json.loads(critic_result.get("raw", ""))
+        if isinstance(parsed, dict):
+            return parsed.get("status", "FAIL"), parsed.get("implementer_guidance", "no guidance provided")
+        return "FAIL", "critic output was not a JSON object"
+    except (json.JSONDecodeError, ValueError):
+        return "FAIL", "critic output was not valid JSON"
 
-        stuck_verdict = loop_detector.record_critic_verdict(critic_verdict)
-        if stuck_verdict:
-            trace.append(
-                HybridStep(
-                    turn,
-                    "Critic",
-                    "evaluate",
-                    "fail",
-                    stuck_verdict,
-                    parser_tier=parser_tier,
-                    budget=_budget_snapshot(),
-                )
-            )
-            return _fail(6, stuck_verdict)
 
-        if critic_verdict == "PASS":
-            trace.append(
-                HybridStep(
-                    turn,
-                    "Critic",
-                    "evaluate",
-                    "pass",
-                    "critic approved",
-                    parser_tier=parser_tier,
-                    budget=_budget_snapshot(),
-                )
-            )
-            final_status = "success"
-            break
-        else:
-            trace.append(
-                HybridStep(
-                    turn,
-                    "Critic",
-                    "evaluate",
-                    "fail",
-                    critic_feedback[:200],
-                    parser_tier=parser_tier,
-                    budget=_budget_snapshot(),
-                )
-            )
-            stderr_parts.append(f"critic: {critic_feedback[:200]}")
-            prior_failures.append({"message": f"critic: {critic_feedback[:200]}"})
-            if repair_budget <= 0:
-                return _fail(3, "hybrid repair budget exhausted")
-            repair_budget -= 1
-            continue
+def _execute_critic_stage(
+    ctx: _LLMLoopContext,
+    artifacts: List[Any],
+    precheck_results: List[Any],
+    parser_tier: str,
+) -> _StageOutcome:
+    from .prompts import build_critic_prompt
 
-    if final_status != "success":
-        return _fail(2, "hybrid turn budget exhausted")
+    artifact_summaries = [{"path": a.path, "content": a.content} for a in artifacts]
+    verifier_results_dict = [r.to_dict() for r in precheck_results]
+    quality_spec = getattr(ctx.contract, "quality_spec", {})
+    critic_prompt = build_critic_prompt(
+        title=ctx.contract.title,
+        objective=ctx.contract.objective,
+        output_paths=ctx.expected_paths,
+        acceptance_summary=ctx.acceptance_summary,
+        artifact_summaries=artifact_summaries,
+        verifier_results=verifier_results_dict,
+        quality_spec=quality_spec,
+    )
 
-    # --- Final verification (full) ---
+    critic_result = _call_llm("Critic", ctx.critic_model, critic_prompt, ctx.workspace_root, ctx.timeout_sec)
+    ctx.ledger.record("Critic", ctx.critic_model, critic_result["prompt_tokens"], critic_result["completion_tokens"])
+
+    critic_verdict, critic_feedback = _parse_critic_payload(critic_result)
+    ctx.critic_feedback = critic_feedback
+
+    stuck_verdict = ctx.loop_detector.record_critic_verdict(critic_verdict)
+    if stuck_verdict:
+        ctx.record_step("Critic", "evaluate", "fail", stuck_verdict, parser_tier=parser_tier)
+        return _StageOutcome.fail(ctx.fail(6, stuck_verdict))
+
+    if critic_verdict == "PASS":
+        ctx.record_step("Critic", "evaluate", "pass", "critic approved", parser_tier=parser_tier)
+        return _StageOutcome.pass_loop()
+
+    msg = critic_feedback[:200]
+    ctx.record_step("Critic", "evaluate", "fail", msg, parser_tier=parser_tier)
+    ctx.stderr_parts.append(f"critic: {msg}")
+    ctx.prior_failures.append({"message": f"critic: {msg}"})
+    if ctx.repair_budget <= 0:
+        return _StageOutcome.fail(ctx.fail(3, "hybrid repair budget exhausted"))
+    ctx.repair_budget -= 1
+    return _StageOutcome.retry()
+
+
+def _execute_turn(ctx: _LLMLoopContext) -> _StageOutcome:
+    imp_res = _execute_implementer_stage(ctx)
+    if imp_res.action != "continue":
+        return imp_res
+
+    parse_res = _execute_parser_scope_stage(ctx, imp_res.data)
+    if parse_res.action != "continue":
+        return parse_res
+
+    artifacts, parser_tier = parse_res.data
+    precheck_res = _execute_precheck_stage(ctx, parser_tier)
+    if precheck_res.action != "continue":
+        return precheck_res
+
+    return _execute_critic_stage(ctx, artifacts, precheck_res.data, parser_tier)
+
+
+def _execute_final_verification(ctx: _LLMLoopContext) -> Optional[Dict[str, Any]]:
     from .verifier import run_verification
 
-    final_passed, final_results, _ = run_verification(contract, workspace_root, run_dir)
+    final_passed, final_results, _ = run_verification(ctx.contract, ctx.workspace_root, ctx.run_dir)
     if not final_passed:
         msg = "final verification failed"
-        trace.append(
-            HybridStep(
-                turn=turn, role="Verifier", action="final_check", status="fail", message=msg, budget=_budget_snapshot()
-            )
-        )
-        return _fail(1, msg)
+        ctx.record_step("Verifier", "final_check", "fail", msg)
+        return ctx.fail(1, msg)
+    return None
 
-    trace_path = _write_trace(run_dir, trace)
-    output_log_path = os.path.join(run_dir, "worker_output.log")
-    with open(output_log_path, "w", encoding="utf-8") as f:
-        f.write("HYBRID MODE (llm)\n")
-        f.write(f"BRIEF\n{brief_text}\n\n")
-        for step in trace:
-            f.write(json.dumps(step.to_dict(), ensure_ascii=False) + "\n")
-        f.write("FINAL: success\n")
-    elapsed = time.time() - start
-    return {
-        "success": True,
-        "stdout": "hybrid worker completed",
-        "stderr": "\n".join(stderr_parts),
-        "exit_code": 0,
-        "elapsed_sec": elapsed,
-        "artifact_paths": artifact_paths + [trace_path, output_log_path],
-        "hybrid_trace_path": trace_path,
-        "turns": len(trace),
-    }
+
+def _run_llm_loop(
+    contract,
+    workspace_root: str,
+    run_dir: str,
+    inner_model: str,
+    max_turns: int,
+    repair_budget: int,
+    timeout_sec: int,
+    brief_text: str,
+    supervisor_attempt: int = 1,
+) -> Dict[str, Any]:
+    os.makedirs(run_dir, exist_ok=True)
+    ctx = _init_llm_loop_context(
+        contract=contract,
+        workspace_root=workspace_root,
+        run_dir=run_dir,
+        inner_model=inner_model,
+        max_turns=max_turns,
+        repair_budget=repair_budget,
+        timeout_sec=timeout_sec,
+        brief_text=brief_text,
+        supervisor_attempt=supervisor_attempt,
+    )
+
+    for turn in range(1, max_turns + 1):
+        ctx.turn = turn
+        outcome = _execute_turn(ctx)
+        if outcome.action == "fail":
+            return outcome.exit_dict  # type: ignore[return-value]
+        if outcome.action == "pass":
+            ctx.final_status = "success"
+            break
+
+    if ctx.final_status != "success":
+        return ctx.fail(2, "hybrid turn budget exhausted")
+
+    final_fail = _execute_final_verification(ctx)
+    if final_fail:
+        return final_fail
+
+    return ctx.succeed()
 
 
 # ---------------------------------------------------------------

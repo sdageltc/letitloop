@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.1.2"
-description = "Autonomous Macro-Task Control Loop & Verification Engine. Ephemeral Worktrees, DAG Contract Planning, Docker Sandbox, Process-Tree Guard, Live TUI, Prometheus, and Multi-Lens QC."
+version = "0.2.0"
+description = "Deterministic verification harness and crash-safe execution gate for AI coding agents"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [
-    { name = "letitloop Contributors", email = "oguzhankayanbusiness@gmail.com" }
+    { name = "sdageltc", email = "sdageltc@users.noreply.github.com" }
 ]
 keywords = [
     "autonomous-agents",
@@ -59,9 +59,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sdageltc/letitloop"
+Homepage = "https://sdageltc.github.io/letitloop/"
 Documentation = "https://github.com/sdageltc/letitloop#readme"
-Repository = "https://github.com/sdageltc/letitloop.git"
+Repository = "https://github.com/sdageltc/letitloop"
 "Bug Tracker" = "https://github.com/sdageltc/letitloop/issues"
 Discussions = "https://github.com/sdageltc/letitloop/discussions"
 
@@ -122,10 +122,11 @@ markers = [
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+exclude = ["scratch", ".venv", "dist", "build", ".benchmarks", "htmlcov"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-ignore = ["E501"]
+ignore = ["E501", "E402"]
 
 [tool.coverage.run]
 source = ["orchestrator"]
