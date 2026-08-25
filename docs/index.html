@@ -3,19 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LetItLoop — Zero-Daemon Crash Resilience for Autonomous AI Workflows</title>
-  <meta name="description" content="Wrap any agent loop with @durable. Local Write-Ahead Log (WAL) crash resilience, sub-millisecond recovery from SIGKILL, and zero duplicate token waste." />
+  <title>LetItLoop — Zero-Daemon Crash Resilience for Long-Horizon Python Workflows</title>
+  <meta name="description" content="Wrap any function with @durable. Single-file Write-Ahead Log (WAL) crash resilience, sub-millisecond recovery from SIGKILL, and zero lost state." />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #06080d;
-      --bg-surface: rgba(13, 17, 26, 0.7);
-      --bg-card: rgba(17, 24, 39, 0.6);
-      --bg-code: #090d16;
+      --bg: #090d16;
+      --bg-surface: rgba(17, 24, 39, 0.85);
+      --bg-card: rgba(22, 30, 46, 0.7);
+      --bg-code: #0b0f19;
       --border: rgba(255, 255, 255, 0.08);
-      --border-hover: rgba(56, 189, 248, 0.35);
+      --border-accent: rgba(56, 189, 248, 0.35);
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --text-dim: #64748b;
@@ -23,11 +24,11 @@
       --accent-glow: rgba(56, 189, 248, 0.25);
       --green: #10b981;
       --green-glow: rgba(16, 185, 129, 0.2);
-      --red: #f43f5e;
+      --danger: #ef4444;
       --purple: #a855f7;
       --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      --radius: 16px;
+      --radius: 14px;
       --radius-sm: 8px;
     }
 
@@ -36,81 +37,61 @@
       background-color: var(--bg);
       color: var(--text);
       font-family: var(--font-sans);
+      min-height: 100vh;
       line-height: 1.6;
-      overflow-x: hidden;
       background-image: 
-        radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.14) 0%, transparent 60%),
-        radial-gradient(circle at 100% 60%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
-        radial-gradient(circle at 0% 100%, rgba(168, 85, 247, 0.04) 0%, transparent 40%);
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
     }
 
     .container {
-      max-width: 1160px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 0 1.5rem;
     }
 
-    /* Navigation */
+    /* Universal Ecosystem Top Navigation */
     nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.15rem 0;
+      padding: 1.25rem 0;
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
-      background: rgba(6, 8, 13, 0.85);
-      backdrop-filter: blur(20px);
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(16px);
       z-index: 100;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.85rem;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.25rem;
       text-decoration: none;
       color: var(--text);
+      letter-spacing: -0.02em;
     }
-    .brand-logo-wrap {
-      width: 38px;
-      height: 38px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(16, 185, 129, 0.18));
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
-      transition: transform 0.2s, box-shadow 0.2s;
+    .brand img {
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
     }
-    .brand:hover .brand-logo-wrap {
-      transform: scale(1.05);
-      box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
-    }
-    .brand-name {
-      font-weight: 800;
-      font-size: 1.35rem;
-      letter-spacing: -0.025em;
-    }
-    .brand-name span {
-      background: linear-gradient(135deg, #38bdf8 0%, #10b981 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .nav-badge {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      font-weight: 700;
-      background: rgba(56, 189, 248, 0.1);
+    .brand-badge {
+      background: rgba(56, 189, 248, 0.15);
       color: var(--accent);
-      padding: 0.15rem 0.55rem;
+      padding: 0.2rem 0.6rem;
       border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      margin-left: 0.35rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      border: 1px solid rgba(56, 189, 248, 0.35);
     }
     .nav-links {
       display: flex;
-      gap: 1.35rem;
+      gap: 1.25rem;
       align-items: center;
+      flex-wrap: wrap;
     }
     .nav-link {
       color: var(--text-muted);
@@ -119,720 +100,512 @@
       font-weight: 600;
       transition: color 0.2s;
     }
-    .nav-link:hover { color: var(--accent); }
+    .nav-link:hover, .nav-link.active { color: var(--accent); }
     .btn-nav-gh {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 0.45rem 0.9rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       font-weight: 600;
       transition: all 0.2s;
     }
     .btn-nav-gh:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
     }
 
     /* Hero Section */
-    .hero {
-      padding: 4.5rem 0 3rem;
+    header {
       text-align: center;
-      position: relative;
+      padding: 4rem 0 2.5rem;
     }
-    .hero-badge {
+    .hero-logo-wrap {
       display: inline-flex;
       align-items: center;
-      gap: 0.6rem;
-      background: rgba(56, 189, 248, 0.08);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      padding: 0.35rem 1.1rem;
-      border-radius: 999px;
-      margin-bottom: 1.85rem;
-      font-size: 0.84rem;
-      font-weight: 600;
+      justify-content: center;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .hero-logo-img {
+      width: 76px;
+      height: 76px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.3);
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 18px;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--border-accent);
       color: var(--accent);
-      text-decoration: none;
-      transition: all 0.2s;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+      letter-spacing: 0.02em;
     }
-    .hero-badge:hover {
-      background: rgba(56, 189, 248, 0.15);
-      border-color: var(--accent);
-      transform: translateY(-1px);
-    }
-    .hero-badge-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-    }
-    .hero h1 {
-      font-size: clamp(2.4rem, 5.2vw, 4.2rem);
+    h1 {
+      font-size: 3rem;
       font-weight: 800;
-      letter-spacing: -0.035em;
-      line-height: 1.1;
-      max-width: 920px;
-      margin: 0 auto 1.4rem;
-      background: linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ffffff 0%, #93c5fd 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .hero p {
-      font-size: 1.22rem;
+    p.subtitle {
       color: var(--text-muted);
-      max-width: 720px;
-      margin: 0 auto 2.25rem;
+      font-size: 1.15rem;
+      max-width: 800px;
+      margin: 0 auto 28px;
       line-height: 1.6;
     }
+
+    /* CTAs */
     .hero-actions {
       display: flex;
-      gap: 1rem;
       justify-content: center;
-      align-items: center;
-      margin-bottom: 2.25rem;
+      gap: 14px;
       flex-wrap: wrap;
+      margin-bottom: 3rem;
     }
     .btn-primary {
+      background: #0284c7;
+      color: #fff;
+      padding: 0.75rem 1.6rem;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
-      color: #030712;
-      font-weight: 700;
-      padding: 0.85rem 1.65rem;
-      border-radius: var(--radius-sm);
-      text-decoration: none;
-      font-size: 0.95rem;
-      box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
-      transition: all 0.2s;
+      gap: 8px;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.35);
+      transition: transform 0.15s, background 0.15s;
     }
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 35px rgba(56, 189, 248, 0.5);
+      background: #0369a1;
+      transform: translateY(-1px);
     }
     .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border);
       color: var(--text);
-      font-weight: 600;
-      padding: 0.85rem 1.65rem;
+      padding: 0.75rem 1.6rem;
       border-radius: var(--radius-sm);
-      text-decoration: none;
+      font-weight: 600;
       font-size: 0.95rem;
-      transition: all 0.2s;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
     }
     .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.2);
     }
-    .install-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      background: rgba(13, 17, 26, 0.8);
-      border: 1px solid var(--border);
-      padding: 0.65rem 1.35rem;
-      border-radius: 999px;
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
-    .install-pill:hover {
-      border-color: var(--accent);
-      background: rgba(13, 17, 26, 0.95);
-      box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
-    }
-    .install-pill .prefix { color: var(--accent); font-weight: 700; }
-    .install-pill .copy-badge { color: var(--text-muted); font-size: 0.78rem; font-family: var(--font-sans); }
 
-    /* Bento Key Stats Bar */
-    .stats-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
-      margin: 3.5rem 0;
-    }
-    .stat-card {
-      background: var(--bg-card);
+    /* Interactive Live Terminal Simulator */
+    .simulator-card {
+      background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1.5rem 1.25rem;
-      text-align: center;
-      backdrop-filter: blur(10px);
-      transition: transform 0.2s, border-color 0.2s;
+      padding: 24px;
+      margin-bottom: 3.5rem;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      position: relative;
     }
-    .stat-card:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-2px);
-    }
-    .stat-val {
-      font-size: 2.1rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--text);
-      font-family: var(--font-mono);
-      margin-bottom: 0.25rem;
-    }
-    .stat-val.accent-cyan { color: var(--accent); }
-    .stat-val.accent-green { color: var(--green); }
-    .stat-label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    /* Live Interactive Terminal Simulator */
-    .terminal-section {
-      margin: 4.5rem 0;
-    }
-    .section-header {
-      text-align: center;
-      margin-bottom: 2.25rem;
-    }
-    .section-header h2 {
-      font-size: 2.1rem;
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      margin-bottom: 0.5rem;
-    }
-    .section-header p {
-      color: var(--text-muted);
-      font-size: 1.05rem;
-    }
-
-    .term-window {
-      background: var(--bg-code);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.1);
-      overflow: hidden;
-      max-width: 920px;
-      margin: 0 auto;
-    }
-    .term-bar {
+    .sim-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0.85rem 1.25rem;
-      background: #0f1523;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    .term-dots {
-      display: flex;
-      gap: 0.45rem;
-    }
-    .dot { width: 11px; height: 11px; border-radius: 50%; }
-    .dot-red { background: #ef4444; }
-    .dot-yellow { background: #f59e0b; }
-    .dot-green { background: #10b981; }
-    .term-title {
-      font-size: 0.82rem;
-      font-family: var(--font-mono);
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-    .term-controls {
-      display: flex;
-      gap: 0.6rem;
-    }
-    .btn-term-action {
-      background: rgba(244, 63, 94, 0.15);
-      border: 1px solid rgba(244, 63, 94, 0.4);
-      color: #fda4af;
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
+    .sim-title {
       font-weight: 700;
-      padding: 0.25rem 0.65rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .btn-term-action:hover {
-      background: rgba(244, 63, 94, 0.3);
+    .btn-kill {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-kill:hover {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: #ef4444;
       color: #fff;
     }
-    .term-body {
-      padding: 1.5rem;
+    .term-window {
+      background: var(--bg-code);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-sm);
+      padding: 18px;
       font-family: var(--font-mono);
       font-size: 0.88rem;
       line-height: 1.7;
-      min-height: 380px;
-      max-height: 480px;
-      overflow-y: auto;
+      min-height: 240px;
+      overflow-x: auto;
+      color: #cbd5e1;
     }
-    .term-line { margin-bottom: 0.35rem; }
-    .t-cyan { color: var(--accent); }
-    .t-green { color: var(--green); }
     .t-dim { color: var(--text-dim); }
-    .t-red { color: var(--red); font-weight: 700; }
-    .t-purple { color: var(--purple); }
+    .t-cyan { color: #38bdf8; }
+    .t-green { color: #34d399; }
+    .t-red { color: #f87171; }
+    .t-purple { color: #c084fc; }
     .t-bold { font-weight: 700; }
 
-    /* Bento 4 Pillars Grid */
+    /* Bento Grid Features */
+    .section-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .section-desc {
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 2.5rem;
+      font-size: 1rem;
+    }
     .bento-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1.5rem;
-      margin: 4.5rem 0;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 20px;
+      margin-bottom: 4rem;
     }
     .bento-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 2rem;
-      backdrop-filter: blur(12px);
-      transition: all 0.25s;
-      position: relative;
-      overflow: hidden;
+      padding: 26px;
+      transition: border-color 0.2s;
     }
     .bento-card:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-3px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      border-color: var(--border-accent);
     }
-    .bento-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .bento-card:hover::before { opacity: 1; }
     .bento-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.25rem;
-      font-size: 1.2rem;
+      font-size: 1.75rem;
+      margin-bottom: 14px;
     }
-    .icon-cyan { background: rgba(56, 189, 248, 0.12); color: var(--accent); }
-    .icon-green { background: rgba(16, 185, 129, 0.12); color: var(--green); }
-    .icon-purple { background: rgba(168, 85, 247, 0.12); color: var(--purple); }
-    .icon-amber { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
     .bento-title {
-      font-size: 1.3rem;
+      font-size: 1.15rem;
       font-weight: 700;
-      margin-bottom: 0.5rem;
-      letter-spacing: -0.015em;
+      margin-bottom: 8px;
+      color: #fff;
     }
-    .bento-desc {
+    .bento-text {
       color: var(--text-muted);
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       line-height: 1.6;
     }
 
-    /* 10-Second Quickstart Tabs */
-    .quickstart-section {
-      margin: 4.5rem 0;
-    }
-    .tabs-wrap {
-      background: var(--bg-card);
+    /* 10-Second Quickstart Code Box */
+    .card {
+      background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: hidden;
-      max-width: 920px;
-      margin: 0 auto;
+      padding: 28px;
+      margin-bottom: 3.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     }
-    .tabs-header {
+    .tab-nav {
       display: flex;
-      background: #0f1523;
+      gap: 8px;
+      margin-bottom: 18px;
       border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
     }
     .tab-btn {
-      background: none;
+      background: transparent;
       border: none;
       color: var(--text-muted);
-      font-family: var(--font-sans);
-      font-size: 0.92rem;
+      font-family: var(--font-mono);
       font-weight: 600;
-      padding: 1rem 1.5rem;
+      font-size: 0.88rem;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      border-right: 1px solid var(--border);
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
-    .tab-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.03); }
-    .tab-btn.active {
-      color: var(--accent);
-      background: var(--bg-card);
-      border-bottom: 2px solid var(--accent);
+    .tab-btn.active, .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
     }
-    .tab-content {
-      padding: 1.75rem;
-      display: none;
-    }
-    .tab-content.active { display: block; }
     pre {
       background: var(--bg-code);
-      border: 1px solid var(--border);
-      padding: 1.25rem;
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: var(--radius-sm);
-      overflow-x: auto;
+      padding: 20px;
       font-family: var(--font-mono);
       font-size: 0.88rem;
       line-height: 1.65;
+      overflow-x: auto;
+      color: #f1f5f9;
     }
-    code { font-family: var(--font-mono); }
-    .kw { color: #f472b6; }
-    .fn { color: #38bdf8; }
-    .str { color: #a7f3d0; }
-    .dec { color: #fbbf24; }
-    .cm { color: var(--text-dim); }
 
     /* Footer */
     footer {
       border-top: 1px solid var(--border);
-      padding: 3rem 0 2rem;
-      text-align: center;
+      padding: 3rem 0;
       color: var(--text-dim);
-      font-size: 0.88rem;
-      margin-top: 5rem;
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
     }
     .footer-links {
       display: flex;
-      justify-content: center;
-      gap: 1.75rem;
-      margin-bottom: 1.25rem;
+      gap: 18px;
     }
-    .footer-link {
-      color: var(--text-muted);
+    .footer-links a {
+      color: var(--text-dim);
       text-decoration: none;
-      font-weight: 600;
       transition: color 0.2s;
     }
-    .footer-link:hover { color: var(--accent); }
+    .footer-links a:hover { color: var(--accent); }
 
     @media (max-width: 768px) {
-      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      h1 { font-size: 2.25rem; }
+      nav { flex-direction: column; gap: 12px; }
       .bento-grid { grid-template-columns: 1fr; }
-      .hero h1 { font-size: 2.3rem; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Navigation -->
-  <nav>
-    <div class="container" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-      <a href="#" class="brand">
-        <div class="brand-logo-wrap">
-          <!-- Permanent Cybernetic Infinity Loop SVG Logo -->
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18.178 8c1.88 0 3.322 1.48 3.322 3.4 0 1.92-1.442 3.4-3.322 3.4-1.684 0-2.823-1.025-4.178-2.6-.002 0-.003-.002-.005-.004-.002.002-.003.004-.005.004-1.355 1.575-2.494 2.6-4.178 2.6C7.932 14.8 6.49 13.32 6.49 11.4c0-1.92 1.442-3.4 3.322-3.4 1.684 0 2.823 1.025 4.178 2.6.002 0 .003.002.005.004.002-.002.003-.004.005-.004 1.355-1.575 2.494-2.6 4.178-2.6Z" stroke="url(#logo-grad-nav)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="12" cy="11.4" r="1.6" fill="#38bdf8"/>
-            <defs>
-              <linearGradient id="logo-grad-nav" x1="6.49" y1="8" x2="21.5" y2="14.8" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#38bdf8"/>
-                <stop offset="1" stop-color="#10b981"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <div class="brand-name">LetIt<span>Loop</span></div>
-        <span class="nav-badge">v0.3.1</span>
-      </a>
-
-      <div class="nav-links">
-        <a href="#simulator" class="nav-link">Live Crash Demo</a>
-        <a href="#quickstart" class="nav-link">Quickstart</a>
-        <a href="#architecture" class="nav-link">Capabilities</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link" target="_blank">DCP-2.0 Matrix</a>
-        <a href="https://pypi.org/project/letitloop/0.3.1/" class="nav-link" target="_blank">PyPI</a>
-        <a href="https://github.com/sdageltc/letitloop" class="btn-nav-gh" target="_blank">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub ★
-        </a>
-      </div>
-    </div>
-  </nav>
-
   <div class="container">
-    <!-- Hero Section -->
-    <section class="hero">
-      <a href="https://sdageltc.github.io/agent-durability-bench/" class="hero-badge" target="_blank">
-        <span class="hero-badge-dot"></span>
-        <span>DCP-2.0 Benchmark Validated • 100% SIGKILL Recovery</span>
-        <span>→</span>
+    <!-- Universal Ecosystem Top Navigation -->
+    <nav>
+      <a href="https://github.com/sdageltc/letitloop" class="brand">
+        <img src="assets/logo.png" alt="LetItLoop" width="34" height="34" />
+        LetItLoop
+        <span class="brand-badge">v0.3.1</span>
       </a>
+      <div class="nav-links">
+        <a href="https://sdageltc.github.io/letitloop/" class="nav-link active">Runtime Engine</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link">DCP-2.0 Benchmark</a>
+        <a href="https://github.com/sdageltc/letitloop-action" class="nav-link">GitHub Action</a>
+        <a href="https://github.com/sdageltc/letitloop" class="btn-nav-gh" target="_blank" rel="noreferrer">
+          <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+          GitHub
+        </a>
+      </div>
+    </nav>
 
-      <h1>Autonomous Agents Crash.<br/>LetItLoop Makes Them Durable.</h1>
-      
-      <p>
-        Zero background daemons. Sub-millisecond WAL crash recovery. 
-        Wrap any Python agent loop with <code>@durable</code> and resume from process death with 0% duplicate token waste.
+    <!-- Hero Header -->
+    <header>
+      <div class="hero-logo-wrap">
+        <img src="assets/logo.png" alt="LetItLoop Logo" class="hero-logo-img" />
+      </div>
+      <div class="badge-pill">🛡️ Zero-Daemon Crash Resilience</div>
+      <h1>Zero-Daemon Process Durability<br/>For Long-Horizon Python Tasks</h1>
+      <p class="subtitle">
+        When long-running Python scripts or LLM workflows get killed mid-execution, LetItLoop's Write-Ahead Log (WAL) resumes the exact unfinished step in under 1 millisecond with zero lost state or duplicate tokens.
       </p>
-
       <div class="hero-actions">
-        <a href="#quickstart" class="btn-primary">
-          <span>Get Started in 10s</span>
-          <span>↓</span>
-        </a>
-        <a href="https://github.com/sdageltc/letitloop" class="btn-secondary" target="_blank">
-          <span>View Source on GitHub</span>
-        </a>
+        <a href="#quickstart" class="btn-primary">Get Started in 10s</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="btn-secondary">View DCP-2.0 Benchmark</a>
       </div>
+    </header>
 
-      <!-- Quick Install Pill -->
-      <div class="install-pill" onclick="copyInstall()">
-        <span class="prefix">$</span>
-        <span class="cmd" id="install-cmd">pip install letitloop</span>
-        <span class="copy-badge" id="copy-status">📋 Copy</span>
+    <!-- Interactive Live Terminal Crash Simulator -->
+    <div class="simulator-card" id="simulator">
+      <div class="sim-header">
+        <div class="sim-title">
+          <span>⚡ Live Runtime Simulator: Process Kill & WAL Fast-Forward</span>
+        </div>
+        <button class="btn-kill" id="killBtn" onclick="injectKill()">💥 Inject SIGKILL (137)</button>
       </div>
-    </section>
-
-    <!-- Key Metrics Bento Bar -->
-    <div class="stats-bar">
-      <div class="stat-card">
-        <div class="stat-val accent-cyan">0.94ms</div>
-        <div class="stat-label">Crash Resumption Latency</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val accent-green">0.0%</div>
-        <div class="stat-label">Duplicate Token Waste</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val">100%</div>
-        <div class="stat-label">SIGKILL Process Survival</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val">0</div>
-        <div class="stat-label">External Daemons / DBs</div>
+      <div class="term-window" id="termOutput">
+        <div class="t-dim">$ lil run --task auth-refactor --strict</div>
+        <div class="t-purple">[1/3]</div> ⚡ Synthesizing user contract & AST scopes ... <span class="t-green">[DONE] (312ms)</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;↳ WAL Commit: frame_001.wal (checksum: 8a4f91e2)<br/>
+        <div class="t-purple">[2/3]</div> ⚡ Generating JWT key rotation tests ... <span class="t-green">[DONE] (445ms)</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;↳ WAL Commit: frame_002.wal (checksum: 2e8c10fa)<br/>
+        <div class="t-purple">[3/3]</div> ⚡ Running AST syntax validator & test suite ...
       </div>
     </div>
 
-    <!-- Live Interactive Terminal Crash Simulator -->
-    <section id="simulator" class="terminal-section">
-      <div class="section-header">
-        <h2>Live WAL Crash &amp; Recovery Simulator</h2>
-        <p>Watch an agent pipeline get killed mid-flight and resume instantly from local disk journal.</p>
+    <!-- Core Architecture / Bento Grid -->
+    <h2 class="section-title">Irreducible Distributed Systems Invariants</h2>
+    <p class="section-desc">Single-file Python durability with zero background daemons, zero external databases, and zero lock contention.</p>
+    
+    <div class="bento-grid">
+      <div class="bento-card">
+        <div class="bento-icon">📝</div>
+        <h3 class="bento-title">Torn-Tail Safe WAL v2</h3>
+        <p class="bento-text">Checksummed frames (<code>LILWAL02</code>) with automatic valid-prefix truncation. If power dies mid-write, LetItLoop repairs the tail and resumes safely.</p>
       </div>
 
-      <div class="term-window">
-        <div class="term-bar">
-          <div class="term-dots">
-            <div class="dot dot-red"></div>
-            <div class="dot dot-yellow"></div>
-            <div class="dot dot-green"></div>
-          </div>
-          <div class="term-title">letitloop-wal-supervisor — interactive simulation</div>
-          <div class="term-controls">
-            <button class="btn-term-action" onclick="triggerCrash()">💥 Inject SIGKILL</button>
-          </div>
-        </div>
-
-        <div class="term-body" id="term-output">
-          <!-- Populated by terminal simulator engine -->
-        </div>
-      </div>
-    </section>
-
-    <!-- 10-Second Code Quickstart -->
-    <section id="quickstart" class="quickstart-section">
-      <div class="section-header">
-        <h2>The 10-Second Quickstart</h2>
-        <p>Turn fragile multi-step LLM scripts into atomic, crash-proof workflows.</p>
+      <div class="bento-card">
+        <div class="bento-icon">🔒</div>
+        <h3 class="bento-title">Auto-Stealing Lock v2</h3>
+        <p class="bento-text">File-backed supervisor locks auto-steal dead locks if the previous process died. Background heartbeat daemons prevent lock expiration during slow LLM calls.</p>
       </div>
 
-      <div class="tabs-wrap">
-        <div class="tabs-header">
-          <button class="tab-btn active" onclick="switchTab('tab-decorator', this)">1. @durable Decorator</button>
-          <button class="tab-btn" onclick="switchTab('tab-cli', this)">2. CLI (lil)</button>
-          <button class="tab-btn" onclick="switchTab('tab-ci', this)">3. GitHub Action CI</button>
-        </div>
-
-        <div id="tab-decorator" class="tab-content active">
-          <pre><code><span class="kw">from</span> letitloop <span class="kw">import</span> <span class="dec">durable</span>, <span class="fn">step</span>
-
-<span class="dec">@durable</span>
-<span class="kw">def</span> <span class="fn">run_scientific_pipeline</span>(dataset):
-    <span class="kw">with</span> <span class="fn">step</span>(<span class="str">"clean_data"</span>):
-        cleaned = process(dataset)
-
-    <span class="kw">with</span> <span class="fn">step</span>(<span class="str">"llm_feature_engineering"</span>):
-        <span class="cm"># 💥 Process dies or SIGKILL fires here?</span>
-        features = extract_features(cleaned)
-
-    <span class="kw">with</span> <span class="fn">step</span>(<span class="str">"train_model"</span>):
-        model = train(features)
-        <span class="kw">return</span> model</code></pre>
-        </div>
-
-        <div id="tab-cli" class="tab-content">
-          <pre><code><span class="cm"># 1. Run multi-step task with strict AST verification & WAL state journal</span>
-<span class="prompt">$</span> lil run --task auth-refactor --strict
-
-<span class="cm"># 2. Resume instantly from SIGKILL or host crash (< 1ms recovery)</span>
-<span class="prompt">$</span> lil resume --task auth-refactor
-
-<span class="cm"># 3. Pre-push AST validation & smart self-healing</span>
-<span class="prompt">$</span> lil heal --target orchestrator/state.py</code></pre>
-        </div>
-
-        <div id="tab-ci" class="tab-content">
-          <pre><code><span class="kw">name:</span> LetItLoop PR Verification Gate
-<span class="kw">on:</span> [pull_request]
-<span class="kw">jobs:</span>
-  <span class="fn">verify:</span>
-    <span class="kw">runs-on:</span> ubuntu-latest
-    <span class="kw">steps:</span>
-      - <span class="kw">uses:</span> actions/checkout@v4
-      - <span class="kw">uses:</span> sdageltc/letitloop-action@v1.0.4
-        <span class="kw">with:</span>
-          <span class="str">github-token:</span> <span class="dec">${{ secrets.GITHUB_TOKEN }}</span>
-          <span class="str">strict-ast:</span> <span class="str">"true"</span></code></pre>
-        </div>
-      </div>
-    </section>
-
-    <!-- Bento Core Capabilities -->
-    <section id="architecture">
-      <div class="section-header">
-        <h2>Irreducible Engineering Capabilities</h2>
-        <p>Deterministic verification and durability built with pure Python.</p>
+      <div class="bento-card">
+        <div class="bento-icon">🛡️</div>
+        <h3 class="bento-title">Proof-Carrying Receipts</h3>
+        <p class="bento-text">Every completed run seals an HMAC-SHA256 <code>ProofReceipt</code> recording AST invariants, test outputs, and scope snapshots for machine-verifiable compliance.</p>
       </div>
 
-      <div class="bento-grid">
-        <div class="bento-card">
-          <div class="bento-icon icon-cyan">⚡</div>
-          <div class="bento-title">Sub-Millisecond Local WAL</div>
-          <div class="bento-desc">
-            Single-file append-only Write-Ahead Log with OS Direct I/O fsync. Recovers valid prefixes and truncates torn writes automatically under sudden host crashes.
-          </div>
-        </div>
-
-        <div class="bento-card">
-          <div class="bento-icon icon-green">🛡️</div>
-          <div class="bento-title">0% Token Waste on Process Death</div>
-          <div class="bento-desc">
-            When a spot instance gets preempted or battery dies, re-invoking the script skips all finished steps in under 1ms instead of re-querying expensive LLM APIs.
-          </div>
-        </div>
-
-        <div class="bento-card">
-          <div class="bento-icon icon-purple">🔒</div>
-          <div class="bento-title">Cryptographic Proof Receipts</div>
-          <div class="bento-desc">
-            Outputs HMAC-SHA256 sealed verification receipts with test exit codes ($LASTEXITCODE == 0) and multi-language AST syntax checks.
-          </div>
-        </div>
-
-        <div class="bento-card">
-          <div class="bento-icon icon-amber">📦</div>
-          <div class="bento-title">Zero-Daemon Architecture</div>
-          <div class="bento-desc">
-            No Docker containers, no Redis queues, no PostgreSQL databases, no Temporal servers. Just <code>pip install letitloop</code> and go.
-          </div>
-        </div>
+      <div class="bento-card">
+        <div class="bento-icon">🌿</div>
+        <h3 class="bento-title">Isolated Worktree Mutex</h3>
+        <p class="bento-text">Concurrent workers run in separate git worktrees serialized via <code>FileLock</code> with pre-rollback backup refs before any hard reset or branch merge.</p>
       </div>
-    </section>
+
+      <div class="bento-card">
+        <div class="bento-icon">⚡</div>
+        <h3 class="bento-title">Sub-Millisecond Resume</h3>
+        <p class="bento-text">Cached steps are skipped in under 1ms on resume, injecting previously verified outputs straight into scope without paying duplicate LLM API costs.</p>
+      </div>
+
+      <div class="bento-card">
+        <div class="bento-icon">🤖</div>
+        <h3 class="bento-title">Automated GitHub CI/CD</h3>
+        <p class="bento-text">Autonomous workflows for Ruff auto-formatting, daily CVE remediation PR bots with attached proof receipts, and PR latency benchmark checks.</p>
+      </div>
+    </div>
+
+    <!-- 10-Second Quickstart -->
+    <div class="card" id="quickstart">
+      <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 8px;">10-Second Quickstart</h2>
+      <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.95rem;">Install via pip and wrap your multi-step pipelines with <code>@durable</code>.</p>
+      
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('python')">Python (@durable)</button>
+        <button class="tab-btn" onclick="switchTab('cli')">CLI (lil run)</button>
+        <button class="tab-btn" onclick="switchTab('action')">GitHub Action</button>
+      </div>
+
+      <div id="tab-python">
+<pre><code><span style="color: #c084fc;">pip install</span> letitloop
+
+<span style="color: #38bdf8;">from</span> letitloop <span style="color: #38bdf8;">import</span> durable, step
+
+<span style="color: #34d399;">@durable(task_id="scientific-pipeline")</span>
+<span style="color: #38bdf8;">def</span> <span style="color: #60a5fa;">run_pipeline</span>(dataset_path: str):
+    <span style="color: #94a3b8;"># Step 1: Cached to local WAL in 0.3s</span>
+    data = step(<span style="color: #facc15;">"load_data"</span>, <span style="color: #38bdf8;">lambda</span>: parse_dataset(dataset_path))
+
+    <span style="color: #94a3b8;"># Step 2: If SIGKILL strikes here, Step 1 is fast-forwarded in 0.94ms</span>
+    model = step(<span style="color: #facc15;">"train_model"</span>, <span style="color: #38bdf8;">lambda</span>: train_weights(data))
+
+    <span style="color: #94a3b8;"># Step 3: Seals proof receipt to .bench_wal/proof_receipt.json</span>
+    results = step(<span style="color: #facc15;">"evaluate"</span>, <span style="color: #38bdf8;">lambda</span>: run_eval(model))
+    <span style="color: #38bdf8;">return</span> results</code></pre>
+      </div>
+
+      <div id="tab-cli" style="display: none;">
+<pre><code><span style="color: #94a3b8;"># Execute autonomous task with deterministic scope fencing</span>
+$ lil run --goal "Upgrade auth and verify JWT rotation" --strict
+
+<span style="color: #94a3b8;"># Resume interrupted task directly from local WAL</span>
+$ lil resume --task auth-refactor
+
+<span style="color: #94a3b8;"># Verify HMAC-SHA256 proof receipt</span>
+$ lil verify --receipt .bench_wal/proof_receipt.json</code></pre>
+      </div>
+
+      <div id="tab-action" style="display: none;">
+<pre><code><span style="color: #94a3b8;"># .github/workflows/verify-proof.yml</span>
+<span style="color: #38bdf8;">name</span>: Verify Durability Gate
+<span style="color: #38bdf8;">on</span>: [pull_request]
+
+<span style="color: #38bdf8;">jobs</span>:
+  <span style="color: #60a5fa;">verify</span>:
+    <span style="color: #38bdf8;">runs-on</span>: ubuntu-latest
+    <span style="color: #38bdf8;">steps</span>:
+      - <span style="color: #38bdf8;">uses</span>: actions/checkout@v4
+      - <span style="color: #38bdf8;">uses</span>: sdageltc/letitloop-action@v2
+        <span style="color: #38bdf8;">with</span>:
+          <span style="color: #34d399;">strict_ast</span>: <span style="color: #facc15;">true</span>
+          <span style="color: #34d399;">require_proof_receipt</span>: <span style="color: #facc15;">true</span></code></pre>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-brand">
+        <img src="assets/logo.png" alt="LetItLoop" width="24" height="24" style="border-radius: 4px;" />
+        LetItLoop Open Source Ecosystem
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/sdageltc/letitloop">GitHub</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/">DCP-2.0 Benchmark</a>
+        <a href="https://pypi.org/project/letitloop/">PyPI Package</a>
+        <a href="https://github.com/sdageltc/letitloop/blob/main/LICENSE">MIT License</a>
+      </div>
+    </footer>
   </div>
 
-  <!-- Footer -->
-  <footer>
-    <div class="container">
-      <div class="footer-links">
-        <a href="https://github.com/sdageltc/letitloop" class="footer-link" target="_blank">GitHub Repository</a>
-        <a href="https://pypi.org/project/letitloop/0.3.1/" class="footer-link" target="_blank">PyPI Package</a>
-        <a href="https://github.com/sdageltc/letitloop-action" class="footer-link" target="_blank">GitHub Action</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/" class="footer-link" target="_blank">DCP-2.0 Benchmark</a>
-      </div>
-      <p>LetItLoop — Open source under the MIT License • Built for high-reliability AI coding systems.</p>
-    </div>
-  </footer>
-
   <script>
-    // Copy Install Command
-    function copyInstall() {
-      navigator.clipboard.writeText('pip install letitloop');
-      const status = document.getElementById('copy-status');
-      status.innerText = '✅ Copied!';
-      setTimeout(() => { status.innerText = '📋 Copy'; }, 2000);
+    function switchTab(tab) {
+      document.getElementById('tab-python').style.display = tab === 'python' ? 'block' : 'none';
+      document.getElementById('tab-cli').style.display = tab === 'cli' ? 'block' : 'none';
+      document.getElementById('tab-action').style.display = tab === 'action' ? 'block' : 'none';
+      
+      const btns = document.querySelectorAll('.tab-btn');
+      btns.forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
     }
 
-    // Tabs Switcher
-    function switchTab(tabId, btn) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      btn.classList.add('active');
-    }
+    let isKilled = false;
+    function injectKill() {
+      const term = document.getElementById('termOutput');
+      const btn = document.getElementById('killBtn');
+      btn.disabled = true;
+      btn.innerText = "Simulating Recovery...";
 
-    // Interactive Terminal Simulator Engine
-    const term = document.getElementById('term-output');
-    let timer = null;
-    let manualCrash = false;
-
-    const scriptSteps = [
-      { text: '<span class="t-cyan t-bold">$ lil run --task auth-refactor --strict</span>', delay: 400 },
-      { text: '<span class="t-dim">┌─────────────────────────────────────────────────────────────┐</span>', delay: 300 },
-      { text: '<span class="t-dim">│  LetItLoop Engine v0.3.1                                     │</span>', delay: 200 },
-      { text: '<span class="t-dim">│  Task: Refactor auth middleware & rotate JWT keys           │</span>', delay: 200 },
-      { text: '<span class="t-dim">│  WAL Mode: ATOMIC (Direct I/O sync)                         │</span>', delay: 200 },
-      { text: '<span class="t-dim">└─────────────────────────────────────────────────────────────┘</span>', delay: 300 },
-      { text: '<span class="t-purple">[1/3]</span> ⚡ Synthesizing diff for auth/middleware.py ... <span class="t-green">[DONE] (312ms)</span>', delay: 600 },
-      { text: '&nbsp;&nbsp;&nbsp;&nbsp;↳ WAL Commit: frame_001.wal (checksum: 8a4f91e2)', delay: 400 },
-      { text: '<span class="t-purple">[2/3]</span> ⚡ Generating JWT key rotation tests ... <span class="t-green">[DONE] (445ms)</span>', delay: 700 },
-      { text: '&nbsp;&nbsp;&nbsp;&nbsp;↳ WAL Commit: frame_002.wal (checksum: 2e8c10fa)', delay: 400 },
-      { text: '<span class="t-purple">[3/3]</span> ⚡ Running AST syntax validator & test suite ...', delay: 600 },
-      { type: 'crash', text: '<span class="t-red">💥 [FATAL: PROCESS TERMINATED BY HOST (SIGKILL / OOM KILLER / HOST PREEMPTION)]</span><br/><span class="t-dim">Exit code 137. State safely preserved in local append-only WAL.</span>', delay: 1000 },
-      { text: '<br/><span class="t-cyan t-bold">$ lil resume --task auth-refactor</span>', delay: 700 },
-      { text: '<span class="t-green t-bold">🔄 [LetItLoop WAL]</span> Restoring state from .bench_wal/auth-refactor.wal ...', delay: 400 },
-      { text: '<span class="t-green t-bold">⏩ [FAST-FORWARD]</span> Steps 1-2 CACHED — SKIPPED in 0.94ms (0.0% duplicate token waste)', delay: 500 },
-      { text: '<span class="t-purple">▶️  Resuming Step [3/3]:</span> AST verification & pytest execution ... <span class="t-green">[PASS] (14/14 OK)</span>', delay: 800 },
-      { text: '<span class="t-green">🛡️  [PROOF SEALED]</span> ProofReceipt written to .bench_wal/proof_receipt.json', delay: 400 },
-      { text: '&nbsp;&nbsp;&nbsp;&nbsp;↳ HMAC-SHA256: 7f3b890a2e41c9b88fa9012cd4e67129 (100% Deterministic)', delay: 300 },
-      { text: '<span class="t-green t-bold">✅ TASK COMPLETED IN 1.2s — Process Death Survived with Zero Data Loss</span><br/>', delay: 3500 }
-    ];
-
-    let currentStep = 0;
-
-    function playNextStep() {
-      if (currentStep >= scriptSteps.length) {
-        currentStep = 0;
-        term.innerHTML = '';
-      }
-
-      const step = scriptSteps[currentStep];
-      const div = document.createElement('div');
-      div.className = 'term-line';
-      div.innerHTML = step.text;
-      term.appendChild(div);
-      term.scrollTop = term.scrollHeight;
-
-      currentStep++;
-      timer = setTimeout(playNextStep, step.delay || 500);
-    }
-
-    function triggerCrash() {
-      clearTimeout(timer);
-      const div = document.createElement('div');
-      div.className = 'term-line';
-      div.innerHTML = '<span class="t-red">💥 [MANUAL USER SIGKILL INJECTED: kill -9 PID]</span><br/><span class="t-dim">Process killed instantly. Resuming via WAL...</span>';
-      term.appendChild(div);
-      term.scrollTop = term.scrollHeight;
-
+      term.innerHTML += `<br/><span class="t-red t-bold">💥 [HOST SIGNAL: SIGKILL (137) RECEIVED]</span><br/><span class="t-dim">Process killed mid-execution. State safely committed to .bench_wal/auth-refactor.wal</span><br/>`;
+      
       setTimeout(() => {
-        currentStep = 12; // Jump to resume step
-        playNextStep();
-      }, 800);
+        term.innerHTML += `<br/><span class="t-cyan t-bold">$ lil resume --task auth-refactor</span><br/>`;
+        term.innerHTML += `<span class="t-green t-bold">🔄 [LetItLoop WAL]</span> Validating WAL frames (LILWAL02) ...<br/>`;
+        term.innerHTML += `<span class="t-green t-bold">⏩ [FAST-FORWARD]</span> Steps 1-2 CACHED — SKIPPED in 0.94ms (0.0% duplicate tokens)<br/>`;
+        term.innerHTML += `<span class="t-purple">▶️  Resuming Step [3/3]:</span> AST syntax validator & test suite ... <span class="t-green">[PASS]</span><br/>`;
+        term.innerHTML += `<span class="t-green">🛡️  [PROOF SEALED]</span> ProofReceipt HMAC-SHA256: 7f3b890a2e41c9b88fa9012cd4e67129<br/>`;
+        term.innerHTML += `<span class="t-green t-bold">✅ WORKFLOW COMPLETED IN 1.2s — Zero Data Loss</span><br/>`;
+        btn.disabled = false;
+        btn.innerText = "💥 Inject SIGKILL (137)";
+        term.scrollTop = term.scrollHeight;
+      }, 1200);
     }
-
-    // Auto-start simulator on page load
-    playNextStep();
   </script>
 </body>
 </html>
