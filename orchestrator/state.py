@@ -432,14 +432,18 @@ class State:
                 reason="synthesized INIT for raw-constructed state",
             )
         event = self._build_event(event_type, payload, reason=reason)
-        # Apply BEFORE persisting: _apply_event validates legality (transition
-        # rules, seq/prev/hash) and raises with zero side effects on rejection.
-        # Writing the WAL first left an orphan event + stale _seq/_hash_head on
-        # rejection, so the next append reused the same seq with a stale prev
-        # hash and corrupted the chain (replay then failed on load).
+        prev_seq = self._seq
+        prev_hash = self._hash_head
+        prev_status = self.status
         self._apply_event(event, replay=False)
-        self._append_wal(event)
-        self._append_journal(event)
+        try:
+            self._append_wal(event)
+            self._append_journal(event)
+        except Exception:
+            self._seq = prev_seq
+            self._hash_head = prev_hash
+            self.status = prev_status
+            raise
         return event
 
     def transition(self, new_status, reason="", evidence_path=None):

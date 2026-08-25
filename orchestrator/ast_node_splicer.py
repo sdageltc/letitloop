@@ -26,6 +26,44 @@ def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFuncti
     }
 
 
+def _find_function_node(tree: ast.AST, target_name: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """Locates function node respecting lexical scope and preventing nested closure shadowing."""
+    parts = target_name.split(".")
+    if len(parts) == 1:
+        # Top-level module functions first (avoids mutating inner closure with same name)
+        if isinstance(tree, ast.Module):
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
+                    return node
+        # Fallback if tree is not a Module or function is nested
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
+                return node
+        return None
+    elif len(parts) == 2:
+        class_name, func_name = parts
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == class_name:
+                for member in node.body:
+                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and member.name == func_name:
+                        return member
+        return None
+    else:
+        curr_nodes = [tree]
+        for part in parts[:-1]:
+            next_nodes = []
+            for parent in curr_nodes:
+                for child in getattr(parent, "body", []):
+                    if isinstance(child, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and child.name == part:
+                        next_nodes.append(child)
+            curr_nodes = next_nodes
+        for parent in curr_nodes:
+            for child in getattr(parent, "body", []):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and child.name == parts[-1]:
+                    return child
+        return None
+
+
 def splice_ast_function(
     source_code: str, target_name: str, replacement_code: str, enforce_strict_signature: bool = True
 ) -> str:
@@ -33,21 +71,17 @@ def splice_ast_function(
     replacement_tree = ast.parse(replacement_code)
 
     # 1. Locate replacement node
-    rep_node = None
-    for node in ast.walk(replacement_tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
-            rep_node = node
-            break
+    rep_node = _find_function_node(replacement_tree, target_name)
+    if not rep_node:
+        # Fallback to simple name if target_name was qualified
+        simple_name = target_name.split(".")[-1]
+        rep_node = _find_function_node(replacement_tree, simple_name)
 
     if not rep_node:
         raise ValueError(f"Replacement code does not contain function definition for '{target_name}'")
 
     # 2. Locate original node
-    orig_node = None
-    for node in ast.walk(source_tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
-            orig_node = node
-            break
+    orig_node = _find_function_node(source_tree, target_name)
 
     if not orig_node:
         raise ValueError(f"Target function '{target_name}' was not found in source AST.")
