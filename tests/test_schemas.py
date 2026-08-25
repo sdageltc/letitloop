@@ -3,8 +3,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import jsonschema
 import pytest
+
+jsonschema = pytest.importorskip("jsonschema")
 
 from orchestrator.schemas import get_schema
 
