@@ -1546,7 +1546,15 @@ def cmd_serve(args):
         detach = attach_webhooks(get_bus(), WebhookDispatcher(configs))
         print(f"[serve] attached {len(configs)} webhook endpoint(s)")
     server = SSEServer(host=host, port=port, bus=get_bus())
-    server.start()
+    try:
+        server.start()
+    except OSError as exc:
+        print(
+            f"error: cannot bind {host}:{port} - is another lil serve (or other service) "
+            f"already listening there? ({exc})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print(f"[serve] SSE stream ready at http://{host}:{server.bound_port}/events (Ctrl+C to stop)")
     try:
         while True:

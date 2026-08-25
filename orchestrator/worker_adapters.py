@@ -460,6 +460,11 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
             volumes.append((host, f"{self.CONTAINER_WORKSPACE}/{allow.rstrip('/')}", "rw"))
         return [f"{_docker_host_path(host)}:{container}:{mode}" for host, container, mode in volumes]
 
+    def _container_name(self, task_id: str) -> str:
+        """Deterministic container name so timeouts can target `docker kill`."""
+        safe = "".join(ch if (ch.isalnum() or ch in "-_.") else "-" for ch in str(task_id))
+        return f"letitloop-{safe}"
+
     def _build_run_argv(self, prompt: str, workspace_root: str, task_id: str) -> List[str]:
         """Build the full `docker run` argv and stage the brief as a read-only file."""
         scratch_dir = os.path.join(workspace_root, "scratch")
@@ -473,6 +478,8 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
             "docker",
             "run",
             "--rm",
+            "--name",
+            self._container_name(task_id),
             "--network",
             str(self.network),
             "--cpus",
@@ -522,6 +529,17 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
                 "approach": "docker_sandbox",
             }
         except subprocess.TimeoutExpired:
+            # Killing the docker CLI client does NOT stop the container; target
+            # it by name so a timed-out sandbox cannot leak and keep burning CPU.
+            try:
+                subprocess.run(  # nosec B603 B607
+                    ["docker", "kill", self._container_name(task_id)],
+                    capture_output=True,
+                    timeout=30,
+                    check=False,
+                )
+            except Exception:
+                pass
             return {
                 "exit_code": 124,
                 "stdout": "",
