@@ -1,8 +1,12 @@
+<p align="center">
+  <img src="assets/logo.png" alt="let it loop (LIL)" width="340" style="border-radius: 20px;">
+</p>
+
 <div align="center">
 
-# ⟳ LetItLoop
+# let it loop (LIL)
 
-**Deterministic verification, 2ms WAL crash durability, and source-span AST self-evolution harness for autonomous coding agents.**
+**Autonomous macro-task orchestration & verification control loop for AI coding agents: 2ms WAL crash durability, source-span AST self-evolution, and deterministic proof gates.**
 
 [![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)
 [![CI Matrix](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
