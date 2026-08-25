@@ -19,7 +19,8 @@ def set_fake_worker(monkeypatch):
     monkeypatch.setenv("FAKE_WORKER", "1")
 
 
-def test_failure_report_on_completed_goal(capsys):
+def test_failure_report_on_completed_goal(capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("LIL_RUN_DIR", str(tmp_path))
     from orchestrator.cli import cmd_failure_report
 
     goal = Goal(
@@ -28,7 +29,7 @@ def test_failure_report_on_completed_goal(capsys):
         description="Success goal",
     )
     plan = generate_contracts(goal, workspace_root=WORKSPACE_ROOT)
-    run_dir = os.path.join(DEFAULT_RUN_DIR, goal.goal_id)
+    run_dir = os.path.join(str(tmp_path), goal.goal_id)
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "goal.json"), "w", encoding="utf-8") as f:
         json.dump(goal.to_dict(), f)
@@ -45,8 +46,9 @@ def test_failure_report_on_completed_goal(capsys):
     assert "completed successfully" in captured.out or "COMPLETE" in captured.out
 
 
-def test_failure_report_on_failed_goal(capsys, monkeypatch):
+def test_failure_report_on_failed_goal(capsys, monkeypatch, tmp_path):
     monkeypatch.setenv("FAKE_WORKER", "FAIL")
+    monkeypatch.setenv("LIL_RUN_DIR", str(tmp_path))
     from orchestrator.cli import cmd_failure_report
 
     goal = Goal(
@@ -55,7 +57,7 @@ def test_failure_report_on_failed_goal(capsys, monkeypatch):
         description="Fail goal",
     )
     plan = generate_contracts(goal, workspace_root=WORKSPACE_ROOT)
-    run_dir = os.path.join(DEFAULT_RUN_DIR, goal.goal_id)
+    run_dir = os.path.join(str(tmp_path), goal.goal_id)
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "goal.json"), "w", encoding="utf-8") as f:
         json.dump(goal.to_dict(), f)
@@ -73,7 +75,8 @@ def test_failure_report_on_failed_goal(capsys, monkeypatch):
     assert "remediation" in captured.out.lower() or "Failure" in captured.out
 
 
-def test_failure_report_json_output(capsys):
+def test_failure_report_json_output(capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("LIL_RUN_DIR", str(tmp_path))
     from orchestrator.cli import cmd_failure_report
 
     goal = Goal(
@@ -82,7 +85,7 @@ def test_failure_report_json_output(capsys):
         description="JSON output test",
     )
     plan = generate_contracts(goal, workspace_root=WORKSPACE_ROOT)
-    run_dir = os.path.join(DEFAULT_RUN_DIR, goal.goal_id)
+    run_dir = os.path.join(str(tmp_path), goal.goal_id)
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "goal.json"), "w", encoding="utf-8") as f:
         json.dump(goal.to_dict(), f)
