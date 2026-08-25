@@ -26,15 +26,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        enable-cache: true
+        version: "latest"
+        
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
     
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+      run: uv pip install --system -e ".[dev]" pytest-cov ruff
     
     - name: Lint with ruff
       run: |
@@ -43,7 +45,7 @@ jobs:
     
     - name: Run unit tests
       run: |
-        python -m pytest tests -q --ignore=tests/test_integration.py --ignore=tests/test_benchmarks.py --cov=orchestrator --cov-report=xml
+        pytest tests -q --ignore=tests/test_integration.py --ignore=tests/test_benchmarks.py --cov=orchestrator --cov-report=xml
     
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
@@ -63,19 +65,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: '3.11'
+        enable-cache: true
+        version: "latest"
+        
+    - name: Set up Python 3.11
+      run: uv python install 3.11
     
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+      run: uv pip install --system -e ".[dev]"
     
     - name: Run integration tests (blocking)
       run: |
-        python -m pytest tests/test_integration.py -v
+        pytest tests/test_integration.py -v
 
   security:
     runs-on: ubuntu-latest
@@ -84,19 +88,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: '3.11'
+        enable-cache: true
+        version: "latest"
+        
+    - name: Set up Python 3.11
+      run: uv python install 3.11
     
     - name: Install security tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install bandit
+      run: uv pip install --system bandit
     
     - name: Run Bandit Security Scanner
-      run: |
-        bandit -r orchestrator/ -ll -ii
+      run: bandit -r orchestrator/ -ll -ii
       
   build:
     runs-on: ubuntu-latest
@@ -105,15 +110,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: '3.11'
+        enable-cache: true
+        version: "latest"
+        
+    - name: Set up Python 3.11
+      run: uv python install 3.11
     
     - name: Install build and packaging tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+      run: uv pip install --system build twine
     
     - name: Build package
       run: python -m build
