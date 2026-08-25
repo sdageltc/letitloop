@@ -1,95 +1,176 @@
 <div align="center">
 
-# LetItLoop (LIL) 🛡️
+# ⟳ LetItLoop
 
-**Deterministic Verification Harness and Crash-Safe Execution Gate for AI Coding Agents**
+**Deterministic verification, 2ms WAL crash durability, and source-span AST self-evolution harness for autonomous coding agents.**
 
-[![CI](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
-[![Core Engine](https://img.shields.io/badge/Core%20Engine-v0.2.0-green.svg)](https://github.com/sdageltc/letitloop)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)
+[![CI Matrix](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-LetItLoop_Action-blue?logo=github)](https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate)
+[![Benchmark](https://img.shields.io/badge/DCP--1.0-Durability_Bench-green)](https://github.com/sdageltc/agent-durability-bench)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[Durability Benchmark](https://github.com/sdageltc/agent-durability-bench)** • **[PR Verification Action](https://github.com/sdageltc/letitloop-action)** • **[Engine Core](https://github.com/sdageltc/letitloop)**
+[Architecture](docs/index.html) • [Quickstart](#quickstart) • [Marketplace Action](https://github.com/sdageltc/letitloop-action) • [Crash Benchmark](https://github.com/sdageltc/agent-durability-bench) • [Worker Adapters](#supported-worker-adapters--gateways) • [Cookbook](#recipes--cookbooks)
 
 </div>
 
 ---
 
-## Overview
+## The LetItLoop Tripartite Ecosystem
 
-Most AI coding workflows suffer from two fundamental engineering failure modes:
-1. **Whole-File Rewrite Pathology**: When an agent attempts a 5-line bug fix, it re-generates the entire 400-line file, wiping out comments, mutating unrelated function signatures, and inflating token costs.
-2. **State Amnesia on Process Crash**: If a long-running execution terminates mid-loop (`kill -9`, spot eviction, rate-limit timeout), the agent loses all progress and starts from Step 0.
+LetItLoop solves the central failure mode of autonomous AI coding agents: **the lack of deterministic verification, uncatchable mid-task SIGKILL crashes, and destructive whole-file rewrites**.
 
-`letitloop` is a lightweight, zero-trust verification engine and supervisor loop designed to wrap coding agents with mechanical safety gates.
+```mermaid
+graph TD
+    subgraph "The Tripartite Ecosystem"
+        LL["<b>letitloop</b> (Core Engine)<br/>Deterministic WAL plumbing, AST node splicer and FastSandbox"]
+        LLA["<b>letitloop-action</b> (Marketplace)<br/>Drop-in CI gate signing proof bundles on Pull Requests"]
+        ADB["<b>agent-durability-bench</b> (DCP-1.0)<br/>Open benchmark measuring agent recovery under SIGKILL faults"]
+    end
+
+    LL -.->|"bridges to"| ADB
+    LL -.->|"scaffolds"| LLA
+```
+
+1. **[`letitloop`](https://github.com/sdageltc/letitloop)**: The core engine providing sub-2ms Write-Ahead Logging (WAL) state journals, source-span AST node splicing (0% comment loss), in-memory Zero-Copy fast sandboxing, and deterministic verification gates.
+2. **[`letitloop-action`](https://github.com/sdageltc/letitloop-action)**: Standalone GitHub Action for CI that validates AI pull requests, enforces strict AST signatures, and posts machine-verifiable proof bundles directly to PR comments.
+3. **[`agent-durability-bench`](https://github.com/sdageltc/agent-durability-bench)**: An open benchmark suite implementing Durability Challenge Protocol 1.0 (DCP-1.0) with zero-API synthetic simulation to measure how well agents recover from uncatchable SIGKILL crashes.
 
 ---
 
-## The Three Mechanical Pillars
+## Key Capabilities
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        LETITLOOP CORE ARCHITECTURE                     │
-├─────────────────────────┬────────────────────────┬─────────────────────┤
-│ 1. AST Node Splicer     │ 2. WAL State Machine   │ 3. Verification Gate│
-├─────────────────────────┼────────────────────────┼─────────────────────┤
-│ Method-level splicing.  │ Atomic SQLite/JSONL    │ 5-Pillar acceptance │
-│ Preserves comments,     │ state journal. Resumes │ checks (AST syntax, │
-│ decorators, whitespace. │ in 2ms after crash.    │ tests, scope fence).│
-└─────────────────────────┴────────────────────────┴─────────────────────┘
-```
-
-### 1. AST Node Splicer (`orchestrator/ast_node_splicer.py`)
-Rather than relying on blind string replacement or destructive `ast.unparse()` code regeneration, `letitloop` parses Python AST structures and splices replacement function nodes directly into the source span. Comments, docstrings, and decorator sets remain intact.
-
-### 2. Write-Ahead Log (WAL) Supervisor (`orchestrator/micro_epoch.py`)
-Every phase transition, model prompt, tool execution receipt, and file mutation is committed to an atomic Write-Ahead Log (`state.wal.jsonl`). If the process crashes at Step 8, re-launching `letitloop` reads the WAL journal and resumes Step 8 immediately without repeating completed work.
-
-### 3. Deterministic 5-Pillar Verification Firewall (`orchestrator/fast_sandbox.py`)
-Before any code change touches the host disk:
-1. **AST Syntax Validation**: Verifies code parses cleanly.
-2. **Signature Invariant Check**: Proves function arguments, defaults, and decorators match interface contracts.
-3. **Scope Boundary Fence**: Blocks unapproved edits outside the declared file boundary.
-4. **In-Memory Sandbox Overlay**: Runs unit tests against modified code in memory using `sys.modules` pre-injection.
-5. **Subprocess Exit Code Assertion**: Verifies that tests exit cleanly with code `0`.
+- **Source-Span AST Node Splicer**: Replaces targeted functions and class methods with surgical precision. **0% Comment Loss**: Guarantees module docstrings, file comments, licensing headers, and class indentation are never stripped or altered.
+- **In-Memory Fast Sandbox**: Zero-Copy `sys.modules` evaluation and Windows Job Object containment that verifies code hypotheses in-memory before writing anything to disk.
+- **Fault-Tolerant WAL Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic Win32/POSIX file locking, and bounded 3-strike retries with strategy mutation.
+- **Cognitive Feasibility Gate & Multi-Source Research**: Deliberates whether a refactor is safe to perform autonomously or requires background research across arXiv, GitHub, and DuckDuckGo.
+- **Human-in-the-Loop Proposal Ledger**: Automatically stages deferred, high-risk architectural proposals as structured markdown artifacts (`PROP-*.md`) for human review rather than executing unverified mutations.
+- **Zero-Trust Verification Engine**: Deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
+- **12 Pluggable Worker Adapters**: Native interfaces for Claude Code, OpenAI Codex, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Docker Sandboxes, Local LLMs (Ollama/vLLM), Omniroute gateways, local scripts, and direct LLMs.
+- **Native Model Context Protocol (MCP) Server & Client**: 8 stdio JSON-RPC tools connecting directly with Claude Code, OpenAI Codex, Cursor, Google Antigravity, and Hermes Agent.
+- **Cross-Platform Process Orphan Guard**: Windows Job Objects (`win32job`) and POSIX session process-group containment ensuring complete cleanup of child/grandchild processes.
+- **Prometheus Observability & Signed Webhooks**: Native Prometheus metrics exporter, lifecycle event bus, SSE streaming, and HMAC-SHA256 signed webhook dispatcher.
 
 ---
 
 ## Quickstart
 
-### Installation
+### 1. Installation
 
 ```bash
-# Clone repository
-git clone https://github.com/sdageltc/letitloop.git
-cd letitloop
+# Install letitloop core engine
+pip install letitloop
 
-# Install package and CLI
-pip install -e .
+# Or install with all development and worker dependencies
+pip install "letitloop[dev]"
 ```
 
-### Basic CLI Usage
+### 2. Basic CLI Usage
 
 ```bash
-# 1. Propose an execution contract DAG from an objective
-lil propose "Add rate limiter middleware to FastAPI app"
+# Propose a contract DAG from a natural language objective
+lil propose "Build a rate limiter middleware with unit tests" --run
 
-# 2. Run execution loop with deterministic verification gates
-lil run --strict
+# Bridge to the agent durability benchmark
+lil bench --steps 5
 
-# 3. View WAL journal state and active checkpoints
+# Scaffold a production GitHub Action PR verification workflow
+lil action --init
+
+# Inspect live supervisor status, WAL journal, and active checkpoints
 lil status
+
+# Run deterministic reconciliation audit across workspace files
+lil reconcile <goal_id>
 ```
 
 ---
 
-## Ecosystem Repositories
+## Supported Worker Adapters & Gateways
 
-- **[agent-durability-bench](https://github.com/sdageltc/agent-durability-bench)**: The open crash-resilience benchmark (DCP-1.0) for measuring agent recovery fidelity.
-- **[letitloop-action](https://github.com/sdageltc/letitloop-action)**: Drop-in GitHub Action attaching proof receipts to Pull Requests.
+| Worker Adapter | Identifier | Description | Tier |
+|---|---|---|---|
+| **Google Antigravity CLI** | `antigravity-cli` | Invokes the official `agy` agent runner safely | **Tier-1 (Core)** |
+| **Claude Code CLI** | `claude-code` | Autonomous task execution via Claude Code CLI | **Tier-1 (Core)** |
+| **OpenAI Codex CLI** | `codex` | Autonomous task execution via OpenAI Codex CLI | **Tier-1 (Core)** |
+| **Mock Worker** | `mock` | Deterministic simulation worker for CI and offline tests | **Tier-1 (Core)** |
+| **OpenCode CLI** | `opencode` | Autonomous execution via OpenCode agent CLI | Tier-2 (Contrib) |
+| **Hermes Agent CLI** | `hermes` | Autonomous execution via Nous Research Hermes agent CLI | Tier-2 (Contrib) |
+| **Cline CLI** | `cline` | Headless execution via Cline autonomous coding runner | Tier-2 (Contrib) |
+| **Aider Pair Programmer** | `aider` | Pair programming execution via Aider CLI | Tier-2 (Contrib) |
+| **Docker Sandbox Worker** | `docker` | Isolated execution inside container runtime with workspace scoping | Tier-2 (Contrib) |
+| **Local LLM Tool Caller** | `local-tool` | Local tool-calling model adapter for offline Ollama/vLLM loops | Tier-2 (Contrib) |
+| **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways | Tier-2 (Contrib) |
+| **Script Worker** | `script` | Executes local shell/Python automation scripts with env isolation | Tier-2 (Contrib) |
+| **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek, or Ollama | Tier-2 (Contrib) |
+
+---
+
+## Model Context Protocol (MCP) Integration
+
+LetItLoop runs natively as an MCP server providing 8 JSON-RPC tools to AI agent runners:
+
+```json
+{
+  "mcpServers": {
+    "letitloop": {
+      "command": "letitloop-mcp",
+      "env": {
+        "WORKER_MODEL": "gemini:gemini-3.7-flash",
+        "QC_MODEL": "gemini:gemini-3.1-pro"
+      }
+    }
+  }
+}
+```
+
+#### Add to Claude Code
+```bash
+claude mcp add letitloop -- python -m orchestrator.mcp_server
+```
+
+---
+
+## Recipes & Cookbooks
+
+The [`recipes/`](recipes/README.md) cookbook provides end-to-end, schema-validated walkthroughs:
+
+| Recipe | Focus |
+|---|---|
+| [**01 - Legacy Codebase Refactor**](recipes/01-legacy-codebase-refactor/README.md) | Refactor under `pytest` + `ruff` acceptance gates with scope fencing and bounded retries |
+| [**02 - FastAPI CRUD Generator**](recipes/02-fastapi-crud-generator/README.md) | Feature decomposition into a 4-contract DAG chained with `depends_on` |
+| [**03 - Offline Local LLM Loop**](recipes/03-offline-local-llm-loop/README.md) | Zero-cloud-key runs via Ollama (`local-tool`) and the `docker` sandbox adapter |
+| [**04 - Multi-Agent QC Audit**](recipes/04-multi-agent-qc-audit/README.md) | Multi-lens quality plane: panels, arbitration, budgets, and `quality_spec` |
+
+Validate all embedded example contracts anytime with `pytest tests/test_recipes.py -q`.
+
+---
+
+## Living Architecture Decision Records (ADRs)
+
+Following the Michael Nygard ADR convention, all core design invariants and architectural decisions are codified:
+
+| ADR | Focus | Status |
+|---|---|---|
+| [**ADR-0001**](docs/adr/0001-write-ahead-logging.md) | **Write-Ahead Logging (WAL) & Zero-State Recovery** | `accepted` |
+| [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md) | **Deterministic AST, Regex & Exit-Code Verification Gates** | `accepted` |
+| [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md) | **Zero-API-Key Headless Agent CLI Wrapper Failovers** | `accepted` |
+| [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md) | **Format-Aware Acceptance Check & Markdown Injection** | `accepted` |
+| [**ADR-0008**](docs/adr/0008-scope-freeze-and-sunset-criteria.md) | **Scope Freeze, Tripartite Spinoff & Sunset Criteria** | `accepted` |
+
+---
+
+## Security & Sandboxing Architecture
+
+`letitloop` operates under a zero-trust execution model:
+- **Redaction Firewall**: Automatic masking of PATs, OAuth keys, AWS credentials, GCP tokens, and PEM private keys.
+- **Environment Scrubbing**: Sensitive parent environment variables are stripped prior to worker execution.
+- **Scope Checking**: Userland filesystem snapshot diffing (`scope.py`) enforcing directory bounds and declared output paths.
+- **Process Isolation**: Process tree containment with Windows Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and POSIX session leadership.
 
 ---
 
 ## License
 
-MIT License. Copyright (c) 2026 Oguzhan Kayan.
+Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
