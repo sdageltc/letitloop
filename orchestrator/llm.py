@@ -189,6 +189,39 @@ def _http_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeo
         raise LLMError(f"non-JSON response: {raw[:200]!r}") from e
 
 
+def _is_transient_llm_error(exc: "LLMError") -> bool:
+    """True for failures worth retrying: 429/5xx or transport-level drops."""
+    if getattr(exc, "status", None) is not None:
+        return exc.status in (429, 500, 502, 503, 504)
+    msg = str(exc).lower()
+    return "connection failed" in msg or "timed out" in msg
+
+
+def _http_json_retrying(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout_s: int) -> Dict[str, Any]:
+    """``_http_json`` with opt-in bounded retry for transient provider failures.
+
+    Attempts = 1 + LIL_HTTP_RETRIES (clamped 0..5; default 0 = unchanged
+    behavior). Only 429/5xx and transport drops retry; deterministic 4xx
+    failures return immediately. Linear backoff capped at 2s.
+    """
+    try:
+        retries = int(os.environ.get("LIL_HTTP_RETRIES", "0"))
+    except ValueError:
+        retries = 0
+    retries = max(0, min(retries, 5))
+    attempts = retries + 1
+    last_exc: Optional[LLMError] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return _http_json(url, headers, payload, timeout_s)
+        except LLMError as exc:
+            if attempt >= attempts or not _is_transient_llm_error(exc):
+                raise
+            last_exc = exc
+            time.sleep(min(0.5 * attempt, 2.0))
+    raise last_exc if last_exc else LLMError("retry loop exited without result")
+
+
 def call_llm(
     prompt: str,
     model: str,
@@ -252,7 +285,7 @@ def call_llm(
         if temperature is not None:
             payload["temperature"] = temperature
         ModelThinkingConfig.apply_thinking_config(model_id, provider, payload, thinking_budget=thinking_budget)
-        data = _http_json(f"{base_url(provider)}/messages", headers, payload, timeout_s)
+        data = _http_json_retrying(f"{base_url(provider)}/messages", headers, payload, timeout_s)
         try:
             text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
         except (AttributeError, TypeError):
@@ -273,7 +306,7 @@ def call_llm(
         if temperature is not None:
             payload["temperature"] = temperature
         ModelThinkingConfig.apply_thinking_config(model_id, provider, payload, thinking_budget=thinking_budget)
-        data = _http_json(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
+        data = _http_json_retrying(f"{base_url(provider)}/chat/completions", headers, payload, timeout_s)
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError):
