@@ -16,7 +16,7 @@ The LetItLoop ecosystem enforces a strict **Decoupled Self-Healing & Durability 
 │                                                                                          │
 │   Layer B: Cloud CI Watchdog Daemon (`lil watchdog`)                                     │
 │   ──────────────────────────────────────────────────                                     │
-│   • Runs out-of-band on Azure B1s ($100 Student Credits) or Oracle Ampere A1 (Free)      │
+│   • Runs out-of-band on a dedicated Linux VM or Cloud Container Host                     │
 │   • Listens for failing GitHub Actions runs (`workflow_run` failure events)              │
 │   • Clones failing branch in an isolated sandbox, runs AutoHealer, and verifies tests    │
 │   • Dispatches verified fix branch and opens Pull Request                                │
@@ -64,7 +64,7 @@ else:
 
 ## 2. Layer B: Cloud CI Watchdog Daemon (`lil watchdog`)
 
-To run the autonomous out-of-band watchdog on an **Azure B1s VM** or **Oracle Cloud Infrastructure (OCI Always Free)**:
+To run the autonomous out-of-band watchdog on a **Linux VM or Cloud Container Host**:
 
 ```bash
 # Query and inspect recent failed CI runs

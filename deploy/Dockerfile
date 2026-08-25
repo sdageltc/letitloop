@@ -1,4 +1,4 @@
-# Dockerfile for LetItLoop Cloud CI Watchdog (Azure B1s / Oracle Ampere A1)
+# Dockerfile for LetItLoop Cloud CI Watchdog (Linux VM / Container Host)
 FROM python:3.11-slim
 
 WORKDIR /app
