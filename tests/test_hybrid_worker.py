@@ -419,4 +419,3 @@ def test_guard_paid_model_enforcement():
 
     # Paid model with marker passes
     _guard_paid_model("anthropic:claude-3-opus", "Prompt with [CONTEXT_COMPLETE] attached")
-

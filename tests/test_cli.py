@@ -580,5 +580,3 @@ class TestFakeWorker:
             c1_state = _read_state(tmp_path, f"{gid}-step-1")
         assert c1_state is not None and c1_state["status"] in ("COMPLETE", "complete")
         assert c2_state is not None and c2_state["status"] in ("COMPLETE", "complete")
-
-

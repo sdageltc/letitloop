@@ -19,6 +19,7 @@ class UserProfile:
     username: str
     roles: list[str]
 
+
 def test_durable_step_skipping_on_resume(tmp_path):
     wal_dir = str(tmp_path / "wal_run")
     step1_calls = 0
@@ -53,6 +54,7 @@ def test_durable_step_skipping_on_resume(tmp_path):
     assert step1_calls == 1  # SKIPPED
     assert step2_calls == 1  # SKIPPED
 
+
 def test_durable_dataclass_serialization(tmp_path):
     wal_dir = str(tmp_path / "wal_dataclass")
     call_count = 0
@@ -77,6 +79,7 @@ def test_durable_dataclass_serialization(tmp_path):
     assert res2["user_id"] == 42
     assert call_count == 1
 
+
 def test_durable_non_serializable_raises_error(tmp_path):
     wal_dir = str(tmp_path / "wal_bad_serial")
 
@@ -90,6 +93,7 @@ def test_durable_non_serializable_raises_error(tmp_path):
     with pytest.raises(DurableSerializationError) as exc_info:
         run_bad()
     assert "returned non-serializable object" in str(exc_info.value)
+
 
 def test_atomic_marker_prevents_duplicate_side_effect(tmp_path):
     wal_dir = str(tmp_path / "wal_marker")

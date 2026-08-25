@@ -4,10 +4,10 @@ import json
 import os
 import types
 
-from orchestrator.approval import _get_plan_stats, format_approval_reasons, requires_approval
 from orchestrator.goal import Goal, Plan
 from orchestrator.plan_preview import _describe_risk, render_plan_preview
 from orchestrator.preferences import apply_preferences_to_goal, collect_preferences
+from orchestrator.safety import _get_plan_stats, format_approval_reasons, requires_approval
 
 
 def _make_contract(task_id, outputs=None, checks=None, objective="", scope=None, task_type="implementation"):

@@ -11,11 +11,11 @@ from orchestrator.checkpoint import (
 from orchestrator.goal import Goal, Plan
 from orchestrator.limits import ResourceLimits
 from orchestrator.metrics import MetricsCollector
+from orchestrator.planner import list_templates
 from orchestrator.safety import format_safety_report, run_safety_checks
 from orchestrator.state import State, load_state, save_state
 from orchestrator.supervisor import Supervisor
 from orchestrator.telemetry import load_events, record_event
-from orchestrator.templates import list_templates
 
 
 def _make_contract(task_id, depends_on=None, output_path=None, max_attempts=1):

@@ -1,6 +1,5 @@
 """Conformance benchmark scenarios for DCP-2.0."""
 
-import json
 from pathlib import Path
 
 SCENARIOS_DIR = Path(__file__).resolve().parent
@@ -35,6 +34,7 @@ SCENARIO_DEFINITIONS = [
         "expected_recovery": "VALID_PREFIX_TRUNCATE_AND_RESUME",
     },
 ]
+
 
 def load_scenarios() -> list[dict]:
     return SCENARIO_DEFINITIONS

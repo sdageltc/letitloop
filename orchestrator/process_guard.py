@@ -137,6 +137,7 @@ def _linux_pdeathsig_hook():
         try:
             import ctypes
             import signal
+
             libc = ctypes.CDLL("libc.so.6", use_errno=True)
             PR_SET_PDEATHSIG = 1
             libc.prctl(PR_SET_PDEATHSIG, signal.SIGKILL, 0, 0, 0)

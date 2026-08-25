@@ -1,15 +1,17 @@
-import os
-import sys
-import time
 import json
+import os
 import pathlib
 import subprocess
+import sys
+import time
 from pathlib import Path
-from typing import Tuple, Any
+from typing import Any, Tuple
+
 from adapters.base import FrameworkAdapter
+from harness.injector import PhaseSentinelWatcher, ProcessLifecycleGuard
 from harness.schema import DurabilityScore, SyntheticTaskSpec
 from harness.synthetic_engine import SyntheticTaskRunner
-from harness.injector import ProcessLifecycleGuard, PhaseSentinelWatcher
+
 
 class SnapshotGraphAdapter(FrameworkAdapter):
     def __init__(self, wal_dir: str = ".bench_wal"):
@@ -27,7 +29,7 @@ class SnapshotGraphAdapter(FrameworkAdapter):
     def start_task(self, spec: SyntheticTaskSpec) -> Tuple[int, Any]:
         wal_path = pathlib.Path(self.wal_dir)
         wal_path.mkdir(parents=True, exist_ok=True)
-        
+
         child_code = f'''
 import sys
 import os
@@ -50,27 +52,27 @@ runner.run_until_kill_or_complete()
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
-            env=env
+            env=env,
         )
         self.active_process = proc
-        
+
         watcher = PhaseSentinelWatcher(proc.stdout)
         watcher.wait_for_phase(r"\[PHASE_READY\]", timeout_seconds=2.0)
-        
+
         if spec.kill_at_step_index >= 0:
             watcher.wait_for_phase(r"\[KILL_POINT_REACHED", timeout_seconds=2.0)
             time.sleep(0.01)
-            
+
             guard = ProcessLifecycleGuard(proc.pid)
             guard.inject_kill(spec.kill_signal)
-            
+
         return proc.pid, proc.stdout
 
     def resume_task(self, spec: SyntheticTaskSpec) -> DurabilityScore:
         t0 = time.time()
         spec_resume = spec.model_copy(deep=True)
         spec_resume.kill_at_step_index = -1
-        
+
         for _ in range(5):
             try:
                 runner = SyntheticTaskRunner(spec_resume, wal_dir=self.wal_dir)
@@ -83,7 +85,7 @@ runner.run_until_kill_or_complete()
             res = runner.run_until_kill_or_complete()
 
         latency = time.time() - t0
-        
+
         return DurabilityScore(
             task_id=spec.task_id,
             framework=self.name,
@@ -92,5 +94,5 @@ runner.run_until_kill_or_complete()
             state_corruption_detected=False,
             impossibility_artifact_emitted=False,
             recovery_latency_seconds=latency + 0.05,
-            final_verdict="PASS" if res.completed else "FAIL_HANG"
+            final_verdict="PASS" if res.completed else "FAIL_HANG",
         )
