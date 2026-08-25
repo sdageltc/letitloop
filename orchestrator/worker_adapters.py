@@ -7,6 +7,7 @@ Script executors, Direct LLM APIs, Docker sandboxes, and local tool-calling LLMs
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -437,6 +438,12 @@ class DockerWorkerAdapter(BaseWorkerAdapter):
         seen = {ws_abs.lower()}
         for allow in allows:
             if allow in (".", "./"):
+                continue
+            if bool(re.match(r"^[a-zA-Z]:", allow)) or allow.startswith("/"):
+                print(
+                    f"[docker] refusing allow outside workspace: {allow!r} -> {allow!r}",
+                    file=sys.stderr,
+                )
                 continue
             host = os.path.normpath(os.path.join(ws_abs, allow))
             host_norm = os.path.normcase(host) if os.name == "nt" else host
