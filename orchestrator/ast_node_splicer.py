@@ -26,31 +26,62 @@ def extract_comprehensive_signature(func_node: ast.FunctionDef | ast.AsyncFuncti
     }
 
 
+def _iter_functions_with_qualnames(tree: ast.AST):
+    """Yield (qualname, node) for every function, tracking class nesting."""
+    stack = [("", tree)]
+    while stack:
+        parent_q, node = stack.pop()
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                q = f"{parent_q}.{child.name}" if parent_q else child.name
+                yield q, child
+                stack.append((q, child))
+            elif isinstance(child, ast.ClassDef):
+                q = f"{parent_q}.{child.name}" if parent_q else child.name
+                stack.append((q, child))
+            else:
+                stack.append((parent_q, child))
+
+
 def splice_ast_function(
     source_code: str, target_name: str, replacement_code: str, enforce_strict_signature: bool = True
 ) -> str:
     source_tree = ast.parse(source_code)
     replacement_tree = ast.parse(replacement_code)
 
-    # 1. Locate replacement node
+    # 0. Resolve the target. A dotted target (Outer.Inner.compute) selects by
+    #    qualname. An unqualified target must be UNIQUE in the source - a name
+    #    collision would silently replace the wrong function.
+    all_functions = list(_iter_functions_with_qualnames(source_tree))
+    if "." in target_name:
+        matches = [(q, n) for q, n in all_functions if q == target_name]
+        if not matches:
+            raise ValueError(f"Target function '{target_name}' was not found in source AST.")
+        bare_target = target_name.rsplit(".", 1)[-1]
+    else:
+        matches = [(q, n) for q, n in all_functions if q == target_name or q.endswith("." + target_name)]
+        if len(matches) > 1:
+            quals = sorted(q for q, _ in matches)
+            raise ValueError(
+                f"ambiguous target: {len(matches)} functions named '{target_name}' {quals}; "
+                f"qualify the target (e.g. '{quals[0]}') or rename"
+            )
+        if not matches:
+            raise ValueError(f"Target function '{target_name}' was not found in source AST.")
+        bare_target = target_name
+
+    # 1. Locate replacement node (by bare name in the replacement snippet)
     rep_node = None
     for node in ast.walk(replacement_tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == bare_target:
             rep_node = node
             break
 
     if not rep_node:
-        raise ValueError(f"Replacement code does not contain function definition for '{target_name}'")
+        raise ValueError(f"Replacement code does not contain function definition for '{bare_target}'")
 
-    # 2. Locate original node
-    orig_node = None
-    for node in ast.walk(source_tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target_name:
-            orig_node = node
-            break
-
-    if not orig_node:
-        raise ValueError(f"Target function '{target_name}' was not found in source AST.")
+    # 2. Original node from the resolved match
+    orig_node = matches[0][1]
 
     # 3. Validate signature invariance
     if enforce_strict_signature:
