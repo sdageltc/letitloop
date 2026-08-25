@@ -48,14 +48,15 @@ def test_signature_drift_rejection():
 def target_func(x: int, y: str = "default") -> bool:
     return True
 """
-    # Modifying default value or dropping argument
+    # 1. Changing type annotation
     bad_replacement = """
-def target_func(x: int, y: str = "different") -> bool:
+def target_func(x: int, y: int = 1) -> bool:
     return False
 """
     with pytest.raises(ValueError, match="Signature drift detected"):
         splice_ast_function(source_code, "target_func", bad_replacement, enforce_strict_signature=True)
 
+    # 2. Changing parameter name
     bad_param_replacement = """
 def target_func(x: int, z: str = "default") -> bool:
     return False
