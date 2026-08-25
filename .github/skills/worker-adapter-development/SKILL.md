@@ -19,6 +19,7 @@ Every worker adapter MUST inherit from `BaseWorkerAdapter` and implement `execut
 from typing import Any, Dict
 from .worker_adapters import BaseWorkerAdapter
 
+
 class CustomWorkerAdapter(BaseWorkerAdapter):
     """Custom worker adapter implementation."""
 
@@ -34,7 +35,7 @@ class CustomWorkerAdapter(BaseWorkerAdapter):
         timeout: int = 300,
     ) -> Dict[str, Any]:
         """Execute the worker and return standardized execution dictionary.
-        
+
         Returns:
             {
                 "exit_code": int (0 for success, non-zero for failure),

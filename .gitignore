@@ -1,16 +1,3 @@
-# Credential vault & local secrets
-.vault/
-
-# Secrets
-.env
-*.env
-.env.local
-.env.*.local
-
-# External skill configs holding API keys
-.config/skills/
-
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,111 +15,22 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Scratch / working files
-scratch/
-*.log
-logs/
-
-# Orchestrator run-state artifacts (state.json, worker outputs, evidence)
-# Runs are stored in scratch/ (already ignored above). These patterns
-# ensure orchestrator/ source dirs don't accidentally accumulate state.
-orchestrator/**/state.json
-orchestrator/**/worker_brief.txt
-orchestrator/**/scope_snapshot.json
-orchestrator/fixtures/generated/
-
-# Reference copies & local data
-reference/
-
-# Pipeline data outputs
-projects/*/*.xlsx
-projects/*/*.csv
-
-# OS
-Thumbs.db
-.DS_Store
-*.tmp
-
-# CI / Test / Scratch additions
-scratch/orchestrator_runs/
-scratch/runs/
-scratch/impossibility/
+MANIFEST
 .pytest_cache/
-.coverage
-htmlcov/
 .benchmarks/
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.env/
-.env.local/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.project
-.classpath
-.settings/
-
-# Coverage
 .coverage
-.coverage.*
 htmlcov/
+.venv/
+env/
+venv/
+ENV/
+.letitloop/
+*.wal.jsonl
+.DS_Store
+Thumbs.db
 
-# Mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre
-.pyre/
-
-# Pytype
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# Pre-commit
-.pre-commit-cache/
-
-# Documentation
-docs/_build/
-
-# Terraform
-*.tf
-*.tfstate
-*.tfstate.backup
-.terraform/
-.terraform.lock.hcl
-
-# Ansible
-*.retry
-
-# Packer
-*.pkrvars.hcl
-
-# Vagrant
-.vagrant/
-
-# Box
-*.box
-
-# Vagrantfile
-Vagrantfile
-
-# Scope-lease registry runtime state
-.opencode/locks/
-
-# Local IDE metadata
 *.metadata.json

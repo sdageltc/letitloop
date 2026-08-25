@@ -1537,7 +1537,71 @@ def cmd_install_skill(args):
     print("========================================================")
     for name, path in installed:
         print(f"[OK] {name:<22} -> {path}")
-    print("========================================================\n")
+
+
+def cmd_bench(args):
+    """Execute or inspect agent durability benchmarks (DCP-1.0)."""
+    import subprocess
+
+    framework = getattr(args, "framework", "letitloop")
+    signal = getattr(args, "signal", "SIGKILL")
+    print(f"Executing Durability Conformance Benchmark for '{framework}' (Signal: {signal})...")
+
+    try:
+        res = subprocess.run(
+            [sys.executable, "-m", "harness.runner", "--framework", framework, "--signal", signal], capture_output=False
+        )
+        sys.exit(res.returncode)
+    except Exception as e:
+        print(f"Durability benchmark execution error: {e}")
+        print("Tip: Install agent-durability-bench via: pip install agent-durability-bench")
+        print("Or run standalone: durability-bench --framework letitloop")
+
+
+def cmd_action(args):
+    """Generate or verify GitHub Actions configuration for LetItLoop Proof-Carrying CI."""
+    if getattr(args, "init", False):
+        workflow_dir = os.path.join(WORKSPACE_ROOT, ".github", "workflows")
+        os.makedirs(workflow_dir, exist_ok=True)
+        workflow_file = os.path.join(workflow_dir, "letitloop-verify.yml")
+        workflow_yaml = """name: LetItLoop Verification Gate
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: LetItLoop Proof-Carrying Gate
+        uses: sdageltc/letitloop-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          strict-ast: 'true'
+          test-command: 'pytest -q'
+"""
+        with open(workflow_file, "w", encoding="utf-8") as f:
+            f.write(workflow_yaml)
+        print(f"Created GitHub Action workflow at: {workflow_file}")
+        print("The LetItLoop verification gate will now run automatically on pull requests.")
+    else:
+        print("LetItLoop GitHub Action (Marketplace: sdageltc/letitloop-action@v1)")
+        print("To install into your repository, run: lil action --init")
+        print("Or add to .github/workflows/letitloop-verify.yml:")
+        print("  uses: sdageltc/letitloop-action@v1")
 
 
 def main():
@@ -1763,7 +1827,18 @@ def main():
         help="Target workspace path for project-local skill installation (default: current directory)",
     )
 
+    p_bench = sub.add_parser("bench", help="Run agent durability conformance benchmark (DCP-1.0)")
+    p_bench.add_argument("--framework", default="letitloop", help="Target framework adapter (default: letitloop)")
+    p_bench.add_argument("--signal", default="SIGKILL", help="Fault signal to inject (default: SIGKILL)")
+
+    p_action = sub.add_parser("action", help="Generate or inspect LetItLoop GitHub Action for Proof-Carrying CI")
+    p_action.add_argument(
+        "--init", action="store_true", help="Generate .github/workflows/letitloop-verify.yml workflow file"
+    )
+
     cmds = {
+        "bench": cmd_bench,
+        "action": cmd_action,
         "create": cmd_create,
         "preflight": cmd_preflight,
         "work": cmd_work,

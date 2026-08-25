@@ -167,9 +167,7 @@ class AntigravityCliWorkerAdapter(BaseWorkerAdapter):
         import shutil
 
         executable = shutil.which(self.cli_binary) or self.cli_binary
-        cmd = [executable, "-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
-        if workspace_root and os.path.isdir(workspace_root):
-            cmd.extend(["--add-dir", workspace_root])
+        cmd = [executable, "-p", prompt, "--dangerously-skip-permissions"]
 
         try:
             proc = subprocess.run(
