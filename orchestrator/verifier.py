@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import ast
-import hashlib
+import functools
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
 
@@ -356,9 +356,6 @@ _SECRET_KEY_HEADER = re.compile(
     r"-----BEGIN\s+(?:[A-Z0-9_\-]+\s+)?(?:ENCRYPTED\s+)?(?:PRIVATE\s+KEY|(?:RSA|OPENSSH|EC|PGP|DSA)\s+(?:PRIVATE\s+)?KEY)-----",
     re.IGNORECASE,
 )
-
-
-import functools
 
 
 @functools.lru_cache(maxsize=2048)
