@@ -7,12 +7,14 @@ from unittest.mock import MagicMock, patch
 from orchestrator.cli import cmd_trace
 from orchestrator.llm import call_llm
 from orchestrator.models import ModelRegistry, ModelThinkingConfig, ThinkingBudget
-from orchestrator.verifier import _AST_CACHE, fast_ast_verify
+from orchestrator.verifier import _AST_CACHE, _cached_ast_parse, fast_ast_verify
 
 
 class TestPerformanceAndTrace(unittest.TestCase):
     def setUp(self):
         _AST_CACHE.clear()
+        if hasattr(_cached_ast_parse, "cache_clear"):
+            _cached_ast_parse.cache_clear()
 
     def test_dynamic_thinking_budget_allocation(self):
         """Verify dynamic thinking token budgets across phases."""

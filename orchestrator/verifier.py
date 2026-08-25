@@ -358,6 +358,9 @@ _SECRET_KEY_HEADER = re.compile(
 )
 
 
+_AST_CACHE: dict = {}
+
+
 @functools.lru_cache(maxsize=2048)
 def _cached_ast_parse(source_code: str, filename: str = "") -> Tuple[bool, str]:
     try:
