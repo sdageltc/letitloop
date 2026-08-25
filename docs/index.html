@@ -3,32 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LetItLoop (LIL) — Deterministic Durability & Verification for AI Coding Agents</title>
-  <meta name="description" content="Autonomous macro-task orchestration & verification control loop for AI coding agents: 2ms WAL crash durability, source-span AST self-evolution, and deterministic proof gates." />
-  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <title>LetItLoop — Deterministic Crash Resilience for Autonomous AI Agents</title>
+  <meta name="description" content="Zero-daemon crash resilience for autonomous AI agents. Sub-millisecond WAL recovery, Lock v2 auto-stealing, and 0% token waste under SIGKILL." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #090d16;
-      --bg-surface: rgba(17, 24, 39, 0.85);
-      --bg-card: rgba(22, 30, 46, 0.7);
+      --bg: #07090e;
+      --bg-surface: rgba(13, 17, 26, 0.75);
+      --bg-card: rgba(18, 24, 38, 0.65);
       --bg-code: #0b0f19;
       --border: rgba(255, 255, 255, 0.08);
-      --border-accent: rgba(56, 189, 248, 0.35);
+      --border-hover: rgba(56, 189, 248, 0.35);
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --text-dim: #64748b;
       --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.25);
+      --accent-glow: rgba(56, 189, 248, 0.2);
       --green: #10b981;
-      --green-glow: rgba(16, 185, 129, 0.2);
-      --yellow: #f59e0b;
+      --green-glow: rgba(16, 185, 129, 0.15);
       --purple: #a855f7;
       --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      --radius: 14px;
+      --radius: 16px;
       --radius-sm: 8px;
     }
 
@@ -40,17 +38,17 @@
       line-height: 1.6;
       overflow-x: hidden;
       background-image: 
-        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+        radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.06) 0%, transparent 40%);
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1140px;
       margin: 0 auto;
       padding: 0 1.5rem;
     }
 
-    /* Universal Ecosystem Top Navigation */
+    /* Navigation */
     nav {
       display: flex;
       justify-content: space-between;
@@ -59,52 +57,67 @@
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
-      background: rgba(9, 13, 22, 0.85);
-      backdrop-filter: blur(16px);
+      background: rgba(7, 9, 14, 0.85);
+      backdrop-filter: blur(20px);
       z-index: 100;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      font-weight: 800;
-      font-size: 1.25rem;
+      gap: 0.85rem;
       text-decoration: none;
       color: var(--text);
+    }
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.2));
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+    }
+    .brand-name {
+      font-weight: 800;
+      font-size: 1.25rem;
       letter-spacing: -0.02em;
     }
-    .brand-badge {
-      background: rgba(56, 189, 248, 0.12);
+    .brand-name span {
       color: var(--accent);
-      padding: 0.2rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
+    }
+    .nav-badge {
       font-family: var(--font-mono);
+      font-size: 0.72rem;
       font-weight: 700;
-      border: 1px solid var(--border-accent);
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
     }
     .nav-links {
       display: flex;
       gap: 1.25rem;
       align-items: center;
-      flex-wrap: wrap;
     }
     .nav-link {
       color: var(--text-muted);
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
       transition: color 0.2s;
     }
-    .nav-link:hover, .nav-link.active { color: var(--accent); }
+    .nav-link:hover { color: var(--accent); }
     .btn-nav-gh {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 0.45rem 0.9rem;
+      padding: 0.45rem 0.85rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
       font-size: 0.85rem;
@@ -112,59 +125,73 @@
       transition: all 0.2s;
     }
     .btn-nav-gh:hover {
-      background: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.2);
     }
 
     /* Hero Section */
     .hero {
-      padding: 4.5rem 0 3rem;
+      padding: 5rem 0 3.5rem;
       text-align: center;
       position: relative;
     }
-    .hero-eyebrow {
+    .hero-badge-container {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.4rem 1.1rem;
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid var(--border-accent);
+      gap: 0.6rem;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 0.35rem 1rem;
       border-radius: 999px;
+      margin-bottom: 2rem;
+      font-size: 0.82rem;
+      font-weight: 600;
       color: var(--accent);
-      font-size: 0.85rem;
-      font-weight: 700;
-      margin-bottom: 1.5rem;
-      letter-spacing: 0.02em;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .hero-badge-container:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .hero-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
     }
     .hero h1 {
-      font-size: 3.25rem;
+      font-size: clamp(2.5rem, 5vw, 4rem);
       font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.15;
-      margin-bottom: 1.25rem;
-      background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      max-width: 860px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     .hero p {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       color: var(--text-muted);
-      max-width: 760px;
+      max-width: 680px;
       margin: 0 auto 2.25rem;
-      line-height: 1.6;
+      line-height: 1.55;
     }
-    .hero-cta {
+    .hero-actions {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 1rem;
       flex-wrap: wrap;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
     .btn-primary {
       background: var(--accent);
-      color: #090d16;
-      padding: 0.8rem 1.6rem;
+      color: #07090e;
+      padding: 0.75rem 1.6rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
       font-weight: 700;
@@ -173,469 +200,525 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
+      box-shadow: 0 0 25px var(--accent-glow);
     }
     .btn-primary:hover {
       background: #7dd3fc;
-      box-shadow: 0 0 20px var(--accent-glow);
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 0 35px rgba(56, 189, 248, 0.4);
     }
     .btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 0.8rem 1.6rem;
+      padding: 0.75rem 1.6rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
       font-weight: 600;
       font-size: 0.95rem;
       transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
     }
     .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
       border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
     }
 
-    /* Terminal Copy Snippet */
-    .install-box {
+    /* Terminal Install Pill */
+    .install-pill {
       display: inline-flex;
       align-items: center;
       background: var(--bg-code);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 0.65rem 1.2rem;
-      gap: 1.25rem;
+      padding: 0.6rem 1.1rem;
+      gap: 1rem;
       font-family: var(--font-mono);
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       color: var(--text-muted);
       cursor: pointer;
       transition: all 0.2s;
     }
-    .install-box:hover { border-color: var(--border-accent); }
-    .install-box span.cmd { color: var(--accent); font-weight: 600; }
-    .copy-btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: none;
-      color: var(--text);
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.75rem;
-      font-family: var(--font-sans);
-      font-weight: 600;
-      transition: background 0.2s;
+    .install-pill:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
     }
-    .copy-btn:hover { background: var(--accent); color: #090d16; }
+    .install-pill span.prefix { color: var(--text-dim); }
+    .install-pill span.cmd { color: var(--text); font-weight: 600; }
+    .copy-icon {
+      color: var(--text-dim);
+      transition: color 0.2s;
+    }
+    .install-pill:hover .copy-icon { color: var(--accent); }
 
-    /* Tripartite Ecosystem Grid */
-    .section-header {
-      text-align: center;
-      margin: 4rem 0 2.5rem;
+    /* Bento Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin: 3.5rem auto 4.5rem;
+      max-width: 960px;
     }
-    .section-header h2 {
-      font-size: 2.25rem;
+    .stat-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+    .stat-val {
+      font-size: 2rem;
       font-weight: 800;
-      letter-spacing: -0.02em;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      line-height: 1.1;
+      margin-bottom: 0.35rem;
+    }
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Section Headings */
+    .section-head {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .section-head h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
       margin-bottom: 0.5rem;
     }
-    .section-header p {
+    .section-head p {
       color: var(--text-muted);
       font-size: 1.05rem;
+      max-width: 600px;
+      margin: 0 auto;
     }
-    .grid-3 {
+
+    /* Interactive Code Showcase */
+    .showcase-container {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 960px;
+      margin: 0 auto 5rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+    .showcase-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+    }
+    .window-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+    .showcase-tabs {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .code-body {
+      padding: 1.5rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+    pre code {
+      color: #e2e8f0;
+    }
+    .kw { color: #f472b6; }
+    .fn { color: #60a5fa; }
+    .str { color: #34d399; }
+    .cm { color: #64748b; font-style: italic; }
+    .dec { color: #a78bfa; }
+
+    /* 3 Architectural Pillars */
+    .pillars-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 1.5rem;
+      margin-bottom: 5rem;
     }
-    .card {
+    .pillar-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 2rem;
-      backdrop-filter: blur(12px);
-      transition: all 0.25s ease;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      transition: all 0.25s;
     }
-    .card:hover {
-      border-color: var(--border-accent);
-      transform: translateY(-3px);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    .pillar-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
     }
-    .card-icon { font-size: 2rem; margin-bottom: 1rem; }
-    .card-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.4rem; }
-    .card-tag {
-      display: inline-block;
-      font-size: 0.75rem;
-      font-family: var(--font-mono);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-weight: 700;
-    }
-    .tag-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
-    .tag-green { background: rgba(16, 185, 129, 0.15); color: var(--green); }
-    .tag-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); }
-    .card-desc {
-      color: var(--text-muted);
-      font-size: 0.92rem;
-      margin-bottom: 1.25rem;
-      line-height: 1.5;
-    }
-    .card-bullets { list-style: none; margin-bottom: 1.5rem; }
-    .card-bullets li {
-      font-size: 0.88rem;
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
+    .pillar-icon-wrap {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      font-size: 1.3rem;
     }
-    .card-bullets li::before { content: "✓"; color: var(--green); font-weight: bold; }
-    .card-link {
+    .icon-blue { background: rgba(56, 189, 248, 0.12); color: var(--accent); }
+    .icon-green { background: rgba(16, 185, 129, 0.12); color: var(--green); }
+    .icon-purple { background: rgba(168, 85, 247, 0.12); color: var(--purple); }
+    .pillar-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+    .pillar-desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+    }
+    .pillar-link {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
       color: var(--accent);
       text-decoration: none;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       transition: gap 0.2s;
     }
-    .card-link:hover { gap: 0.6rem; }
+    .pillar-link:hover { gap: 0.65rem; }
 
-    /* Interactive Code Tabs */
-    .code-box {
-      background: var(--bg-code);
-      border: 1px solid var(--border);
+    /* Conformance Benchmark Callout */
+    .bench-callout {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.25);
       border-radius: var(--radius);
-      overflow: hidden;
-      max-width: 900px;
-      margin: 0 auto;
+      padding: 3rem;
+      text-align: center;
+      margin-bottom: 5rem;
     }
-    .code-tabs {
-      display: flex;
-      background: rgba(255, 255, 255, 0.02);
-      border-bottom: 1px solid var(--border);
-      overflow-x: auto;
+    .bench-callout h3 {
+      font-size: 1.85rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
     }
-    .tab-btn {
-      padding: 0.9rem 1.4rem;
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-      background: rgba(56, 189, 248, 0.06);
-    }
-    .tab-content { padding: 1.5rem; display: none; }
-    .tab-content.active { display: block; }
-    pre {
-      font-family: var(--font-mono);
-      font-size: 0.88rem;
-      color: #e2e8f0;
-      line-height: 1.55;
-      overflow-x: auto;
-    }
-
-    /* Comparison Table */
-    .table-wrapper {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-    }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.92rem; }
-    th {
-      padding: 14px 18px;
+    .bench-callout p {
       color: var(--text-muted);
-      font-weight: 700;
-      border-bottom: 1px solid var(--border);
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
+      max-width: 650px;
+      margin: 0 auto 1.75rem;
+      font-size: 1.05rem;
     }
-    td { padding: 16px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    .col-highlight { background: rgba(56, 189, 248, 0.05); color: #fff; font-weight: 600; }
 
+    /* Footer */
     footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 0;
       text-align: center;
       color: var(--text-dim);
       font-size: 0.85rem;
-      margin: 5rem 0 3rem;
-      border-top: 1px solid var(--border);
-      padding-top: 2rem;
     }
     .footer-links {
       display: flex;
       justify-content: center;
       gap: 1.5rem;
-      flex-wrap: wrap;
       margin-bottom: 1rem;
     }
-    .footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
-    .footer-links a:hover { color: var(--accent); }
+    .footer-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .footer-link:hover { color: var(--accent); }
+
+    @media (max-width: 768px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .pillars-grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 2.25rem; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Top Ecosystem Navbar -->
-    <nav>
-      <a href="index.html" class="brand">
-        <img src="assets/logo.png" alt="LetItLoop Logo" width="34" height="34" style="border-radius: 8px; object-fit: contain;" />
-        <span>LetItLoop</span>
-        <span class="brand-badge">v0.3.0</span>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="container" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <a href="#" class="brand">
+        <div class="brand-logo">
+          <!-- Cybernetic Infinity Loop SVG Logo -->
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18.178 8c1.88 0 3.322 1.48 3.322 3.4 0 1.92-1.442 3.4-3.322 3.4-1.684 0-2.823-1.025-4.178-2.6-.002 0-.003-.002-.005-.004-.002.002-.003.004-.005.004-1.355 1.575-2.494 2.6-4.178 2.6C7.932 14.8 6.49 13.32 6.49 11.4c0-1.92 1.442-3.4 3.322-3.4 1.684 0 2.823 1.025 4.178 2.6.002 0 .003.002.005.004.002-.002.003-.004.005-.004 1.355-1.575 2.494-2.6 4.178-2.6Z" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="11.4" r="1.5" fill="#38bdf8"/>
+            <defs>
+              <linearGradient id="logo-grad" x1="6.49" y1="8" x2="21.5" y2="14.8" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#38bdf8"/>
+                <stop offset="1" stop-color="#10b981"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-name">LetIt<span>Loop</span></div>
+        <div class="nav-badge">v0.3.1</div>
       </a>
+
       <div class="nav-links">
-        <a href="#ecosystem" class="nav-link">Ecosystem</a>
-        <a href="#code" class="nav-link">Quickstart</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link">Durability Bench (DCP-2.0)</a>
-        <a href="https://sdageltc.github.io/letitloop-action/" class="nav-link">CI Action Gate (v1.0.3)</a>
-        <a href="https://pypi.org/project/letitloop/" target="_blank" class="nav-link" style="color: #60a5fa;">PyPI</a>
-        <a href="https://github.com/sdageltc/letitloop" target="_blank" class="btn-nav-gh">⭐ GitHub</a>
+        <a href="#quickstart" class="nav-link">Quickstart</a>
+        <a href="#architecture" class="nav-link">Architecture</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link" target="_blank">DCP-2.0 Benchmark</a>
+        <a href="https://pypi.org/project/letitloop/0.3.1/" class="nav-link" target="_blank">PyPI</a>
+        <a href="https://github.com/sdageltc/letitloop" class="btn-nav-gh" target="_blank">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub ★
+        </a>
       </div>
-    </nav>
+    </div>
+  </nav>
 
-    <!-- Hero -->
+  <div class="container">
+    <!-- Hero Section -->
     <section class="hero">
-      <div style="margin-bottom: 1.25rem;">
-        <img src="assets/logo.png" alt="LetItLoop Brand Icon" width="80" height="80" style="border-radius: 16px; box-shadow: 0 0 35px rgba(56, 189, 248, 0.4); border: 1px solid rgba(56, 189, 248, 0.5);" />
-      </div>
-      <div class="hero-eyebrow">
-        <span>🛡️ Deterministic Verification & Crash-Resilience Engine</span>
-      </div>
-      <h1>Self-Healing Macro-Tasks<br/>for AI Coding Agents</h1>
+      <a href="https://sdageltc.github.io/agent-durability-bench/" class="hero-badge-container" target="_blank">
+        <span class="hero-badge-dot"></span>
+        <span>DCP-2.0 Benchmark Validated — 100% SIGKILL Survival</span>
+        <span>→</span>
+      </a>
+
+      <h1>Autonomous Agents Crash.<br/>LetItLoop Makes Them Durable.</h1>
+      
       <p>
-        Zero-daemon crash resilience for Python: <strong>@durable decorator engine</strong>, <strong>2ms Write-Ahead Log recovery</strong>, and <strong>cryptographic proof verification gates</strong>.
+        Zero background daemons. Sub-millisecond WAL crash recovery. 
+        Wrap any agent workflow with <code>@durable</code> and resume from process death with 0% token waste.
       </p>
-      <div class="hero-cta">
-        <a href="#code" class="btn-primary">10-Second Quickstart →</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/" class="btn-secondary">View DCP-2.0 Leaderboard</a>
+
+      <div class="hero-actions">
+        <a href="#quickstart" class="btn-primary">
+          <span>Get Started in 10s</span>
+          <span>↓</span>
+        </a>
+        <a href="https://github.com/sdageltc/letitloop" class="btn-secondary" target="_blank">
+          <span>View Source on GitHub</span>
+        </a>
       </div>
-      <div>
-        <div class="install-box" onclick="copySnippet('pip install letitloop', this)">
-          <code>$ <span class="cmd">pip install letitloop</span></code>
-          <button class="copy-btn">Copy</button>
-        </div>
+
+      <!-- Quick Install Pill -->
+      <div class="install-pill" onclick="copyInstall()">
+        <span class="prefix">$</span>
+        <span class="cmd">pip install letitloop</span>
+        <span class="copy-icon" id="copy-text">📋 Copy</span>
       </div>
     </section>
 
-    <!-- Ecosystem Overview -->
-    <section id="ecosystem">
-      <div class="section-header">
-        <h2>The Tripartite Ecosystem</h2>
-        <p>Three specialized, sovereign repositories forming a closed-loop verification pipeline.</p>
+    <!-- Key Metrics Bento Bar -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-val">1.01ms</div>
+        <div class="stat-label">Crash Resumption Latency</div>
       </div>
-      <div class="grid-3">
-        <!-- Card 1 -->
-        <div class="card">
-          <div>
-            <div class="card-icon">⚙️</div>
-            <div class="card-title">letitloop</div>
-            <div class="card-tag tag-blue">Core Execution Engine</div>
-            <div class="card-desc">
-              Deterministic supervisor engine with method-level AST Node Splicing (0% comment/decorator loss) and append-only Write-Ahead Logging (WAL) recovery.
-            </div>
-            <ul class="card-bullets">
-              <li>Sub-2ms crash resumption from WAL</li>
-              <li>Surgical AST splicing with qualname targeting</li>
-              <li>12 pluggable worker adapters & MCP server</li>
-            </ul>
+      <div class="stat-item">
+        <div class="stat-val">0.0%</div>
+        <div class="stat-label">Token Waste on SIGKILL</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val">100%</div>
+        <div class="stat-label">DCP-2.0 Kill-Gate Recovery</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val">0</div>
+        <div class="stat-label">Daemons / Cloud Dependencies</div>
+      </div>
+    </div>
+
+    <!-- 10-Second Code Quickstart -->
+    <section id="quickstart">
+      <div class="section-head">
+        <h2>The 10-Second Quickstart</h2>
+        <p>Turn fragile multi-step LLM pipelines into atomic, crash-proof workflows.</p>
+      </div>
+
+      <div class="showcase-container">
+        <div class="showcase-header">
+          <div class="window-dots">
+            <div class="dot dot-red"></div>
+            <div class="dot dot-yellow"></div>
+            <div class="dot dot-green"></div>
           </div>
-          <a href="https://github.com/sdageltc/letitloop" class="card-link" target="_blank">Engine Repository →</a>
-        </div>
-
-        <!-- Card 2 -->
-        <div class="card">
-          <div>
-            <div class="card-icon">🛡️</div>
-            <div class="card-title">letitloop-action</div>
-            <div class="card-tag tag-green">GitHub Actions CI Gate</div>
-            <div class="card-desc">
-              Zero-config GitHub Action running AST invariant checks, scope fencing, and automated test gates on AI-generated Pull Requests.
-            </div>
-            <ul class="card-bullets">
-              <li>Zero runtime node_modules (~1.1MB bundle)</li>
-              <li>Prevents decorator stripping & parameter drift</li>
-              <li>Posts cryptographic SHA-256 receipts to PRs</li>
-            </ul>
+          <div class="showcase-tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-decorator', this)">@durable Decorator</button>
+            <button class="tab-btn" onclick="switchTab('tab-cli', this)">CLI (lil)</button>
+            <button class="tab-btn" onclick="switchTab('tab-ci', this)">GitHub Action CI</button>
           </div>
-          <a href="https://sdageltc.github.io/letitloop-action/" class="card-link">Action Documentation Portal →</a>
         </div>
 
-        <!-- Card 3 -->
-        <div class="card">
-          <div>
-            <div class="card-icon">🏆</div>
-            <div class="card-title">agent-durability-bench</div>
-            <div class="card-tag tag-purple">DCP-1.0 Benchmark</div>
-            <div class="card-desc">
-              Open benchmark measuring crash survival and token waste across 400 real subprocess SIGKILL fault injections.
-            </div>
-            <ul class="card-bullets">
-              <li>Physical process fault injection (SIGKILL)</li>
-              <li>Tracks duplicate token waste (W<sub>token</sub>)</li>
-              <li>Zero-API synthetic harness (< 15 seconds)</li>
-            </ul>
+        <div id="tab-decorator" class="tab-pane">
+          <div class="code-body">
+            <pre><code><span class="kw">from</span> letitloop <span class="kw">import</span> <span class="dec">durable</span>, <span class="fn">step</span>
+
+<span class="dec">@durable</span>(checkpoint_dir=<span class="str">".bench_wal"</span>)
+<span class="kw">def</span> <span class="fn">run_autonomous_pipeline</span>(task_prompt: <span class="str">str</span>):
+    <span class="kw">with</span> <span class="fn">step</span>(<span class="str">"research"</span>):
+        context = search_codebase(task_prompt)
+        
+    <span class="kw">with</span> <span class="fn">step</span>(<span class="str">"implement"</span>):
+        diff = llm_coder(context)  <span class="cm"># 💥 Process dies or SIGKILL fires here?</span>
+        apply_patch(diff)
+        
+    <span class="kw">with</span> <span class="fn">step</span>(<span class="str">"verify"</span>):
+        <span class="cm"># ⚡ Re-running resumes right here — research & implement are NEVER re-executed.</span>
+        run_tests()</code></pre>
           </div>
-          <a href="https://sdageltc.github.io/agent-durability-bench/" class="card-link">Live DCP-1.0 Leaderboard →</a>
+        </div>
+
+        <div id="tab-cli" class="tab-pane" style="display: none;">
+          <div class="code-body">
+            <pre><code><span class="cm"># 1. Propose execution contract DAG</span>
+<span class="str">$</span> lil propose <span class="str">"Add rate limiter middleware to FastAPI app"</span>
+
+<span class="cm"># 2. Run supervisor loop with strict verification firewall</span>
+<span class="str">$</span> lil run --strict
+
+<span class="cm"># 3. Inspect atomic Write-Ahead Log (WAL) checkpoints</span>
+<span class="str">$</span> lil status</code></pre>
+          </div>
+        </div>
+
+        <div id="tab-ci" class="tab-pane" style="display: none;">
+          <div class="code-body">
+            <pre><code><span class="cm"># .github/workflows/letitloop-verify.yml</span>
+<span class="kw">name</span>: LetItLoop CI Gate
+<span class="kw">on</span>: [pull_request]
+
+<span class="kw">jobs</span>:
+  <span class="fn">verify</span>:
+    <span class="kw">runs-on</span>: ubuntu-latest
+    <span class="kw">steps</span>:
+      - <span class="kw">uses</span>: actions/checkout@v4
+      - <span class="kw">uses</span>: sdageltc/letitloop-action@v1
+        <span class="kw">with</span>:
+          <span class="kw">strict_ast</span>: <span class="str">"true"</span></code></pre>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Code Quickstart -->
-    <section class="code-section" id="code">
-      <div class="section-header">
-        <h2>Integrate in Under 60 Seconds</h2>
-        <p>Use the unified CLI, orchestrate via Python SDK, or guard GitHub Actions.</p>
+    <!-- 3 Core Pillars -->
+    <section id="architecture">
+      <div class="section-head">
+        <h2>Irreducible Engineering Moats</h2>
+        <p>Built strictly for reliability when models, processes, or cloud runners fail.</p>
       </div>
-      <div class="code-box">
-        <div class="code-tabs">
-          <button class="tab-btn active" onclick="switchTab('tab-cli', this)">CLI (lil)</button>
-          <button class="tab-btn" onclick="switchTab('tab-action', this)">GitHub Actions CI</button>
-          <button class="tab-btn" onclick="switchTab('tab-python', this)">Python SDK</button>
+
+      <div class="pillars-grid">
+        <div class="pillar-card">
+          <div>
+            <div class="pillar-icon-wrap icon-blue">⚡</div>
+            <div class="pillar-title">Zero-Daemon WAL v2</div>
+            <div class="pillar-desc">
+              Deterministic valid-prefix truncation and checksummed frame journals. Survives sudden <code>kill -9</code> without server processes or database locks.
+            </div>
+          </div>
+          <a href="https://github.com/sdageltc/letitloop" class="pillar-link" target="_blank">Inspect WAL Spec →</a>
         </div>
-        <div id="tab-cli" class="tab-content active">
-          <pre><code># 1. Propose execution contract DAG
-$ lil propose "Add rate limiter middleware to FastAPI app"
 
-# 2. Run supervisor loop with strict verification firewall
-$ lil run --strict
-
-# 3. Inspect atomic Write-Ahead Log (WAL) checkpoints
-$ lil status</code></pre>
+        <div class="pillar-card">
+          <div>
+            <div class="pillar-icon-wrap icon-green">🔒</div>
+            <div class="pillar-title">Lock v2 Auto-Stealing</div>
+            <div class="pillar-desc">
+              Heartbeat-governed process guard. Automatically steals orphaned leases from killed supervisors while protecting concurrent sibling worktrees.
+            </div>
+          </div>
+          <a href="https://github.com/sdageltc/letitloop" class="pillar-link" target="_blank">View Concurrency Safety →</a>
         </div>
-        <div id="tab-action" class="tab-content">
-          <pre><code># .github/workflows/letitloop-verify.yml
-name: Verify AI Pull Request
-on: [pull_request]
 
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
-      - uses: sdageltc/letitloop-action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          strict-ast: 'true'
-          test-command: 'pytest -q'</code></pre>
-        </div>
-        <div id="tab-python" class="tab-content">
-          <pre><code>from letitloop import durable, step, atomic_marker
-
-@durable(goal_id="customer_sync")
-def sync_pipeline(customer_id: str):
-    # Step outputs are automatically cached in append-only WAL
-    profile = step("fetch_profile", crm.get_customer, customer_id)
-    summary = step("generate_summary", llm.summarize, profile)
-    
-    # Side-effect markers prevent duplicate external execution on restart
-    with atomic_marker(f"notify_{customer_id}") as should_run:
-        if should_run:
-            step("send_alert", slack.post_message, summary)
-
-if __name__ == "__main__":
-    sync_pipeline("cust_9981")</code></pre>
+        <div class="pillar-card">
+          <div>
+            <div class="pillar-icon-wrap icon-purple">🛡️</div>
+            <div class="pillar-title">Proof-Carrying CI Gate</div>
+            <div class="pillar-desc">
+              Zero-runtime AST signature verification for GitHub Actions. Guards AI-generated PRs against method drift, type decay, and decorator stripping.
+            </div>
+          </div>
+          <a href="https://github.com/sdageltc/letitloop-action" class="pillar-link" target="_blank">Explore letitloop-action →</a>
         </div>
       </div>
     </section>
 
-    <!-- Benchmark Comparison Table -->
-    <section id="benchmarks">
-      <div class="section-header">
-        <h2>Why Durability Bench (DCP-2.0)?</h2>
-        <p>Comparing operational crash resilience against single-shot industry benchmarks.</p>
-      </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Evaluation Dimension</th>
-              <th class="col-highlight">Durability Bench (DCP-1.0)</th>
-              <th>SWE-bench</th>
-              <th>GAIA</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Primary Metric</strong></td>
-              <td class="col-highlight">Crash Survival & Resumption Fidelity</td>
-              <td>Single-Shot Issue Resolution</td>
-              <td>Multimodal Tool Execution</td>
-            </tr>
-            <tr>
-              <td><strong>Failure Injection</strong></td>
-              <td class="col-highlight">Deterministic SIGKILL, OOM, Spot Eviction</td>
-              <td>None (Runs to completion)</td>
-              <td>None</td>
-            </tr>
-            <tr>
-              <td><strong>State Corruption Check</strong></td>
-              <td class="col-highlight">AST Invariants & File Integrity Proofs</td>
-              <td>Pytest Exit Code Only</td>
-              <td>Regex String Match</td>
-            </tr>
-            <tr>
-              <td><strong>Cost to Run (100 Tasks)</strong></td>
-              <td class="col-highlight">$0.00 (Zero-API Synthetic Engine)</td>
-              <td>~$450.00 (Cloud LLM Tokens)</td>
-              <td>~$120.00 (LLM API)</td>
-            </tr>
-            <tr>
-              <td><strong>Runtime Duration</strong></td>
-              <td class="col-highlight">&lt; 15 Seconds</td>
-              <td>4–12 Hours</td>
-              <td>1–3 Hours</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <!-- Benchmark Callout -->
+    <div class="bench-callout">
+      <h3>The DCP-2.0 Conformance Standard</h3>
+      <p>
+        400-task deterministic evaluation matrix across 4 explicit SIGKILL windows. 
+        See how LetItLoop compares against LangGraph and CrewAI.
+      </p>
+      <a href="https://sdageltc.github.io/agent-durability-bench/" class="btn-primary" target="_blank">
+        View Live Conformance Leaderboard →
+      </a>
+    </div>
 
-    <!-- Footer -->
-    <footer>
-      <div class="footer-links">
-        <a href="https://github.com/sdageltc/letitloop" target="_blank">Engine Core</a>
-        <a href="https://sdageltc.github.io/agent-durability-bench/">Durability Bench</a>
-        <a href="https://sdageltc.github.io/letitloop-action/">GitHub Action</a>
-        <a href="https://pypi.org/project/letitloop/" target="_blank">PyPI Package</a>
-        <a href="https://github.com/sdageltc" target="_blank">Maintainer (@sdageltc)</a>
-      </div>
-      <p>© 2026 sdageltc • Open source under the MIT License.</p>
-    </footer>
   </div>
 
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://pypi.org/project/letitloop/0.3.1/" class="footer-link" target="_blank">PyPI (v0.3.1)</a>
+        <a href="https://github.com/sdageltc/letitloop" class="footer-link" target="_blank">GitHub</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="footer-link" target="_blank">DCP-2.0 Benchmark</a>
+        <a href="https://github.com/sdageltc/letitloop-action" class="footer-link" target="_blank">GitHub Action</a>
+      </div>
+      <p>© 2026 LetItLoop Engine. Released under the MIT License.</p>
+    </div>
+  </footer>
+
   <script>
-    function switchTab(tabId, btn) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      btn.classList.add('active');
+    function copyInstall() {
+      navigator.clipboard.writeText("pip install letitloop");
+      const el = document.getElementById("copy-text");
+      el.textContent = "✅ Copied!";
+      setTimeout(() => { el.textContent = "📋 Copy"; }, 2000);
     }
 
-    function copySnippet(text, container) {
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = container.querySelector('.copy-btn');
-        if (btn) {
-          const old = btn.innerText;
-          btn.innerText = 'Copied!';
-          setTimeout(() => { btn.innerText = old; }, 2000);
-        }
-      });
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).style.display = 'block';
+      btn.classList.add('active');
     }
   </script>
 </body>
