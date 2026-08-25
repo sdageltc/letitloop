@@ -20,6 +20,7 @@ import errno
 import os
 import signal
 import subprocess  # nosec B404
+import sys
 import threading
 import time
 from typing import Any, Dict, Iterable, List, Optional
@@ -138,13 +139,23 @@ def containment_kwargs() -> Dict[str, Any]:
 
 
 def attach_containment(proc: subprocess.Popen) -> Optional[Any]:
-    """Post-spawn OS containment for a child (Windows Job Object assignment)."""
+    """Post-spawn OS containment for a child (Windows Job Object assignment).
+
+    Emits a one-line stderr warning when containment cannot be established so
+    operators know orphan cleanup is degraded to best-effort tree kills.
+    """
     if IS_WINDOWS:
         job = _windows_new_job_object()
         if job is not None and not _windows_assign_to_job(job, proc):
             kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
             kernel32.CloseHandle(job)
-            return None
+            job = None
+        if job is None:
+            print(
+                "[process_guard] WARNING: OS containment unavailable - "
+                "timeout cleanup degrades to best-effort tree kills",
+                file=sys.stderr,
+            )
         return job
     return None
 
