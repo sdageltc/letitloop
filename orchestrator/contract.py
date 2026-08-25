@@ -253,6 +253,16 @@ def validate_contract(raw, workspace_root=None, strict_unknown=True):
     for idx, out in enumerate(raw["outputs"]):
         if not isinstance(out, dict) or "path" not in out:
             errors.append(f"outputs[{idx}]: each output must have a 'path' field")
+            continue
+        # Zero-trust: outputs must be inside workspace_scope allow
+        out_path = out.get("path", "")
+        if isinstance(out_path, str) and out_path:
+            ws_for_check = workspace_root or os.path.join(os.getcwd(), "__letitloop_validate__")
+            allowed = raw["workspace_scope"].get("allow", [])
+            denied = raw["workspace_scope"].get("deny", [])
+            ok, _ = check_path_allowed(out_path, allowed, denied, ws_for_check)
+            if not ok:
+                errors.append(f"outputs[{idx}].path {out_path!r} is not inside workspace_scope.allow")
 
     for idx, check in enumerate(raw["acceptance_checks"]):
         if not isinstance(check, dict):

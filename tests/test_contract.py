@@ -293,3 +293,12 @@ class TestValidateContractAgainstPlan:
         gen = self.make_contract(checks=2)
         errors = validate_contract_against_plan(plan, gen)
         assert any("WARNING" in e and "acceptance_checks" in e for e in errors), f"expected warning, got: {errors}"
+
+
+def test_outputs_outside_allow_rejected():
+    """Regression for #46: traversal/absolute outputs must be rejected at validation."""
+    for bad in ["../escape.py", "src/../escape.py", "/tmp/evil.py", "../outside.txt"]:
+        raw = copy.deepcopy(VALID_CONTRACT)
+        raw["outputs"] = [{"path": bad}]
+        errs = validate_contract(raw)
+        assert any("is not inside workspace_scope" in e for e in errs), bad
