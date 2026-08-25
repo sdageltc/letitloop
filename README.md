@@ -19,6 +19,10 @@
 
 </div>
 
+<p align="center">
+  <img src="docs/assets/crash_recovery_demo.svg" alt="LetItLoop Process Crash & WAL Recovery Demo" width="100%">
+</p>
+
 ---
 
 ## The LetItLoop Tripartite Ecosystem

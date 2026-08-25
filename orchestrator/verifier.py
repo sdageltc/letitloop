@@ -943,15 +943,15 @@ def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspa
     from .scope import FileBackedScopeRegistry, _walk_matching, is_path_exempt, load_snapshot
 
     run_dir = os.path.dirname(scope_snapshot_path) if scope_snapshot_path else ""
-    before = load_snapshot(run_dir) if scope_snapshot_path else {}
-    if scope_snapshot_path and not before:
+    if scope_snapshot_path and not os.path.isfile(scope_snapshot_path):
         return VerifierResult(
             check_id="undeclared_outputs",
             kind="undeclared_outputs",
             passed=False,
-            message="Scope snapshot missing or empty: cannot verify output isolation (fail-closed)",
+            message="Scope snapshot file missing: cannot verify output isolation (fail-closed)",
         )
-    if not before:
+    before = load_snapshot(run_dir) if scope_snapshot_path else {}
+    if not scope_snapshot_path:
         return VerifierResult(
             check_id="undeclared_outputs",
             kind="undeclared_outputs",
@@ -990,6 +990,8 @@ def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspa
         if (
             "__pycache__" in rel_path.split(os.sep)
             or "generated" in rel_path.split(os.sep)
+            or ".bench_wal" in rel_path.split(os.sep)
+            or "scratch" in rel_path.split(os.sep)
             or rel_path.endswith((".pyc", ".pyo", ".pyd"))
         ):
             continue

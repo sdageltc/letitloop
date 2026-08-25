@@ -1,0 +1,128 @@
+<svg width="840" height="520" viewBox="0 0 840 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.1" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.8" />
+    </filter>
+    <style>
+      .term-text { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 13.5px; fill: #e2e8f0; }
+      .prompt { fill: #38bdf8; font-weight: 700; }
+      .cmd { fill: #f8fafc; font-weight: 600; }
+      .success { fill: #10b981; font-weight: 600; }
+      .dim { fill: #64748b; }
+      .crash { fill: #f43f5e; font-weight: 700; }
+      .wal-pulse { fill: #34d399; font-weight: 700; }
+      .accent { fill: #a855f7; }
+
+      @keyframes typeStep1 { 0%, 5% { opacity: 0; } 10%, 100% { opacity: 1; } }
+      @keyframes typeStep2 { 0%, 15% { opacity: 0; } 20%, 100% { opacity: 1; } }
+      @keyframes crashAnim { 0%, 28% { opacity: 0; } 32%, 52% { opacity: 1; } 55%, 100% { opacity: 0.4; } }
+      @keyframes resumeAnim { 0%, 54% { opacity: 0; } 60%, 100% { opacity: 1; } }
+      @keyframes completeAnim { 0%, 75% { opacity: 0; } 80%, 100% { opacity: 1; } }
+
+      .anim-step1 { animation: typeStep1 12s infinite; }
+      .anim-step2 { animation: typeStep2 12s infinite; }
+      .anim-crash { animation: crashAnim 12s infinite; }
+      .anim-resume { animation: resumeAnim 12s infinite; }
+      .anim-complete { animation: completeAnim 12s infinite; }
+    </style>
+  </defs>
+
+  <!-- Outer Window with Glow Border -->
+  <rect x="20" y="20" width="800" height="480" rx="14" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)" />
+  <rect x="20" y="20" width="800" height="480" rx="14" fill="none" stroke="url(#glowGrad)" stroke-width="1" />
+
+  <!-- Terminal Header Bar -->
+  <rect x="20" y="20" width="800" height="42" rx="14" fill="#0f172a" />
+  <rect x="20" y="52" width="800" height="10" fill="#0f172a" />
+  <line x1="20" y1="62" x2="820" y2="62" stroke="#1e293b" stroke-width="1" />
+
+  <!-- macOS Window Controls -->
+  <circle cx="44" cy="41" r="6" fill="#ef4444" />
+  <circle cx="64" cy="41" r="6" fill="#f59e0b" />
+  <circle cx="84" cy="41" r="6" fill="#10b981" />
+
+  <text x="420" y="45" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94a3b8">
+    LetItLoop v0.3.1 — Atomic WAL Crash &amp; Recovery Engine
+  </text>
+
+  <!-- Terminal Body Content -->
+  <g transform="translate(48, 92)">
+    <!-- Initial Command -->
+    <text x="0" y="0" class="term-text">
+      <tspan class="prompt">$ </tspan>
+      <tspan class="cmd">lil run --task auth-refactor --strict</tspan>
+    </text>
+
+    <!-- Step 1 Output -->
+    <g class="anim-step1" transform="translate(0, 26)">
+      <text x="0" y="0" class="term-text">
+        <tspan class="accent">[1/3]</tspan>
+        <tspan> ⚡ Synthesizing diff for auth/middleware.py ... </tspan>
+        <tspan class="success">[DONE] (312ms)</tspan>
+      </text>
+      <text x="36" y="20" class="term-text dim">↳ WAL Commit: frame_001.wal (checksum: 8a4f91e2)</text>
+    </g>
+
+    <!-- Step 2 Output -->
+    <g class="anim-step2" transform="translate(0, 74)">
+      <text x="0" y="0" class="term-text">
+        <tspan class="accent">[2/3]</tspan>
+        <tspan> ⚡ Generating JWT key rotation tests ... </tspan>
+        <tspan class="success">[DONE] (445ms)</tspan>
+      </text>
+      <text x="36" y="20" class="term-text dim">↳ WAL Commit: frame_002.wal (checksum: 2e8c10fa)</text>
+    </g>
+
+    <!-- Mid-Execution Crash -->
+    <g class="anim-crash" transform="translate(0, 122)">
+      <text x="0" y="0" class="term-text">
+        <tspan class="accent">[3/3]</tspan>
+        <tspan> ⚡ Running AST syntax validator &amp; test suite ...</tspan>
+      </text>
+      <text x="0" y="24" class="term-text crash">
+        💥 [FATAL: PROCESS TERMINATED BY HOST (SIGKILL / OOM KILLER / HOST PREEMPTION)]
+      </text>
+      <text x="0" y="44" class="term-text dim">Exit code 137. State safely preserved in local append-only WAL.</text>
+    </g>
+
+    <!-- Resume Command & Sub-Millisecond Recovery -->
+    <g class="anim-resume" transform="translate(0, 196)">
+      <text x="0" y="0" class="term-text">
+        <tspan class="prompt">$ </tspan>
+        <tspan class="cmd">lil resume --task auth-refactor</tspan>
+      </text>
+      <text x="0" y="24" class="term-text">
+        <tspan class="wal-pulse">🔄 [LetItLoop WAL]</tspan>
+        <tspan> Validating frames on disk: frame_001 (OK), frame_002 (OK)</tspan>
+      </text>
+      <text x="0" y="46" class="term-text wal-pulse">
+        ⏩ [FAST-FORWARD] Steps 1-2 CACHED — SKIPPED in 0.94ms (0.0% duplicate token waste)
+      </text>
+      <text x="0" y="68" class="term-text">
+        <tspan class="accent">▶️  Resuming Step [3/3]:</tspan>
+        <tspan> AST verification &amp; pytest execution ... </tspan>
+        <tspan class="success">[PASS] (14/14 OK)</tspan>
+      </text>
+    </g>
+
+    <!-- Final Sealed Proof Receipt -->
+    <g class="anim-complete" transform="translate(0, 314)">
+      <text x="0" y="0" class="term-text">
+        <tspan class="success">🛡️  [PROOF SEALED]</tspan>
+        <tspan class="dim"> ProofReceipt written to .bench_wal/proof_receipt.json</tspan>
+      </text>
+      <text x="36" y="20" class="term-text dim">↳ HMAC-SHA256: 7f3b890a2e41c9b88fa9012cd4e67129 (100% Deterministic)</text>
+      <text x="0" y="46" class="term-text success font-bold">
+        ✅ TASK COMPLETED IN 1.2s — Process Death Survived with Zero Data Loss
+      </text>
+    </g>
+  </g>
+</svg>

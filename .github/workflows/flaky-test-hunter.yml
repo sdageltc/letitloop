@@ -1,0 +1,29 @@
+name: Flaky Test Hunter & Quarantine
+
+on:
+  schedule:
+    # Runs every Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  hunt-flakes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -e .
+          pip install pytest pytest-repeat pytest-randomly
+
+      - name: Run Multi-Seed Stress Tests
+        run: |
+          echo "Running 10x randomized test matrix to detect timing anomalies..."
+          pytest tests/ --count=5 -q

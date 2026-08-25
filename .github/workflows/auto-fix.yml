@@ -1,0 +1,37 @@
+name: Auto-Fix & Format PR
+
+on:
+  pull_request:
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+
+jobs:
+  auto-fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Ruff Auto-Fix & Format
+        run: |
+          pip install ruff
+          ruff check --fix . || true
+          ruff format . || true
+
+      - name: Auto-Commit Fixes to PR Branch
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style(auto-heal): format and fix lint issues [skip ci]"
+          commit_user_name: "letitloop-bot[bot]"
+          commit_user_email: "letitloop-bot@users.noreply.github.com"
