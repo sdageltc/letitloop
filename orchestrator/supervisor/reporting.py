@@ -166,6 +166,16 @@ class ReportingMixin:
         print(f"  GOAL: {self.goal.goal_id}", file=sys.stderr)
         print(f"  STATUS: {self.goal.status}", file=sys.stderr)
         print(f"  CONTRACTS: {completed}/{total} completed, {failed}/{total} failed", file=sys.stderr)
+        # Event-delivery saturation visibility (#40 follow-through): a nonzero
+        # dropped count means webhook/SSE consumers could not keep up.
+        try:
+            from orchestrator.events import get_bus
+
+            dropped = getattr(get_bus(), "dropped_count", 0)
+            if dropped:
+                print(f"  EVENTS DROPPED (delivery saturated): {dropped}", file=sys.stderr)
+        except Exception:
+            pass
         print(f"{'=' * 60}", file=sys.stderr)
         for tid, res in sorted(self.results.items()):
             icon = "OK" if res.get("status") in ("COMPLETE", "complete", "DEGRADED_PASS") else "FAIL"

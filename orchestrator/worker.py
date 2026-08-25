@@ -290,18 +290,7 @@ def _run_llm_worker(
         materialized = _materialize_outputs(contract, workspace_root, stdout)
 
     output_log_path = os.path.join(run_dir, "worker_output.log")
-    with open(output_log_path, "w", encoding="utf-8") as f:
-        f.write(f"EXIT CODE: {exit_code}\n")
-        f.write(f"ELAPSED: {elapsed:.2f}s\n")
-        if materialized:
-            f.write("MATERIALIZED OUTPUTS:\n")
-            for m in materialized:
-                f.write(f"  {m}\n")
-        f.write("--- STDOUT ---\n")
-        f.write(stdout)
-        f.write("\n--- STDERR ---\n")
-        f.write(stderr)
-        f.write("\n")
+    _write_output_log(output_log_path, exit_code, elapsed, materialized, stdout, stderr)
 
     _safe_stderr(f"[worker] task={task_id} finished (exit={exit_code}, elapsed={elapsed:.1f}s)")
 
@@ -390,6 +379,24 @@ def _merge_fallback_log(run_dir, primary_model, primary_result, backup_model, ba
             f.write(f"BACKUP:  {backup_model} exit={backup_result.get('exit_code')}\n")
     except OSError:
         pass
+
+
+def _write_output_log(path, exit_code, elapsed, materialized, stdout, stderr):
+    """Write the worker journal with secrets redacted (evidence firewall)."""
+    from .redaction import redact
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"EXIT CODE: {exit_code}\n")
+        f.write(f"ELAPSED: {elapsed:.2f}s\n")
+        if materialized:
+            f.write("MATERIALIZED OUTPUTS:\n")
+            for m in materialized:
+                f.write(f"  {m}\n")
+        f.write("--- STDOUT ---\n")
+        f.write(redact(stdout))
+        f.write("\n--- STDERR ---\n")
+        f.write(redact(stderr))
+        f.write("\n")
 
 
 def run_worker(

@@ -7,7 +7,6 @@ Used by supervisor after verification passes and qc.required is true.
 import json
 import math
 import os
-import re
 
 from .llm import LLMError, call_llm
 from .models import ModelRegistry
@@ -57,31 +56,12 @@ class QCVerdict:
 def _redact_secrets(text: str) -> str:
     """Mask high-entropy credential patterns before external transmission (F8).
 
-    Conservative: only well-formed credential shapes are masked, so review
-    content that legitimately contains such tokens is still lossy for the
-    model but the reviewer prompt never leaks raw keys/tokens.
+    Delegates to orchestrator.redaction (single source of truth) so the QC
+    path and the evidence journal share the same firewall.
     """
-    if not text:
-        return ""
-    patterns = [
-        re.compile(r"(sk-[A-Za-z0-9_-]{16,})"),
-        re.compile(r"(github_pat_[A-Za-z0-9_]{22,})"),
-        re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,})"),
-        re.compile(r"(AIza[0-9A-Za-z-_]{35})"),
-        re.compile(r"(hf_[A-Za-z0-9]{34,})"),
-        re.compile(r"(xox[baprs]-[0-9A-Za-z-]{10,})"),
-        re.compile(r"((?:AKIA|ASIA)[0-9A-Z]{16})"),
-        re.compile(r"(gw_sk_[A-Za-z0-9]{16,})"),
-        re.compile(r"(api[_-]?key\s*[=:]\s*['\"]?[A-Za-z0-9_-]{16,}['\"]?)", re.IGNORECASE),
-        re.compile(r"(token\s*[=:]\s*['\"]?[A-Za-z0-9_.-]{16,}['\"]?)", re.IGNORECASE),
-        re.compile(r"(password\s*[=:]\s*['\"]?[^\s'\"]{4,})", re.IGNORECASE),
-        re.compile(r"(Bearer\s+[A-Za-z0-9_\-\.~+/]+=*)", re.IGNORECASE),
-        re.compile(r"(eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+)"),
-        re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
-    ]
-    for pat in patterns:
-        text = pat.sub(lambda m: m.group(0)[:6] + "[REDACTED]" if len(m.group(0)) > 8 else "[REDACTED]", text)
-    return text
+    from .redaction import redact
+
+    return redact(text)
 
 
 def _build_qc_prompt(contract, output_paths, verification_results, quality_spec=None) -> str:
