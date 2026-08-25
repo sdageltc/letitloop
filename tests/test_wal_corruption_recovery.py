@@ -31,19 +31,27 @@ def test_wal_truncated_json_recovery(tmp_path):
 
 @pytest.mark.fast
 def test_wal_bit_flipped_journal_recovery(tmp_path):
-    """Test that corrupted state files are safely flagged."""
+    """Test that WAL v2 recovers state from valid WAL when snapshot is corrupt, and raises when both corrupt."""
     task_dir = str(tmp_path / "t_flip")
     os.makedirs(task_dir, exist_ok=True)
     state_file = os.path.join(task_dir, "state.json")
+    wal_file = os.path.join(task_dir, "state.wal.jsonl")
 
     state = create_initial_state("t_flip", journal_dir=task_dir)
     state.transition("PREFLIGHT_RUNNING", reason="starting")
     state.transition("READY", reason="passed")
     save_state(state, state_file)
 
-    # Corrupt the state file with random garbage bytes
+    # 1. Corrupt only the snapshot file: WAL v2 recovers from WAL
     with open(state_file, "wb") as f:
         f.write(b"\x00\xff\xfe\x00\x12\x34\x56\x78BAD_DATA_NOT_JSON")
+
+    loaded = load_state(state_file, journal_dir=task_dir)
+    assert loaded.status == "READY"
+
+    # 2. Corrupt both snapshot and WAL: raises StateError
+    with open(wal_file, "wb") as f:
+        f.write(b"CORRUPT_WAL")
 
     with pytest.raises((StateError, json.JSONDecodeError, ValueError, OSError)):
         load_state(state_file, journal_dir=task_dir)

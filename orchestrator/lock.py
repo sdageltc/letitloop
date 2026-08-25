@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -325,15 +326,43 @@ def acquire_lock(goal_id: str, run_dir: str, force: bool = False) -> dict:
         _remove_lock(run_dir)
         return acquire_lock(goal_id, run_dir, force=False)
     if _lock_is_stale(run_dir):
-        raise LockStaleError(
-            f"Lock for goal '{goal_id}' is stale (held by PID {existing.get('pid', '?')} "
-            f"since {existing.get('created_at', '?')}). Use force=True to override."
-        )
+        # Lock v2: Transparently auto-steal dead / stale locks without raising LockStaleError
+        time.sleep(0.005)
+        if _lock_is_stale(run_dir):
+            _remove_lock(run_dir)
+            stolen_data = _build_lock_payload(goal_id)
+            stolen_data["adopted_from"] = f"{existing.get('pid')}@{existing.get('hostname')}"
+            path = _lock_path(run_dir)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(stolen_data, f, indent=2)
+            return stolen_data
     raise LockHeldError(
         f"Goal '{goal_id}' is already locked by PID {existing.get('pid', '?')} "
         f"on {existing.get('hostname', '?')} (since {existing.get('created_at', '?')}). "
         "Wait for it to complete or use force=True."
     )
+
+
+class LockHeartbeatDaemon:
+    """Daemon thread periodically touching goal lock heartbeat."""
+
+    def __init__(self, run_dir: str, interval_sec: float = 5.0):
+        self.run_dir = run_dir
+        self.interval_sec = interval_sec
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+
+    def _run(self) -> None:
+        while not self._stop_event.wait(self.interval_sec):
+            touch_lock_heartbeat(self.run_dir)
 
 
 def _read_lock_snapshot(run_dir: str):

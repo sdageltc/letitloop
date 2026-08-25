@@ -60,33 +60,55 @@ graph TD
 
 ## Quickstart
 
-### 1. Installation
+### 1. The `@durable` Python Decorator (Drop-in Durability)
+
+Embed LetItLoop's crash-resilient WAL kernel directly into your Python functions, LangGraph nodes, or CrewAI agents:
+
+```python
+from letitloop import durable, step, atomic_marker
+
+@durable(goal_id="customer_sync")
+def main():
+    # If your script crashes or gets SIGKILLed midway,
+    # completed steps are skipped on resume. Zero duplicate tokens wasted.
+    user = step("fetch_user", fetch_crm_record, user_id=123)
+    summary = step("llm_summarize", call_claude, user)
+    
+    # Guard external mutations against duplicate execution
+    with atomic_marker("slack_notification") as should_execute:
+        if should_execute:
+            step("post_slack", notify_team, summary)
+
+if __name__ == "__main__":
+    main()
+```
+
+> **⚠️ Resume Semantics Notice**: LetItLoop provides zero-server, single-file WAL durability. Completed steps are never re-executed (**0% duplicate token waste** on finished work). In-flight steps re-execute at-least-once. Design steps to be idempotent or protect external API mutations using LetItLoop's `atomic_marker` primitive.
+
+### 2. Installation
 
 ```bash
 # Install letitloop core engine
 pip install letitloop
 
-# Or install with all development and worker dependencies
+# Or install with development and conformance tooling
 pip install "letitloop[dev]"
 ```
 
-### 2. Basic CLI Usage
+### 3. Basic CLI Usage
 
 ```bash
-# Propose a contract DAG from a natural language objective
-lil propose "Build a rate limiter middleware with unit tests" --run
+# Execute DCP-2.0 durability conformance matrix
+lil bench --matrix
 
-# Bridge to the agent durability benchmark
-lil bench --steps 5
+# Fast pre-push code repair and AST check
+lil heal --target orchestrator/state.py
+
+# Inspect supervisor status, WAL journal, and active checkpoints
+lil status
 
 # Scaffold a production GitHub Action PR verification workflow
 lil action --init
-
-# Inspect live supervisor status, WAL journal, and active checkpoints
-lil status
-
-# Run deterministic reconciliation audit across workspace files
-lil reconcile <goal_id>
 ```
 
 ---

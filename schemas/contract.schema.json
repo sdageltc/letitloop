@@ -259,14 +259,6 @@
         "additionalProperties": true
       }
     },
-    "required_mcp_servers": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "uniqueItems": true
-    },
     "next_action": {
       "type": "string"
     }
@@ -285,4 +277,3 @@
   ],
   "additionalProperties": false
 }
-

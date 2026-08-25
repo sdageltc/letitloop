@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.2.0"
+version = "0.3.0"
 description = "Deterministic verification harness and crash-safe execution gate for AI coding agents"
 readme = "README.md"
 license = { text = "MIT" }
@@ -100,11 +100,10 @@ telemetry = [
 [project.scripts]
 lil = "orchestrator.cli:main"
 letitloop = "orchestrator.cli:main"
-letitloop-mcp = "orchestrator.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["orchestrator*"]
+include = ["orchestrator*", "letitloop*", "conformance*"]
 exclude = ["scratch*", "tests*", ".git*", "__pycache__*"]
 
 [tool.setuptools.package-data]

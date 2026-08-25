@@ -435,6 +435,13 @@ class State:
         prev_seq = self._seq
         prev_hash = self._hash_head
         prev_status = self.status
+        prev_attempt = self.attempt
+        prev_events = copy.deepcopy(self.events)
+        prev_evidence = copy.deepcopy(self.evidence)
+        prev_worker_results = copy.deepcopy(self.worker_results)
+        prev_data = copy.deepcopy(self.data)
+        prev_approaches = list(self.changed_approaches)
+
         self._apply_event(event, replay=False)
         try:
             self._append_wal(event)
@@ -443,6 +450,12 @@ class State:
             self._seq = prev_seq
             self._hash_head = prev_hash
             self.status = prev_status
+            self.attempt = prev_attempt
+            self.events = prev_events
+            self.evidence = prev_evidence
+            self.worker_results = prev_worker_results
+            self.data = prev_data
+            self.changed_approaches = prev_approaches
             raise
         return event
 
@@ -701,28 +714,34 @@ def load_state(path, journal_dir=None):
     if not os.path.isfile(path):
         raise StateError(f"state file not found: {path}")
     effective_journal_dir = journal_dir or os.path.dirname(os.path.abspath(path))
+    wal_path = os.path.join(effective_journal_dir, WAL_FILENAME)
+    raw = None
     try:
         with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
-        raise StateError(f"state file corrupt: {exc}") from exc
+        if not os.path.isfile(wal_path):
+            raise StateError(f"state file corrupt: {exc}") from exc
 
-    if not isinstance(raw, dict):
-        raise StateError("state file must be a JSON object")
+    if raw is not None:
+        if not isinstance(raw, dict):
+            raise StateError("state file must be a JSON object")
 
-    if raw.get("schema_version") == STATE_SCHEMA_VERSION:
-        state = State.from_dict(raw, journal_dir=effective_journal_dir)
+        if raw.get("schema_version") == STATE_SCHEMA_VERSION:
+            state = State.from_dict(raw, journal_dir=effective_journal_dir)
+        else:
+            state = _migrate_legacy_snapshot(raw, effective_journal_dir)
+            try:
+                save_state(state, path, backup=True)
+            except StateError:
+                pass
     else:
-        state = _migrate_legacy_snapshot(raw, effective_journal_dir)
-        # Persist the migrated snapshot immediately (best-effort; if it fails
-        # the in-memory state is still usable for this run).
-        try:
-            save_state(state, path, backup=True)
-        except StateError:
-            pass
+        state = None
 
     # Replay WAL events ahead of the snapshot (verifies chain + seq + legality).
     state = replay_wal(path, state=state)
+    if state is None:
+        raise StateError(f"state file corrupt: unable to load state or replay WAL from {path}")
     state.recover_from_journal()
     return state
 
@@ -742,27 +761,48 @@ def replay_wal(state_path, state=None):
     - New-format WAL without a leading INIT: hard error (inconsistent).
     """
     journal_dir = os.path.dirname(os.path.abspath(state_path))
+    wal_path = os.path.join(journal_dir, WAL_FILENAME)
     if state is None:
         try:
             with open(state_path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
             state = State.from_dict(raw, journal_dir=journal_dir)
         except (OSError, json.JSONDecodeError, ValueError) as exc:
-            raise StateError(f"state file corrupt: {exc}") from exc
+            if not os.path.isfile(wal_path):
+                raise StateError(f"state file corrupt: {exc}") from exc
 
-    wal_path = os.path.join(journal_dir, WAL_FILENAME)
     if not os.path.isfile(wal_path):
         return state
     wal_events = []
+    corrupt_tail = False
     try:
-        with open(wal_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                wal_events.append(json.loads(line))
-    except (OSError, json.JSONDecodeError, ValueError):
-        raise StateError("WAL file corrupt: failed to parse events")
+        with open(wal_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError as exc:
+        raise StateError(f"failed to read WAL file: {exc}") from exc
+
+    for idx, line in enumerate(lines):
+        line_clean = line.strip()
+        if not line_clean:
+            continue
+        try:
+            parsed = json.loads(line_clean)
+            wal_events.append(parsed)
+        except (json.JSONDecodeError, ValueError):
+            if idx == len(lines) - 1 and wal_events:
+                corrupt_tail = True
+                break
+            raise StateError("WAL file corrupt: invalid event")
+
+    if corrupt_tail and wal_events:
+        try:
+            with open(wal_path, "w", encoding="utf-8") as f:
+                for ev in wal_events:
+                    f.write(_canonical(ev) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        except OSError:
+            pass
 
     if not wal_events:
         return state
@@ -771,7 +811,7 @@ def replay_wal(state_path, state=None):
     is_new_format = isinstance(first, dict) and first.get("event_type") == "INIT" and first.get("seq") == 1
     if not is_new_format:
         # Legacy WAL: only tolerated when the snapshot was migrated from v1.
-        if state.data.get("migrated_from_snapshot_v1"):
+        if state is not None and state.data.get("migrated_from_snapshot_v1"):
             return state
         raise StateError("WAL does not start with INIT (seq=1)")
 
@@ -782,6 +822,8 @@ def replay_wal(state_path, state=None):
     fresh = State(task_id=task_id, status="DRAFTED", journal_dir=journal_dir)
     for event in wal_events:
         fresh._apply_event(event, replay=True)
+    if corrupt_tail:
+        fresh.data["wal_torn_tail_recovered"] = True
     fresh.data.setdefault("recovered_from_wal", True)
     return fresh
 

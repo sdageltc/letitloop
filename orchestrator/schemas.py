@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import json
+from pathlib import Path
 from typing import Any
 
 from .contract import VALID_CHECK_KINDS, VALID_QC_LENSES, VALID_RISK_TIERS, VALID_STATUSES
@@ -112,11 +114,6 @@ def contract_schema() -> dict[str, Any]:
                     "additionalProperties": True,
                 },
             },
-            "required_mcp_servers": {
-                "type": "array",
-                "items": {"type": "string", "minLength": 1},
-                "uniqueItems": True,
-            },
             "next_action": {"type": "string"},
         },
         "required": [
@@ -160,63 +157,10 @@ def goal_schema() -> dict[str, Any]:
 
 
 def mcp_schema() -> dict[str, Any]:
-    from .mcp_server import LetItLoopMCPServer
-
-    calls = []
-    for tool in LetItLoopMCPServer.get_tool_definitions():
-        calls.append(
-            {
-                "properties": {
-                    "name": {"const": tool["name"]},
-                    "arguments": tool["inputSchema"],
-                },
-                "required": ["name", "arguments"],
-                "additionalProperties": False,
-            }
-        )
-    request_id = {"type": ["string", "integer", "null"]}
-    base = {"jsonrpc": {"const": "2.0"}, "id": request_id}
-    return {
-        "$schema": SCHEMA_DIALECT,
-        "$id": "https://github.com/sdageltc/letitloop/raw/main/schemas/mcp.schema.json",
-        "title": "letitloop MCP stdio request",
-        "oneOf": [
-            {
-                "type": "object",
-                "properties": {
-                    **base,
-                    "method": {"const": "initialize"},
-                    "params": {"type": "object"},
-                },
-                "required": ["jsonrpc", "id", "method"],
-                "additionalProperties": False,
-            },
-            {
-                "type": "object",
-                "properties": {
-                    **base,
-                    "method": {"const": "tools/list"},
-                    "params": {
-                        "type": "object",
-                        "properties": {"cursor": {"type": "string"}},
-                        "additionalProperties": False,
-                    },
-                },
-                "required": ["jsonrpc", "id", "method"],
-                "additionalProperties": False,
-            },
-            {
-                "type": "object",
-                "properties": {
-                    **base,
-                    "method": {"const": "tools/call"},
-                    "params": {"oneOf": calls},
-                },
-                "required": ["jsonrpc", "id", "method", "params"],
-                "additionalProperties": False,
-            },
-        ],
-    }
+    schema_path = Path(__file__).resolve().parents[1] / "schemas" / "mcp.schema.json"
+    if schema_path.is_file():
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    return {}
 
 
 SCHEMA_BUILDERS = {"contract": contract_schema, "goal": goal_schema, "mcp": mcp_schema}
