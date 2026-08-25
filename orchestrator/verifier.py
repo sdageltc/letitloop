@@ -6,12 +6,14 @@ import ast
 import hashlib
 import json
 import os
+from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
+import time
 from collections import OrderedDict
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .exceptions import VerifierError as VerifierError
 
@@ -1115,7 +1117,61 @@ def run_checks(checks, workspace_root):
     return results
 
 
-def run_verification(contract, workspace_root, run_dir):
+class ProofReceipt:
+    """Cryptographic proof receipt consumed by letitloop-action and external CI gates."""
+
+    def __init__(self, task_id: str, results: List[VerifierResult], start_time: Optional[float] = None, run_dir: Optional[str] = None):
+        self.task_id = task_id
+        self.timestamp = time.time()
+        start = start_time if start_time is not None else self.timestamp
+        self.execution_time_ms = max(0.1, (self.timestamp - start) * 1000.0)
+        self.passed = all(r.passed for r in results) if results else True
+
+        # Check AST / Syntax invariants
+        syntax_checks = [r for r in results if r.kind == "syntax"]
+        self.ast_invariants_valid = all(r.passed for r in syntax_checks) if syntax_checks else True
+
+        # Extract test exit codes and scope violations
+        self.test_exit_code = 0 if self.passed else 1
+        self.scope_violations: List[str] = []
+        for r in results:
+            if r.kind == "undeclared_outputs" and not r.passed:
+                self.scope_violations.append(r.message)
+
+        # Compute deterministic SHA256 receipt
+        raw_payload = f"{self.task_id}:{self.passed}:{self.ast_invariants_valid}:{self.test_exit_code}:{int(self.execution_time_ms)}"
+        self.receipt_sha256 = hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "timestamp": self.timestamp,
+            "passed": self.passed,
+            "astInvariantsValid": self.ast_invariants_valid,
+            "testExitCode": self.test_exit_code,
+            "scopeViolations": self.scope_violations,
+            "executionTimeMs": round(self.execution_time_ms, 2),
+            "receiptSha256": self.receipt_sha256,
+        }
+
+    def write_to_disk(self, run_dir: Optional[str] = None, wal_dir: str = ".bench_wal") -> str:
+        payload = self.to_dict()
+        # 1. Write to run_dir if provided
+        if run_dir:
+            os.makedirs(run_dir, exist_ok=True)
+            p = os.path.join(run_dir, "proof_receipt.json")
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+
+        # 2. Write to standard .bench_wal/proof_receipt.json
+        wal_path = Path(wal_dir)
+        wal_path.mkdir(parents=True, exist_ok=True)
+        target = wal_path / "proof_receipt.json"
+        target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return str(target)
+
+
+def run_verification(contract, workspace_root, run_dir, start_time: Optional[float] = None):
     """Run all acceptance checks from a contract.
 
     Returns (all_passed, results, evidence_path).
@@ -1132,6 +1188,10 @@ def run_verification(contract, workspace_root, run_dir):
         "verification_results": [r.to_dict() for r in results],
         "all_passed": all_passed,
     }
+
+    # Generate and serialize cryptographic proof receipt
+    receipt = ProofReceipt(task_id=contract.task_id, results=results, start_time=start_time, run_dir=run_dir)
+    receipt.write_to_disk(run_dir=run_dir, wal_dir=os.path.join(workspace_root or ".", ".bench_wal"))
 
     evidence_path = None
     if run_dir:
