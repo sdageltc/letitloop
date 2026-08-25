@@ -72,6 +72,17 @@ def _version_string():
     return f"letitloop {version}"
 
 
+PACKAGE_VERSION = _version_string().split()[1] if _version_string() else "unknown"
+
+
+def cmd_version(args=None):
+    """Print version information (package version, python, platform)."""
+    import platform
+
+    print(f"letitloop {PACKAGE_VERSION}")
+    print(f"python {platform.python_version()} on {sys.platform}")
+
+
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DEFAULT_RUN_DIR = os.environ.get("LIL_RUN_DIR", os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs"))
 IMPOSSIBILITY_LOG = os.path.join(WORKSPACE_ROOT, "scratch", "impossibility_theorems.log")
@@ -1887,6 +1898,9 @@ def main():
     )
 
     p_schema = sub.add_parser("schema", help="Print a bundled JSON Schema")
+    p_version = sub.add_parser("version", help="Print version information")
+    p_version.set_defaults(func=None)
+
     p_schema.add_argument(
         "--kind",
         choices=["contract", "goal", "mcp"],
@@ -1895,6 +1909,7 @@ def main():
     )
 
     cmds = {
+        "version": cmd_version,
         "schema": cmd_schema,
         "bench": cmd_bench,
         "action": cmd_action,

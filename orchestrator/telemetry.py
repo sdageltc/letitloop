@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -45,6 +46,28 @@ def load_events(run_dir: str) -> List[Dict[str, Any]]:
                 except json.JSONDecodeError:
                     pass
     return events
+
+
+def attach_telemetry(bus: Any, run_dir: str) -> Any:
+    """Persist every bus lifecycle event to ``run_dir/telemetry.jsonl``.
+
+    Returns an unsubscribe callable. Write failures are contained: telemetry
+    must never break the control loop.
+    """
+
+    def _callback(envelope: Dict[str, Any]) -> None:
+        try:
+            record_event(
+                run_dir,
+                envelope.get("event", ""),
+                task_id=envelope.get("task_id") or "",
+                goal_id=envelope.get("goal_id") or "",
+                payload=envelope.get("data") or {},
+            )
+        except Exception as exc:
+            print(f"[telemetry] write failed: {exc}", file=sys.stderr)
+
+    return bus.subscribe(_callback)
 
 
 def summarize(events: List[Dict[str, Any]]) -> str:
