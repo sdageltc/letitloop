@@ -1,32 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LetItLoop (LIL) — Deterministic Durability & Verification for AI Coding Agents</title>
-  <meta name="description" content="Crash-resilience benchmark, source-span AST node splicing, and proof-carrying PR verification gate for autonomous AI coding agents.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <meta name="description" content="Autonomous macro-task orchestration & verification control loop for AI coding agents: 2ms WAL crash durability, source-span AST self-evolution, and deterministic proof gates." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg: #090d16;
-      --bg-surface: rgba(18, 24, 38, 0.7);
-      --bg-card: rgba(22, 30, 46, 0.6);
+      --bg-surface: rgba(17, 24, 39, 0.85);
+      --bg-card: rgba(22, 30, 46, 0.7);
       --bg-code: #0b0f19;
       --border: rgba(255, 255, 255, 0.08);
-      --border-accent: rgba(56, 189, 248, 0.3);
+      --border-accent: rgba(56, 189, 248, 0.35);
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --text-dim: #64748b;
       --accent: #38bdf8;
-      --accent-hover: #0284c7;
+      --accent-glow: rgba(56, 189, 248, 0.25);
       --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.2);
       --yellow: #f59e0b;
       --purple: #a855f7;
-      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      --radius: 12px;
+      --radius: 14px;
       --radius-sm: 8px;
     }
 
@@ -37,139 +38,136 @@
       font-family: var(--font-sans);
       line-height: 1.6;
       overflow-x: hidden;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
     }
 
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 0 2rem;
+      padding: 0 1.5rem;
     }
 
-    /* Glow Effects */
-    .glow-bg {
-      position: absolute;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, rgba(9, 13, 22, 0) 70%);
-      top: -100px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* Header / Nav */
+    /* Universal Ecosystem Top Navigation */
     nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.5rem 0;
+      padding: 1.25rem 0;
       border-bottom: 1px solid var(--border);
-      position: relative;
-      z-index: 10;
+      position: sticky;
+      top: 0;
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(16px);
+      z-index: 100;
     }
     .brand {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 1.25rem;
       text-decoration: none;
       color: var(--text);
+      letter-spacing: -0.02em;
     }
     .brand-badge {
-      background: rgba(56, 189, 248, 0.15);
+      background: rgba(56, 189, 248, 0.12);
       color: var(--accent);
       padding: 0.2rem 0.6rem;
       border-radius: 999px;
       font-size: 0.75rem;
       font-family: var(--font-mono);
+      font-weight: 700;
       border: 1px solid var(--border-accent);
     }
     .nav-links {
       display: flex;
-      gap: 1.5rem;
+      gap: 1.25rem;
       align-items: center;
+      flex-wrap: wrap;
     }
     .nav-link {
       color: var(--text-muted);
       text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 500;
+      font-size: 0.9rem;
+      font-weight: 600;
       transition: color 0.2s;
     }
-    .nav-link:hover { color: var(--text); }
-    .btn-github {
+    .nav-link:hover, .nav-link.active { color: var(--accent); }
+    .btn-nav-gh {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 0.5rem 1rem;
+      padding: 0.45rem 0.9rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 600;
       transition: all 0.2s;
     }
-    .btn-github:hover {
-      background: rgba(255, 255, 255, 0.1);
+    .btn-nav-gh:hover {
+      background: rgba(255, 255, 255, 0.12);
       border-color: rgba(255, 255, 255, 0.2);
     }
 
     /* Hero Section */
     .hero {
-      padding: 5rem 0 3rem;
+      padding: 4.5rem 0 3rem;
       text-align: center;
       position: relative;
-      z-index: 10;
     }
     .hero-eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.35rem 1rem;
+      padding: 0.4rem 1.1rem;
       background: rgba(56, 189, 248, 0.1);
       border: 1px solid var(--border-accent);
       border-radius: 999px;
       color: var(--accent);
       font-size: 0.85rem;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 1.5rem;
+      letter-spacing: 0.02em;
     }
     .hero h1 {
-      font-size: 3.5rem;
+      font-size: 3.25rem;
       font-weight: 800;
       letter-spacing: -0.03em;
       line-height: 1.15;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
       background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     .hero p {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       color: var(--text-muted);
-      max-width: 780px;
-      margin: 0 auto 2.5rem;
+      max-width: 760px;
+      margin: 0 auto 2.25rem;
       line-height: 1.6;
     }
     .hero-cta {
       display: flex;
       justify-content: center;
+      align-items: center;
       gap: 1rem;
       flex-wrap: wrap;
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
     }
     .btn-primary {
       background: var(--accent);
       color: #090d16;
-      padding: 0.85rem 1.75rem;
+      padding: 0.8rem 1.6rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.95rem;
       transition: all 0.2s;
       display: inline-flex;
       align-items: center;
@@ -177,17 +175,18 @@
     }
     .btn-primary:hover {
       background: #7dd3fc;
+      box-shadow: 0 0 20px var(--accent-glow);
       transform: translateY(-1px);
     }
     .btn-secondary {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 0.85rem 1.75rem;
+      padding: 0.8rem 1.6rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 0.95rem;
       transition: all 0.2s;
     }
     .btn-secondary:hover {
@@ -195,52 +194,55 @@
       border-color: rgba(255, 255, 255, 0.2);
     }
 
-    /* Terminal Copy Box */
+    /* Terminal Copy Snippet */
     .install-box {
       display: inline-flex;
       align-items: center;
       background: var(--bg-code);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 0.6rem 1rem;
-      gap: 1rem;
+      padding: 0.65rem 1.2rem;
+      gap: 1.25rem;
       font-family: var(--font-mono);
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       color: var(--text-muted);
       cursor: pointer;
-      transition: border-color 0.2s;
+      transition: all 0.2s;
     }
     .install-box:hover { border-color: var(--border-accent); }
-    .install-box span.cmd { color: var(--accent); }
+    .install-box span.cmd { color: var(--accent); font-weight: 600; }
     .copy-btn {
-      background: none;
+      background: rgba(255, 255, 255, 0.08);
       border: none;
-      color: var(--text-dim);
+      color: var(--text);
+      padding: 4px 10px;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.75rem;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      transition: background 0.2s;
     }
+    .copy-btn:hover { background: var(--accent); color: #090d16; }
 
-    /* Tri-Fold Ecosystem Cards */
-    .ecosystem-section {
-      padding: 4rem 0;
-    }
+    /* Tripartite Ecosystem Grid */
     .section-header {
       text-align: center;
-      margin-bottom: 3rem;
+      margin: 4rem 0 2.5rem;
     }
     .section-header h2 {
       font-size: 2.25rem;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: -0.02em;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
     .section-header p {
       color: var(--text-muted);
-      font-size: 1.1rem;
+      font-size: 1.05rem;
     }
     .grid-3 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 1.5rem;
     }
     .card {
@@ -257,18 +259,10 @@
     .card:hover {
       border-color: var(--border-accent);
       transform: translateY(-3px);
-      background: rgba(26, 36, 56, 0.7);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
     }
-    .card-icon {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-    }
-    .card-title {
-      font-size: 1.35rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
+    .card-icon { font-size: 2rem; margin-bottom: 1rem; }
+    .card-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.4rem; }
     .card-tag {
       display: inline-block;
       font-size: 0.75rem;
@@ -276,50 +270,40 @@
       padding: 0.2rem 0.5rem;
       border-radius: 4px;
       margin-bottom: 1rem;
-      font-weight: 600;
+      font-weight: 700;
     }
     .tag-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
     .tag-green { background: rgba(16, 185, 129, 0.15); color: var(--green); }
     .tag-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); }
     .card-desc {
       color: var(--text-muted);
-      font-size: 0.95rem;
-      margin-bottom: 1.5rem;
-      line-height: 1.6;
+      font-size: 0.92rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
     }
-    .card-bullets {
-      list-style: none;
-      margin-bottom: 1.5rem;
-    }
+    .card-bullets { list-style: none; margin-bottom: 1.5rem; }
     .card-bullets li {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       color: var(--text-muted);
       margin-bottom: 0.5rem;
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
-    .card-bullets li::before {
-      content: "✓";
-      color: var(--green);
-      font-weight: bold;
-    }
+    .card-bullets li::before { content: "✓"; color: var(--green); font-weight: bold; }
     .card-link {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
       color: var(--accent);
       text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
+      font-weight: 700;
+      font-size: 0.9rem;
       transition: gap 0.2s;
     }
     .card-link:hover { gap: 0.6rem; }
 
     /* Interactive Code Tabs */
-    .code-section {
-      padding: 4rem 0;
-    }
     .code-box {
       background: var(--bg-code);
       border: 1px solid var(--border);
@@ -332,177 +316,139 @@
       display: flex;
       background: rgba(255, 255, 255, 0.02);
       border-bottom: 1px solid var(--border);
+      overflow-x: auto;
     }
     .tab-btn {
-      padding: 1rem 1.5rem;
+      padding: 0.9rem 1.4rem;
       background: none;
       border: none;
       color: var(--text-dim);
       font-family: var(--font-mono);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
       cursor: pointer;
       border-bottom: 2px solid transparent;
       transition: all 0.2s;
+      white-space: nowrap;
     }
     .tab-btn.active {
       color: var(--accent);
       border-bottom-color: var(--accent);
-      background: rgba(56, 189, 248, 0.05);
+      background: rgba(56, 189, 248, 0.06);
     }
-    .tab-content {
-      padding: 1.5rem;
-      display: none;
-    }
+    .tab-content { padding: 1.5rem; display: none; }
     .tab-content.active { display: block; }
     pre {
       font-family: var(--font-mono);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       color: #e2e8f0;
-      line-height: 1.6;
+      line-height: 1.55;
       overflow-x: auto;
     }
 
     /* Comparison Table */
-    .table-section {
-      padding: 4rem 0;
-    }
     .table-wrapper {
       overflow-x: auto;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      background: var(--bg-surface);
+      background: var(--bg-card);
       backdrop-filter: blur(12px);
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.95rem;
-    }
-    th, td {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-    }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.92rem; }
     th {
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text);
-      font-weight: 600;
+      padding: 14px 18px;
+      color: var(--text-muted);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
     }
-    td { color: var(--text-muted); }
+    td { padding: 16px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    .col-highlight {
-      color: var(--accent);
-      font-weight: 600;
-      background: rgba(56, 189, 248, 0.04);
-    }
+    .col-highlight { background: rgba(56, 189, 248, 0.05); color: #fff; font-weight: 600; }
 
-    /* Footer */
     footer {
-      border-top: 1px solid var(--border);
-      padding: 3rem 0;
       text-align: center;
       color: var(--text-dim);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      margin: 5rem 0 3rem;
+      border-top: 1px solid var(--border);
+      padding-top: 2rem;
     }
     .footer-links {
       display: flex;
       justify-content: center;
-      gap: 2rem;
+      gap: 1.5rem;
+      flex-wrap: wrap;
       margin-bottom: 1rem;
     }
-    .footer-links a {
-      color: var(--text-muted);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
+    .footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
     .footer-links a:hover { color: var(--accent); }
-
-    @media (max-width: 768px) {
-      .hero h1 { font-size: 2.5rem; }
-      .hero p { font-size: 1.05rem; }
-      .grid-3 { grid-template-columns: 1fr; }
-    }
   </style>
 </head>
 <body>
-  <div class="glow-bg"></div>
-
   <div class="container">
-    <!-- Navigation -->
+    <!-- Top Ecosystem Navbar -->
     <nav>
-      <a href="#" class="brand">
-        <img src="assets/logo.png" alt="LetItLoop Logo" style="height: 38px; width: 38px; border-radius: 8px; object-fit: cover;">
-        <span>LetItLoop</span> <span class="brand-badge">Ecosystem v0.2</span>
+      <a href="index.html" class="brand">
+        <span>LetItLoop</span>
+        <span class="brand-badge">v0.2.0</span>
       </a>
       <div class="nav-links">
-        <a href="#ecosystem" class="nav-link">Architecture</a>
-        <a href="#benchmarks" class="nav-link">Benchmark</a>
+        <a href="#ecosystem" class="nav-link">Ecosystem</a>
         <a href="#code" class="nav-link">Quickstart</a>
-        <a href="https://github.com/sdageltc/letitloop" class="btn-github" target="_blank">
-          <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-          GitHub
-        </a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="nav-link">Durability Bench</a>
+        <a href="https://sdageltc.github.io/letitloop-action/" class="nav-link">CI Action Gate</a>
+        <a href="https://pypi.org/project/letitloop/" target="_blank" class="nav-link" style="color: #60a5fa;">PyPI</a>
+        <a href="https://github.com/sdageltc/letitloop" target="_blank" class="btn-nav-gh">⭐ GitHub</a>
       </div>
     </nav>
 
-    <!-- Hero Header -->
+    <!-- Hero -->
     <section class="hero">
-      <div style="margin-bottom: 2rem;">
-        <img src="assets/logo.png" alt="LetItLoop Logo" width="300" style="border-radius: 24px; box-shadow: 0 20px 40px -15px rgba(56, 189, 248, 0.3); border: 1px solid rgba(56, 189, 248, 0.2);">
-      </div>
       <div class="hero-eyebrow">
-        <span>🛡️</span> Zero-Trust Verification & Durability for AI Coding Agents
+        <span>🛡️ Deterministic Verification Control Loop</span>
       </div>
-      <h1>Deterministic Execution.<br>Crash-Resilient Agent Loops.</h1>
+      <h1>Self-Healing Macro-Tasks<br/>for AI Coding Agents</h1>
       <p>
-        AI coding agents fail when processes crash or when whole-file rewrites destroy code syntax. LetItLoop provides AST source-span node splicing, zero-token WAL crash recovery, and signed PR verification gates.
+        Autonomous control loop solving the central AI failure modes: <strong>2ms Write-Ahead Log crash recovery</strong>, <strong>surgical AST node splicing with 0% comment loss</strong>, and <strong>cryptographic proof gates</strong>.
       </p>
       <div class="hero-cta">
-        <a href="https://github.com/sdageltc/letitloop" class="btn-primary" target="_blank">
-          Get Started with LetItLoop Engine 🚀
-        </a>
-        <a href="https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate" class="btn-secondary" target="_blank">
-          GitHub Marketplace Action 🛡️
-        </a>
-        <a href="https://github.com/sdageltc/agent-durability-bench" class="btn-secondary" target="_blank">
-          Durability Benchmark 📊
-        </a>
+        <a href="#code" class="btn-primary">Get Started in 60s →</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/" class="btn-secondary">View DCP-1.0 Leaderboard</a>
       </div>
       <div>
-        <div class="install-box" onclick="navigator.clipboard.writeText('pip install letitloop'); alert('Copied: pip install letitloop');">
-          <span>$</span>
-          <span class="cmd">pip install letitloop</span>
-          <button class="copy-btn">📋 Copy</button>
+        <div class="install-box" onclick="copySnippet('pip install letitloop', this)">
+          <code>$ <span class="cmd">pip install letitloop</span></code>
+          <button class="copy-btn">Copy</button>
         </div>
       </div>
     </section>
 
-    <!-- Tri-Fold Ecosystem Architecture -->
-    <section class="ecosystem-section" id="ecosystem">
+    <!-- Ecosystem Overview -->
+    <section id="ecosystem">
       <div class="section-header">
-        <h2>The Three Ecosystem Pillars</h2>
-        <p>A decoupled tripartite architecture designed for benchmarking, CI verification, and local execution.</p>
+        <h2>The Tripartite Ecosystem</h2>
+        <p>Three specialized, sovereign repositories forming a closed-loop verification pipeline.</p>
       </div>
       <div class="grid-3">
         <!-- Card 1 -->
         <div class="card">
           <div>
-            <div class="card-icon">📊</div>
-            <div class="card-title">agent-durability-bench</div>
-            <div class="card-tag tag-blue">DCP-1.0 Benchmark</div>
+            <div class="card-icon">⚙️</div>
+            <div class="card-title">letitloop</div>
+            <div class="card-tag tag-blue">Core Execution Engine</div>
             <div class="card-desc">
-              The first open crash-resilience benchmark measuring agent recovery fidelity, token waste, and process cleanup under deterministic SIGKILL failure injections.
+              Deterministic supervisor engine with method-level AST Node Splicing (0% comment/decorator loss) and append-only Write-Ahead Logging (WAL) recovery.
             </div>
             <ul class="card-bullets">
-              <li>Zero-token synthetic harness ($0.00 cost)</li>
-              <li>Live conformance leaderboard</li>
-              <li>BaseAdapter conformance suite</li>
+              <li>Sub-2ms crash resumption from WAL</li>
+              <li>Surgical AST splicing with qualname targeting</li>
+              <li>12 pluggable worker adapters & MCP server</li>
             </ul>
           </div>
-          <a href="https://github.com/sdageltc/agent-durability-bench" class="card-link" target="_blank">
-            View Benchmark Repo →
-          </a>
+          <a href="https://github.com/sdageltc/letitloop" class="card-link" target="_blank">Engine Repository →</a>
         </div>
 
         <!-- Card 2 -->
@@ -510,53 +456,49 @@
           <div>
             <div class="card-icon">🛡️</div>
             <div class="card-title">letitloop-action</div>
-            <div class="card-tag tag-green">GitHub Action Gate</div>
+            <div class="card-tag tag-green">GitHub Actions CI Gate</div>
             <div class="card-desc">
-              Drop-in GitHub Action running AST invariant checks, scope fencing, and automated test gates on AI-generated Pull Requests with signed SHA-256 proof receipts.
+              Zero-config GitHub Action running AST invariant checks, scope fencing, and automated test gates on AI-generated Pull Requests.
             </div>
             <ul class="card-bullets">
               <li>Zero runtime node_modules (~1.1MB bundle)</li>
-              <li>Floating @v1 major version tag</li>
-              <li>Markdown PR receipt comments</li>
+              <li>Prevents decorator stripping & parameter drift</li>
+              <li>Posts cryptographic SHA-256 receipts to PRs</li>
             </ul>
           </div>
-          <a href="https://github.com/sdageltc/letitloop-action" class="card-link" target="_blank">
-            View Action Repo →
-          </a>
+          <a href="https://sdageltc.github.io/letitloop-action/" class="card-link">Action Documentation Portal →</a>
         </div>
 
         <!-- Card 3 -->
         <div class="card">
           <div>
-            <div class="card-icon">⚙️</div>
-            <div class="card-title">letitloop</div>
-            <div class="card-tag tag-purple">Core Execution Engine</div>
+            <div class="card-icon">🏆</div>
+            <div class="card-title">agent-durability-bench</div>
+            <div class="card-tag tag-purple">DCP-1.0 Benchmark</div>
             <div class="card-desc">
-              Deterministic supervisor engine with method-level AST Node Splicing (100% comment/decorator retention) and SQLite/JSONL Write-Ahead Log recovery.
+              Open benchmark measuring crash survival and token waste across 400 real subprocess SIGKILL fault injections.
             </div>
             <ul class="card-bullets">
-              <li>5-Pillar verification firewall</li>
-              <li>2ms crash resumption from WAL</li>
-              <li>CLI (lil) & Python SDK APIs</li>
+              <li>Physical process fault injection (SIGKILL)</li>
+              <li>Tracks duplicate token waste (W<sub>token</sub>)</li>
+              <li>Zero-API synthetic harness (< 15 seconds)</li>
             </ul>
           </div>
-          <a href="https://github.com/sdageltc/letitloop" class="card-link" target="_blank">
-            View Core Engine →
-          </a>
+          <a href="https://sdageltc.github.io/agent-durability-bench/" class="card-link">Live DCP-1.0 Leaderboard →</a>
         </div>
       </div>
     </section>
 
-    <!-- Interactive Code Tabs -->
+    <!-- Code Quickstart -->
     <section class="code-section" id="code">
       <div class="section-header">
         <h2>Integrate in Under 60 Seconds</h2>
-        <p>Use the CLI tool, orchestrate in Python, or guard your GitHub Pull Requests.</p>
+        <p>Use the unified CLI, orchestrate via Python SDK, or guard GitHub Actions.</p>
       </div>
       <div class="code-box">
         <div class="code-tabs">
-          <button class="tab-btn active" onclick="switchTab('tab-cli', this)">CLI Entrypoint (lil)</button>
-          <button class="tab-btn" onclick="switchTab('tab-action', this)">GitHub Actions (.yml)</button>
+          <button class="tab-btn active" onclick="switchTab('tab-cli', this)">CLI (lil)</button>
+          <button class="tab-btn" onclick="switchTab('tab-action', this)">GitHub Actions CI</button>
           <button class="tab-btn" onclick="switchTab('tab-python', this)">Python SDK</button>
         </div>
         <div id="tab-cli" class="tab-content active">
@@ -573,6 +515,7 @@ $ lil status</code></pre>
           <pre><code># .github/workflows/letitloop-verify.yml
 name: Verify AI Pull Request
 on: [pull_request]
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -588,23 +531,23 @@ jobs:
         </div>
         <div id="tab-python" class="tab-content">
           <pre><code>from orchestrator.ast_node_splicer import splice_ast_function
-from harness.injector import ProcessLifecycleGuard
 
-# Source-span function splicing with zero comment stripping
+# Surgical method-level replacement with 0% comment loss
 clean_code = splice_ast_function(
-    original_source=file_content,
-    target_function_name="process_event",
-    new_function_code=generated_snippet
+    source_code=file_content,
+    target_name="MyClass.process_event",
+    replacement_code=generated_snippet,
+    enforce_strict_signature=True
 )</code></pre>
         </div>
       </div>
     </section>
 
-    <!-- Comparison Table -->
-    <section class="table-section" id="benchmarks">
+    <!-- Benchmark Comparison Table -->
+    <section id="benchmarks">
       <div class="section-header">
         <h2>Why Durability Bench (DCP-1.0)?</h2>
-        <p>Comparing crash resilience evaluation against industry single-shot benchmarks.</p>
+        <p>Comparing operational crash resilience against single-shot industry benchmarks.</p>
       </div>
       <div class="table-wrapper">
         <table>
@@ -656,12 +599,12 @@ clean_code = splice_ast_function(
     <footer>
       <div class="footer-links">
         <a href="https://github.com/sdageltc/letitloop" target="_blank">Engine Core</a>
-        <a href="https://github.com/sdageltc/agent-durability-bench" target="_blank">Durability Bench</a>
-        <a href="https://github.com/sdageltc/letitloop-action" target="_blank">GitHub Action</a>
+        <a href="https://sdageltc.github.io/agent-durability-bench/">Durability Bench</a>
+        <a href="https://sdageltc.github.io/letitloop-action/">GitHub Action</a>
         <a href="https://pypi.org/project/letitloop/" target="_blank">PyPI Package</a>
         <a href="https://github.com/sdageltc" target="_blank">Maintainer (@sdageltc)</a>
       </div>
-      <p>© 2026 sdageltc. Open source under the MIT License.</p>
+      <p>© 2026 sdageltc • Open source under the MIT License.</p>
     </footer>
   </div>
 
@@ -671,6 +614,17 @@ clean_code = splice_ast_function(
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
       document.getElementById(tabId).classList.add('active');
       btn.classList.add('active');
+    }
+
+    function copySnippet(text, container) {
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = container.querySelector('.copy-btn');
+        if (btn) {
+          const old = btn.innerText;
+          btn.innerText = 'Copied!';
+          setTimeout(() => { btn.innerText = old; }, 2000);
+        }
+      });
     }
   </script>
 </body>
