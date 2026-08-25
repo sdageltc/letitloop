@@ -1100,5 +1100,12 @@ def run_verification(contract, workspace_root, run_dir):
         evidence_path = os.path.join(run_dir, "verification_evidence.json")
         with open(evidence_path, "w", encoding="utf-8") as f:
             json.dump(evidence, f, indent=2, ensure_ascii=False)
+        # Tamper-evident receipt: seal the evidence with the run-scoped key.
+        try:
+            from .receipts import load_or_create_run_key, seal_artifact
+
+            seal_artifact(evidence_path, load_or_create_run_key(run_dir))
+        except OSError as seal_err:
+            print(f"[verify] receipt seal failed: {seal_err}", file=sys.stderr)
 
     return all_passed, results, evidence_path
