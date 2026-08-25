@@ -18,26 +18,17 @@ from orchestrator.limits import ResourceLimits, check_limits
 from orchestrator.scope import snapshot_scope
 from orchestrator.state import create_initial_state, load_state, save_state
 
-try:
-    import pytest_benchmark
-except ImportError:
-    pytest_benchmark = None
+@pytest.fixture
+def benchmark(request):
+    """Robust benchmark fixture that works when pytest-benchmark is active or disabled in xdist."""
+    def _bench(fn, *args, **kwargs):
+        t0 = time.perf_counter()
+        res = fn(*args, **kwargs)
+        dur = time.perf_counter() - t0
+        assert dur < 5.0
+        return res
 
-
-if pytest_benchmark is None:
-
-    @pytest.fixture
-    def benchmark():
-        """Fallback benchmark fixture when pytest-benchmark is not installed."""
-
-        def _bench(fn, *args, **kwargs):
-            t0 = time.perf_counter()
-            res = fn(*args, **kwargs)
-            dur = time.perf_counter() - t0
-            assert dur < 5.0
-            return res
-
-        return _bench
+    return _bench
 
 
 SAMPLE_CONTRACT = {

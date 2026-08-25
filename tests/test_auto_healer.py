@@ -61,3 +61,41 @@ def test_cli_heal_command(tmp_path):
     res = subprocess.run(cmd, cwd=Path(__file__).parent.parent, capture_output=True, text=True)
     assert res.returncode == 0
     assert '"success": true' in res.stdout
+
+
+def test_auto_healer_target_resolution(tmp_path):
+    """AutoHealer resolves target source file to corresponding test file."""
+    src = tmp_path / "orchestrator" / "state.py"
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text("x = 1\n", encoding="utf-8")
+
+    test_file = tmp_path / "tests" / "test_state.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_x(): pass\n", encoding="utf-8")
+
+    healer = AutoHealer(workspace_dir=tmp_path, target_file=src)
+    resolved = healer.resolve_target_test_file()
+    assert resolved == test_file.resolve()
+
+
+def test_cli_heal_target_and_fast_flags(tmp_path):
+    """lil heal supports --target and --fast flags."""
+    test_file = tmp_path / "calc.py"
+    test_file.write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "orchestrator.cli",
+        "heal",
+        "--dir",
+        str(tmp_path),
+        "--target",
+        str(test_file),
+        "--fast",
+        "--no-pytest",
+        "--json",
+    ]
+    res = subprocess.run(cmd, cwd=Path(__file__).parent.parent, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert '"success": true' in res.stdout

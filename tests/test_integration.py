@@ -43,7 +43,7 @@ FIXTURE_CONTRACT = {
         {
             "id": "pytest_pass",
             "kind": "command",
-            "command": "python -m pytest scratch/test/hello_fixture.py -v",
+            "command": "python -m pytest scratch/test/hello_fixture.py -v -p no:opik -p no:langflow_sdk -p no:langsmith -p no:typeguard",
             "expected": 0,
         },
     ],
