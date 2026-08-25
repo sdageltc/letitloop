@@ -3,7 +3,7 @@ tests/test_codebase_introspector.py
 Unit tests for Min-Max Normalized UCB1 Exploration Engine.
 """
 
-from orchestrator.codebase_introspector import NormalizedExplorationEngine, ModuleProfile
+from orchestrator.codebase_introspector import ModuleProfile, NormalizedExplorationEngine
 
 
 def test_ucb1_exploration_normalization():

@@ -5,10 +5,11 @@ Unit and integration tests for ProposalLedger, ArchitecturalProposal staging, an
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 from orchestrator.feasibility_gate import FeasibilityVerdict
 from orchestrator.live_evolution_engine import LiveEvolutionEngine
-from orchestrator.proposal_ledger import ArchitecturalProposal, ProposalLedger
+from orchestrator.proposal_ledger import ProposalLedger
 
 
 def test_proposal_ledger_record_and_load(tmp_path: Path):
@@ -37,21 +38,13 @@ def test_proposal_ledger_record_and_load(tmp_path: Path):
     assert prop.status == "PENDING_HUMAN_REVIEW"
 
     # Verify JSON file exists
-    json_path = (
-        tmp_path
-        / "scratch/evolution_state/proposals"
-        / f"{prop.proposal_id}.json"
-    )
+    json_path = tmp_path / "scratch/evolution_state/proposals" / f"{prop.proposal_id}.json"
     assert json_path.exists()
     loaded_data = json.loads(json_path.read_text(encoding="utf-8"))
     assert loaded_data["risk_score"] == 0.85
 
     # Verify Markdown artifact exists
-    md_path = (
-        tmp_path
-        / "scratch/evolution_state/proposals"
-        / f"{prop.proposal_id}.md"
-    )
+    md_path = tmp_path / "scratch/evolution_state/proposals" / f"{prop.proposal_id}.md"
     assert md_path.exists()
     md_content = md_path.read_text(encoding="utf-8")
     assert "**McCabe Complexity Score**: 238.1" in md_content

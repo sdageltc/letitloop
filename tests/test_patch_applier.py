@@ -3,9 +3,8 @@ tests/test_patch_applier.py
 Unit tests for the Transactional Search/Replace Delta Patching Engine.
 """
 
-import pytest
-from orchestrator.patch_applier import SearchReplacePatchParser, PatchApplier
 from orchestrator.parsing import parse_llm_artifacts
+from orchestrator.patch_applier import PatchApplier, SearchReplacePatchParser
 
 
 def test_parse_search_replace_chunks():

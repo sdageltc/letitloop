@@ -3,7 +3,7 @@ tests/test_elasticity_governor.py
 Unit tests for the Dynamic Elasticity Governor.
 """
 
-from orchestrator.elasticity_governor import DynamicElasticityGovernor, ComputeTier
+from orchestrator.elasticity_governor import ComputeTier, DynamicElasticityGovernor
 
 
 def test_micro_complexity_allocation():

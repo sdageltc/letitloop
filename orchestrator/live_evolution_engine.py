@@ -4,27 +4,24 @@ Unified Sensory, Cognitive Feasibility & Surgical Self-Evolution Engine.
 """
 
 from __future__ import annotations
-import json
-import time
-from dataclasses import asdict
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from orchestrator.llm import call_llm
-from orchestrator.patch_applier import PatchApplier, SearchReplacePatchParser
-from orchestrator.surgical_extractor import SurgicalContextExtractor
+from orchestrator.anti_ouroboros import AntiOuroborosGate
 from orchestrator.ast_splicer import ASTInvariantValidator
-from orchestrator.elasticity_governor import DynamicElasticityGovernor
 from orchestrator.codebase_introspector import (
     NormalizedExplorationEngine,
-    ModuleProfile,
 )
+from orchestrator.elasticity_governor import DynamicElasticityGovernor
 from orchestrator.fast_sandbox import ZeroCopyFastSandbox
-from orchestrator.anti_ouroboros import AntiOuroborosGate
-from orchestrator.micro_epoch import MicroEpochManager
 from orchestrator.feasibility_gate import CognitiveFeasibilityGate, FeasibilityVerdict
+from orchestrator.llm import call_llm
+from orchestrator.micro_epoch import MicroEpochManager
+from orchestrator.patch_applier import PatchApplier
 from orchestrator.proposal_ledger import ProposalLedger
-from orchestrator.research import AdaptiveResearchCoordinator, ResearchFinding
+from orchestrator.research import AdaptiveResearchCoordinator
+from orchestrator.surgical_extractor import SurgicalContextExtractor
 
 
 class LiveEvolutionEngine:
@@ -40,9 +37,7 @@ class LiveEvolutionEngine:
         self.model_name = model_name
         self.enable_research = enable_research
         self.sandbox = ZeroCopyFastSandbox(self.workspace_root)
-        self.epoch_mgr = MicroEpochManager(
-            self.workspace_root / "scratch/evolution_state"
-        )
+        self.epoch_mgr = MicroEpochManager(self.workspace_root / "scratch/evolution_state")
         self.introspector = NormalizedExplorationEngine()
         self.researcher = AdaptiveResearchCoordinator()
         self.proposal_ledger = ProposalLedger(self.workspace_root)
@@ -84,9 +79,7 @@ class LiveEvolutionEngine:
             enclosing_class_context = ""
 
         # 2. Dynamic Elasticity Allocation
-        complexity_score = DynamicElasticityGovernor.calculate_complexity(
-            context_snippet
-        )
+        complexity_score = DynamicElasticityGovernor.calculate_complexity(context_snippet)
         budget = DynamicElasticityGovernor.allocate(complexity_score)
 
         # 3. Phase 1: Cognitive Feasibility Deliberation Gate (Reason First!)
@@ -145,9 +138,7 @@ class LiveEvolutionEngine:
                 "risk_score": feasibility.risk_score,
                 "proposal_id": proposal.proposal_id,
                 "proposal_markdown": str(
-                    self.workspace_root
-                    / "scratch/evolution_state/proposals"
-                    / f"{proposal.proposal_id}.md"
+                    self.workspace_root / "scratch/evolution_state/proposals" / f"{proposal.proposal_id}.md"
                 ),
             }
 
@@ -187,7 +178,6 @@ Return ONLY an exact Search/Replace block matching this schema:
 """
 
         # 6. LLM Generation & 3-Turn Repair Loop
-        current_code = existing_code
         violations: List[str] = []
 
         for attempt in range(1, 4):
@@ -197,18 +187,10 @@ Return ONLY an exact Search/Replace block matching this schema:
                     prompt=prompt,
                     thinking_budget=budget.thinking_tokens,
                 )
-                raw_text = (
-                    raw_response["text"]
-                    if isinstance(raw_response, dict)
-                    else str(raw_response)
-                )
-                patch_res = PatchApplier.apply_patch(
-                    existing_code, raw_text, fuzzy_whitespace=True
-                )
+                raw_text = raw_response["text"] if isinstance(raw_response, dict) else str(raw_response)
+                patch_res = PatchApplier.apply_patch(existing_code, raw_text, fuzzy_whitespace=True)
                 if not patch_res.success:
-                    violations = [
-                        patch_res.error_message or "Search block not found."
-                    ]
+                    violations = [patch_res.error_message or "Search block not found."]
                     continue
 
                 candidate_code = patch_res.modified_content
@@ -216,21 +198,15 @@ Return ONLY an exact Search/Replace block matching this schema:
                 # 5-Pillar Verification Firewall
                 # 6a. AST Invariant Validation
                 if target_function:
-                    inv_res = ASTInvariantValidator.validate(
-                        existing_code, candidate_code, target_function
-                    )
+                    inv_res = ASTInvariantValidator.validate(existing_code, candidate_code, target_function)
                     if not inv_res.valid:
                         violations = inv_res.violations
                         continue
 
                 # 6b. Anti-Ouroboros Gate
-                ouro_res = AntiOuroborosGate.evaluate_mutation(
-                    existing_code, candidate_code
-                )
+                ouro_res = AntiOuroborosGate.evaluate_mutation(existing_code, candidate_code)
                 if not ouro_res.is_approved:
-                    violations = [
-                        f"Anti-Ouroboros rejection: {ouro_res.reason}"
-                    ]
+                    violations = [f"Anti-Ouroboros rejection: {ouro_res.reason}"]
                     continue
 
                 # 6c. Zero-Copy Fast Sandbox (In-Memory Overlay)
@@ -241,10 +217,7 @@ Return ONLY an exact Search/Replace block matching this schema:
                     timeout_sec=budget.timeout_sec,
                 )
                 if not sandbox_res.passed:
-                    violations = [
-                        sandbox_res.error_message
-                        or "Sandbox evaluation failed."
-                    ]
+                    violations = [sandbox_res.error_message or "Sandbox evaluation failed."]
                     continue
 
                 # Verified Fix -> Physical Disk Write-Back

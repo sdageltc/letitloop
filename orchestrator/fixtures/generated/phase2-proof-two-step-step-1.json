@@ -11,9 +11,9 @@
   },
   "objective": "Execute step 1 implementation",
   "worker": {
-    "model": "hybrid:gemini:gemini-2.5-flash",
+    "model": "hybrid:gemini:gemini-3.7-flash",
     "max_attempts": 3,
-    "hybrid_critic_model": "openai:gpt-4o-mini",
+    "hybrid_critic_model": "gemini:gemini-3.7-flash",
     "hybrid_max_repair_turns": 3,
     "hybrid_max_tokens": 32000,
     "hybrid_max_cost_usd": 0.3,

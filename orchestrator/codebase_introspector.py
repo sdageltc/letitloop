@@ -4,9 +4,10 @@ Min-Max Normalized UCB1 Autonomous Discovery Engine.
 """
 
 from __future__ import annotations
+
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 
 @dataclass

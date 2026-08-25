@@ -4,10 +4,12 @@ Autonomous sensory radar for scanning codebases and ranking evolutionary vectors
 """
 
 from __future__ import annotations
+
 import ast
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
+
 from orchestrator.elasticity_governor import DynamicElasticityGovernor
 
 
@@ -61,12 +63,8 @@ class SensoryRadar:
                     end = getattr(node, "end_lineno", len(lines))
                     func_src = "\n".join(lines[start - 1 : end])
 
-                    score = DynamicElasticityGovernor.calculate_complexity(
-                        func_src
-                    )
-                    if (
-                        score >= 8.0
-                    ):  # Optimization hotspot threshold (>= 8 LOC / cyclomatic)
+                    score = DynamicElasticityGovernor.calculate_complexity(func_src)
+                    if score >= 8.0:  # Optimization hotspot threshold (>= 8 LOC / cyclomatic)
                         tasks.append(
                             SensoryTask(
                                 task_id=f"HOTSPOT-{py_file.stem}-{node.name}",

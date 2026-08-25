@@ -3,15 +3,15 @@ tests/test_research_providers.py
 Unit tests for the Adaptive Multi-Tier Research Engine.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from orchestrator.research import (
-    BaseResearchProvider,
-    ResearchFinding,
-    DuckDuckGoProvider,
-    ArXivProvider,
-    GitHubSearchProvider,
-    NoOpResearchProvider,
     AdaptiveResearchCoordinator,
+    ArXivProvider,
+    BaseResearchProvider,
+    DuckDuckGoProvider,
+    GitHubSearchProvider,
+    ResearchFinding,
 )
 
 

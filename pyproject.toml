@@ -122,10 +122,11 @@ markers = [
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+exclude = ["scratch", ".venv", "dist", "build", ".benchmarks", "htmlcov"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-ignore = ["E501"]
+ignore = ["E501", "E402"]
 
 [tool.coverage.run]
 source = ["orchestrator"]

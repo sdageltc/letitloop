@@ -4,9 +4,10 @@ AST Signature, Decorator, and Invariant Validator (Pure In-Memory Checker).
 """
 
 from __future__ import annotations
+
 import ast
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 
 @dataclass
@@ -36,9 +37,13 @@ class ASTInvariantValidator:
         mod_node = cls._find_func(mod_tree, target_symbol)
 
         if not orig_node:
-            return InvariantValidationResult(valid=False, violations=[f"Target '{target_symbol}' not found in original."])
+            return InvariantValidationResult(
+                valid=False, violations=[f"Target '{target_symbol}' not found in original."]
+            )
         if not mod_node:
-            return InvariantValidationResult(valid=False, violations=[f"Target '{target_symbol}' deleted or missing in patch."])
+            return InvariantValidationResult(
+                valid=False, violations=[f"Target '{target_symbol}' deleted or missing in patch."]
+            )
 
         # 1. Coroutine Type Invariance
         if isinstance(orig_node, ast.AsyncFunctionDef) != isinstance(mod_node, ast.AsyncFunctionDef):

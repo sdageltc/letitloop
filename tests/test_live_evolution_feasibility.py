@@ -3,11 +3,12 @@ tests/test_live_evolution_feasibility.py
 Integration tests for Cognitive Feasibility Deliberation & Adaptive Research in LiveEvolutionEngine.
 """
 
-from pathlib import Path
 import tempfile
-from unittest.mock import patch, MagicMock
-from orchestrator.live_evolution_engine import LiveEvolutionEngine
+from pathlib import Path
+from unittest.mock import patch
+
 from orchestrator.feasibility_gate import FeasibilityVerdict
+from orchestrator.live_evolution_engine import LiveEvolutionEngine
 from orchestrator.research import ResearchFinding
 
 
@@ -74,10 +75,13 @@ def solve_problem(): return 1
 def solve_problem(): return 2
 >>>>>>> REPLACE
 """
-        with patch("orchestrator.feasibility_gate.CognitiveFeasibilityGate.deliberate", return_value=feasible_with_research), \
-             patch("orchestrator.research.AdaptiveResearchCoordinator.research", return_value=mock_findings), \
-             patch("orchestrator.live_evolution_engine.call_llm", return_value=mock_delta) as mock_call:
-
+        with (
+            patch(
+                "orchestrator.feasibility_gate.CognitiveFeasibilityGate.deliberate", return_value=feasible_with_research
+            ),
+            patch("orchestrator.research.AdaptiveResearchCoordinator.research", return_value=mock_findings),
+            patch("orchestrator.live_evolution_engine.call_llm", return_value=mock_delta),
+        ):
             res = engine.execute_live_optimization_cycle(
                 module_path="solver.py",
                 optimization_goal="Optimize solver",

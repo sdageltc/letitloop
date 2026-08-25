@@ -15,7 +15,6 @@ sys.path.insert(0, str(root))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(line_buffering=True)
 
-from orchestrator.feasibility_gate import CognitiveFeasibilityGate
 from orchestrator.live_evolution_engine import LiveEvolutionEngine
 from orchestrator.proposal_ledger import ProposalLedger
 from orchestrator.sensory_radar import SensoryRadar
@@ -45,9 +44,7 @@ def main():
         default=10,
         help="Maximum iterations to execute (if duration-minutes is not set)",
     )
-    parser.add_argument(
-        "--model", type=str, default="cli:agy", help="LLM model identifier"
-    )
+    parser.add_argument("--model", type=str, default="cli:agy", help="LLM model identifier")
     parser.add_argument(
         "--enable-research",
         action="store_true",
@@ -84,15 +81,9 @@ def main():
         for p in proposals:
             print(f"\n  * [{p.status}] {p.proposal_id}")
             print(f"    Symbol: {p.target_module}::{p.target_function}")
-            print(
-                f"    Risk Score: {p.risk_score:.2f} | Strategy: {p.suggested_strategy}"
-            )
-            print(
-                f"    Proposal Document: scratch/evolution_state/proposals/{p.proposal_id}.md"
-            )
-            print(
-                f"    Approve Command: python scripts/run_live_self_evolution.py --approve-proposal {p.proposal_id}"
-            )
+            print(f"    Risk Score: {p.risk_score:.2f} | Strategy: {p.suggested_strategy}")
+            print(f"    Proposal Document: scratch/evolution_state/proposals/{p.proposal_id}.md")
+            print(f"    Approve Command: python scripts/run_live_self_evolution.py --approve-proposal {p.proposal_id}")
         print("\n" + "=" * 70)
         sys.exit(0)
 
@@ -126,9 +117,7 @@ def main():
 
         if res.get("is_success"):
             ledger.mark_status(proposal_id, "EXECUTED")
-            print(
-                f"\n[OK] PROPOSAL EXECUTED & VERIFIED IN SANDBOX (Status: {res['status']})"
-            )
+            print(f"\n[OK] PROPOSAL EXECUTED & VERIFIED IN SANDBOX (Status: {res['status']})")
         else:
             ledger.mark_status(proposal_id, "FAILED_VERIFICATION")
             print(f"\n[-] PROPOSAL EXECUTION FAILED (Status: {res['status']})")
@@ -140,16 +129,12 @@ def main():
     # 3. Standard Autonomous Self-Evolution Loop
     radar = SensoryRadar(root)
     tasks = radar.scan_workspace()
-    print(
-        f"[SensoryRadar] Discovered {len(tasks)} evolutionary hotspot vectors."
-    )
+    print(f"[SensoryRadar] Discovered {len(tasks)} evolutionary hotspot vectors.")
 
     if args.dry_run:
         print("\n[Dry Run - Discovered Hotspots & Initial Targets]:")
         for t in tasks[: args.max_iterations]:
-            print(
-                f"  * {t.task_id} ({t.target_module}::{t.target_function}) - Score: {t.complexity_score:.1f}"
-            )
+            print(f"  * {t.task_id} ({t.target_module}::{t.target_function}) - Score: {t.complexity_score:.1f}")
         sys.exit(0)
 
     engine = LiveEvolutionEngine(
@@ -166,14 +151,8 @@ def main():
     failed_attempts = []
 
     start_time = time.time()
-    deadline = (
-        start_time + (args.duration_minutes * 60)
-        if args.duration_minutes > 0
-        else float("inf")
-    )
-    max_count = (
-        len(tasks) if args.duration_minutes > 0 else args.max_iterations
-    )
+    deadline = start_time + (args.duration_minutes * 60) if args.duration_minutes > 0 else float("inf")
+    max_count = len(tasks) if args.duration_minutes > 0 else args.max_iterations
 
     print("\n" + "=" * 70)
     print(
@@ -211,16 +190,14 @@ def main():
         )
         iter_dur = time.time() - iter_t0
 
-        print(
-            f"  Result: {res['status']} in {format_duration(iter_dur)} (Success: {res.get('is_success', False)})"
-        )
+        print(f"  Result: {res['status']} in {format_duration(iter_dur)} (Success: {res.get('is_success', False)})")
         if "rationale" in res:
-            clean_rat = res['rationale'].encode('ascii', errors='replace').decode('ascii')
+            clean_rat = res["rationale"].encode("ascii", errors="replace").decode("ascii")
             print(f"  Deliberation Rationale: {clean_rat}")
 
         if res.get("is_success"):
             applied_mutations.append(task.task_id)
-            print(f"  [MUTATION APPLIED] Complexity reduced & verified in fast sandbox!")
+            print("  [MUTATION APPLIED] Complexity reduced & verified in fast sandbox!")
         elif res.get("status") == "PROPOSAL_STAGED_FOR_REVIEW":
             staged_proposals.append(res)
             print(f"  [PROPOSAL STAGED] Risk score={res.get('risk_score', 1.0):.2f}. Awaiting human review.")
@@ -263,15 +240,11 @@ def main():
         for sp in staged_proposals:
             p_id = sp.get("proposal_id", "Unknown")
             print(f"\n  * Proposal ID: {p_id}")
-            print(
-                f"    Risk Score: {sp.get('risk_score', 1.0):.2f} ({sp.get('verdict', 'DEFER')})"
-            )
-            clean_rat = sp.get('rationale', '').encode('ascii', errors='replace').decode('ascii')
+            print(f"    Risk Score: {sp.get('risk_score', 1.0):.2f} ({sp.get('verdict', 'DEFER')})")
+            clean_rat = sp.get("rationale", "").encode("ascii", errors="replace").decode("ascii")
             print(f"    Rationale: {clean_rat}")
             print(f"    Review Doc: scratch/evolution_state/proposals/{p_id}.md")
-            print(
-                f'    Approve Command: python scripts/run_live_self_evolution.py --approve-proposal "{p_id}"'
-            )
+            print(f'    Approve Command: python scripts/run_live_self_evolution.py --approve-proposal "{p_id}"')
 
     print("\n" + "=" * 70)
 

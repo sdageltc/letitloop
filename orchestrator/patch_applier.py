@@ -4,11 +4,11 @@ Transactional Search/Replace Delta Patching Engine.
 """
 
 from __future__ import annotations
-import re
+
 import difflib
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Tuple, Optional
+import re
+from dataclasses import dataclass
+from typing import List, Optional
 
 
 @dataclass
