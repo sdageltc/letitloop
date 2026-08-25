@@ -15,7 +15,10 @@ import contextlib
 import hashlib
 import json
 import os
+import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from typing import Optional
 
 from .approval import format_approval_reasons, requires_approval
@@ -35,6 +38,41 @@ from .state import (
 from .supervisor import Supervisor
 from .verifier import run_verification
 from .worker import run_worker
+
+
+def _git_sha():
+    """Return the current short Git commit SHA, if available."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        sha = result.stdout.strip()
+        return sha or None
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def _version_string():
+    """Return the package version with the current Git SHA when available."""
+    try:
+        version = package_version("letitloop")
+    except PackageNotFoundError:
+        from . import __version__
+
+        version = __version__
+
+    sha = _git_sha()
+    if sha:
+        return f"letitloop {version} ({sha})"
+    return f"letitloop {version}"
+
+
+
+
 
 WORKSPACE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DEFAULT_RUN_DIR = os.environ.get("LIL_RUN_DIR", os.path.join(WORKSPACE_ROOT, "scratch", "orchestrator_runs"))
@@ -1609,7 +1647,16 @@ def main():
     parser = argparse.ArgumentParser(
         description="Phase-1 Durable Macro-Task Orchestrator",
     )
-    parser.add_argument("--run-dir", default=DEFAULT_RUN_DIR, help=f"run state directory (default: {DEFAULT_RUN_DIR})")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=_version_string(),
+    )
+    parser.add_argument(
+        "--run-dir",
+        default=DEFAULT_RUN_DIR,
+        help=f"run state directory (default: {DEFAULT_RUN_DIR})",
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
