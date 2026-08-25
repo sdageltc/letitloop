@@ -80,16 +80,15 @@ def test_stale_lock(tmp_path, monkeypatch):
     old = (datetime.now(timezone.utc) - timedelta(seconds=lk.STALE_TIMEOUT_SEC + 60)).isoformat()
     data["created_at"] = old
     data["heartbeat"] = old
+    data["pid"] = 99999999  # Dead PID
     with open(lock_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-    # Acquire should raise LockStaleError
-    with pytest.raises(lk.LockStaleError):
-        lk.acquire_lock("goal-1", run_dir)
-
-    # force=True should work on stale lock
-    lock = lk.acquire_lock("goal-1", run_dir, force=True)
+    # Lock v2: Acquire transparently auto-steals the stale lock
+    lock = lk.acquire_lock("goal-1", run_dir)
     assert lock["goal_id"] == "goal-1"
+    assert "adopted_from" in lock
+    assert lock["pid"] == os.getpid()
     lk.release_lock(run_dir)
 
 

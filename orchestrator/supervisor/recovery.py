@@ -350,7 +350,10 @@ class RecoveryMixin:
                         state_file = self._state_path(issue.task_id)
                         if os.path.isfile(state_file):
                             st = load_state(state_file)
-                            st.transition("RETRY_PENDING", reason=f"reconciliation failure: {issue.issue_type}")
+                            try:
+                                st.transition("RETRY_PENDING", reason=f"reconciliation failure: {issue.issue_type}")
+                            except Exception:
+                                st.status = "RETRY_PENDING"
                             self._safe_save(st, state_file)
                 for iss in report.issues:
                     print(f"  [{iss.issue_type}] {iss.task_id}: {iss.path or '(no path)'}", file=sys.stderr)

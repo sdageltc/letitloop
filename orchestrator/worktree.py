@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -312,9 +313,11 @@ class WorktreeManager:
             return True
 
         # 4. ...else squash-style single-parent merge. Any failure rolls the
-        #    base branch back to exactly where it was.
+        #    base branch back to exactly where it was, after saving a safety backup ref.
         squash_res = self._git("merge", "--squash", handle.branch)
         if squash_res.returncode != 0:
+            backup_ref = f"refs/letitloop/rollback_backup/{branch_short}_{int(time.time())}"
+            self._git("update-ref", backup_ref, base_head)
             self._git("reset", "--hard", base_head)
             return False
         squash_commit = self._git(
@@ -333,6 +336,8 @@ class WorktreeManager:
             if "nothing to commit" in f"{squash_commit.stdout} {squash_commit.stderr}".lower():
                 self._force_remove_worktree(handle.path, handle.branch)
                 return True
+            backup_ref = f"refs/letitloop/rollback_backup/{branch_short}_{int(time.time())}"
+            self._git("update-ref", backup_ref, base_head)
             self._git("reset", "--hard", base_head)
             return False
 
@@ -362,3 +367,19 @@ class WorktreeManager:
             br_res = self._git("branch", "-D", branch)
             deleted_branch = br_res.returncode == 0
         return removed_dir and deleted_branch
+
+    def gc_stale_sandboxes(self) -> int:
+        """Scan worktrees_dir and prune orphaned sandbox worktrees."""
+        if not os.path.isdir(self.worktrees_dir):
+            return 0
+        cleaned = 0
+        try:
+            for entry in os.listdir(self.worktrees_dir):
+                full_path = os.path.join(self.worktrees_dir, entry)
+                if os.path.isdir(full_path) and entry.startswith("wt_"):
+                    self._force_remove_worktree(full_path, f"sandbox/{entry}")
+                    cleaned += 1
+            self._git("worktree", "prune")
+        except Exception:
+            pass
+        return cleaned

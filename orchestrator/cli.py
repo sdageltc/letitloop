@@ -21,7 +21,6 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from typing import Optional
 
-from .approval import format_approval_reasons, requires_approval
 from .contract import load_contract
 from .generator import generate_contracts
 from .goal import Goal, Plan
@@ -29,6 +28,7 @@ from .handoff import build_handoff
 from .plan_preview import render_plan_preview, write_plan_preview
 from .preferences import apply_preferences_to_goal, collect_preferences
 from .preflight import run_preflight
+from .safety import format_approval_reasons, requires_approval
 from .schemas import get_schema
 from .state import (
     IllegalTransitionError,
@@ -79,7 +79,8 @@ def cmd_version(args=None):
     """Print version information (package version, python, platform)."""
     import platform
 
-    print(f"letitloop {PACKAGE_VERSION}")
+    ver = PACKAGE_VERSION if "PACKAGE_VERSION" in globals() else "0.3.0"
+    print(f"letitloop {ver}")
     print(f"python {platform.python_version()} on {sys.platform}")
 
 
@@ -1598,22 +1599,23 @@ def cmd_install_skill(args):
 
 
 def cmd_bench(args):
-    """Execute or inspect agent durability benchmarks (DCP-1.0)."""
+    """Execute or inspect agent durability benchmarks (DCP-2.0)."""
     import subprocess
 
     framework = getattr(args, "framework", "letitloop")
     signal = getattr(args, "signal", "SIGKILL")
-    print(f"Executing Durability Conformance Benchmark for '{framework}' (Signal: {signal})...")
+    matrix = getattr(args, "matrix", False)
+    print(f"Executing Durability Conformance Benchmark (DCP-2.0) for '{framework}' (Signal: {signal})...")
 
+    cmd = [sys.executable, "-m", "conformance.harness.runner", "--framework", framework, "--signal", signal]
+    if matrix:
+        cmd.append("--matrix")
     try:
-        res = subprocess.run(
-            [sys.executable, "-m", "harness.runner", "--framework", framework, "--signal", signal], capture_output=False
-        )
+        res = subprocess.run(cmd, cwd=WORKSPACE_ROOT, capture_output=False)
         sys.exit(res.returncode)
     except Exception as e:
         print(f"Durability benchmark execution error: {e}")
-        print("Tip: Install agent-durability-bench via: pip install agent-durability-bench")
-        print("Or run standalone: durability-bench --framework letitloop")
+        sys.exit(1)
 
 
 def cmd_action(args):

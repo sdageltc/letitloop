@@ -18,6 +18,7 @@ from orchestrator.limits import ResourceLimits, check_limits
 from orchestrator.scope import snapshot_scope
 from orchestrator.state import create_initial_state, load_state, save_state
 
+
 @pytest.fixture
 def benchmark(request):
     """Robust benchmark fixture that works when pytest-benchmark is active or disabled in xdist."""

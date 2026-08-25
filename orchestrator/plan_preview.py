@@ -2,13 +2,13 @@
 
 from typing import Any, Dict, Optional
 
-from .approval import format_approval_reasons, requires_approval
 from .goal import Plan
+from .safety import format_approval_reasons, requires_approval
 
 
 def _describe_risk(plan: Plan) -> str:
     """Classify plan risk."""
-    from .approval import _get_plan_stats
+    from .safety import _get_plan_stats
 
     stats = _get_plan_stats(plan)
     if stats["has_destructive"] or stats["touches_config"] > 0:
@@ -120,7 +120,7 @@ def render_plan_preview(
 
 
 def _get_plan_stats_safe(plan: Plan) -> Dict[str, int]:
-    from .approval import _get_plan_stats as gps
+    from .safety import _get_plan_stats as gps
 
     return gps(plan)
 

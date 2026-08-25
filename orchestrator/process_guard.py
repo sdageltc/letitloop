@@ -131,11 +131,27 @@ def _windows_assign_to_job(job_handle: Any, proc: subprocess.Popen) -> bool:
         return False
 
 
+def _linux_pdeathsig_hook():
+    """Linux preexec_fn: Request SIGKILL when the parent supervisor process dies."""
+    if sys.platform.startswith("linux"):
+        try:
+            import ctypes
+            import signal
+            libc = ctypes.CDLL("libc.so.6", use_errno=True)
+            PR_SET_PDEATHSIG = 1
+            libc.prctl(PR_SET_PDEATHSIG, signal.SIGKILL, 0, 0, 0)
+        except Exception:
+            pass
+
+
 def containment_kwargs() -> Dict[str, Any]:
-    """Pre-spawn kwargs giving the child its own process group/session on POSIX."""
+    """Pre-spawn kwargs giving the child its own process group/session and Linux death signal."""
     if IS_WINDOWS:
         return {}
-    return {"start_new_session": True}
+    kwargs: Dict[str, Any] = {"start_new_session": True}
+    if sys.platform.startswith("linux"):
+        kwargs["preexec_fn"] = _linux_pdeathsig_hook
+    return kwargs
 
 
 def attach_containment(proc: subprocess.Popen) -> Optional[Any]:

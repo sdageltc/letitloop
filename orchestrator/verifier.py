@@ -336,10 +336,21 @@ def _run_content_check(path, pattern, kind, workspace_root):
         else:
             return VerifierResult(check_id="content", kind=kind, passed=False, message="content does not match exact")
     elif kind == "content_regex":
-        if re.search(pattern, content, re.DOTALL):
-            return VerifierResult(check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}")
-        else:
-            return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}")
+        import concurrent.futures
+
+        def _eval_regex():
+            return re.search(pattern, content, re.DOTALL) is not None
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_eval_regex)
+                match = future.result(timeout=2.0)
+                if match:
+                    return VerifierResult(check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}")
+                else:
+                    return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}")
+        except concurrent.futures.TimeoutError:
+            return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex timed out (ReDoS protection): {pattern[:50]}")
 
     return VerifierResult(check_id="content", kind=kind, passed=False, message=f"unknown content kind: {kind}")
 
@@ -922,12 +933,19 @@ def _run_undeclared_outputs_check(declared_outputs, scope_snapshot_path, workspa
 
     run_dir = os.path.dirname(scope_snapshot_path) if scope_snapshot_path else ""
     before = load_snapshot(run_dir) if scope_snapshot_path else {}
+    if scope_snapshot_path and not before:
+        return VerifierResult(
+            check_id="undeclared_outputs",
+            kind="undeclared_outputs",
+            passed=False,
+            message="Scope snapshot missing or empty: cannot verify output isolation (fail-closed)",
+        )
     if not before:
         return VerifierResult(
             check_id="undeclared_outputs",
             kind="undeclared_outputs",
             passed=True,
-            message="no scope snapshot available, skipping",
+            message="no scope snapshot specified, skipping",
         )
     declared_abs = set()
     for p in declared_outputs:

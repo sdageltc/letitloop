@@ -1,6 +1,6 @@
 """orchestrator — durable macro-task control-loop package."""
 
-__version__ = "0.1.1"
+__version__ = "0.3.0"
 
 from . import (
     audit,
@@ -10,10 +10,8 @@ from . import (
     limits,
     lock,
     metrics,
-    provenance,
     safety,
     telemetry,
-    templates,
     worker_pool,
 )
 from .contract import (
@@ -100,10 +98,8 @@ __all__ = [
     "limits",
     "lock",
     "metrics",
-    "provenance",
     "safety",
     "telemetry",
-    "templates",
     "worker_pool",
     "ValidationError",
     "run_reconciliation",

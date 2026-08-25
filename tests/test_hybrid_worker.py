@@ -403,3 +403,20 @@ def test_llm_trace_has_budget_info(tmp_path, monkeypatch):
         trace = json.load(f)
     steps_with_budget = [s for s in trace if "budget" in s]
     assert len(steps_with_budget) > 0
+
+
+def test_guard_paid_model_enforcement():
+    """Verify _guard_paid_model refuses bare prompts to expensive models."""
+    from orchestrator.hybrid_worker import _guard_paid_model
+
+    # Free/local models pass freely
+    _guard_paid_model("local:mistral", "short prompt")
+
+    # Paid model with bare prompt fails closed
+    with pytest.raises(RuntimeError) as exc_info:
+        _guard_paid_model("anthropic:claude-3-opus", "bare prompt without marker")
+    assert "requires a prepared master-context" in str(exc_info.value)
+
+    # Paid model with marker passes
+    _guard_paid_model("anthropic:claude-3-opus", "Prompt with [CONTEXT_COMPLETE] attached")
+
