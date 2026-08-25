@@ -1,9 +1,12 @@
-from typing import Tuple, Any
+from typing import Any, Tuple
+
 from adapters.base import FrameworkAdapter
 from harness.schema import DurabilityScore, SyntheticTaskSpec
 
+
 class RawPythonAdapter(FrameworkAdapter):
     """Naive unmanaged Python script baseline."""
+
     def __init__(self, wal_dir: str = ".bench_wal"):
         self.wal_dir = wal_dir
 
@@ -23,5 +26,5 @@ class RawPythonAdapter(FrameworkAdapter):
             state_corruption_detected=True,
             impossibility_artifact_emitted=False,
             recovery_latency_seconds=0.0,
-            final_verdict="FAIL_DATA_LOSS"
+            final_verdict="FAIL_DATA_LOSS",
         )

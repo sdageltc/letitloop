@@ -1,9 +1,12 @@
-from typing import Tuple, Any
+from typing import Any, Tuple
+
 from adapters.base import FrameworkAdapter
 from harness.schema import DurabilityScore, SyntheticTaskSpec
 
+
 class AutoGenAdapter(FrameworkAdapter):
     """Simulates AutoGen in-memory multi-agent conversation (no built-in WAL)."""
+
     def __init__(self, wal_dir: str = ".bench_wal"):
         self.wal_dir = wal_dir
 
@@ -21,9 +24,9 @@ class AutoGenAdapter(FrameworkAdapter):
             task_id=spec.task_id,
             framework=self.name,
             resumed_successfully=False,
-            duplicate_token_waste_pct=100.0, # Complete replay required
+            duplicate_token_waste_pct=100.0,  # Complete replay required
             state_corruption_detected=True,
             impossibility_artifact_emitted=False,
             recovery_latency_seconds=0.0,
-            final_verdict="FAIL_DATA_LOSS"
+            final_verdict="FAIL_DATA_LOSS",
         )

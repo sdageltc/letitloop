@@ -22,6 +22,7 @@ from orchestrator.state import create_initial_state, load_state, save_state
 @pytest.fixture
 def benchmark(request):
     """Robust benchmark fixture that works when pytest-benchmark is active or disabled in xdist."""
+
     def _bench(fn, *args, **kwargs):
         t0 = time.perf_counter()
         res = fn(*args, **kwargs)

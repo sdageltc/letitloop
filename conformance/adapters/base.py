@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Any
+from typing import Any, Tuple
+
 from harness.schema import DurabilityScore, SyntheticTaskSpec
+
 
 class FrameworkAdapter(ABC):
     @property
