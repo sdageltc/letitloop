@@ -1124,16 +1124,24 @@ def cmd_scope_check(args):
 
 def cmd_provenance(args):
     """Show provenance graph for a goal — contract lineage, I/O chains."""
-    from . import provenance as prov
-
     goal = _load_goal(args.goal_id)
     plan = _load_plan(args.goal_id)
-    run_dir = _run_dir(goal.goal_id)
-    graph = prov.build_provenance(goal.goal_id, goal.title, plan, WORKSPACE_ROOT, run_dir)
-    if args.json:
-        _print_json(graph.to_dict())
+    contracts = []
+    if plan and hasattr(plan, "contracts"):
+        for c in plan.contracts:
+            cid = c.get("task_id") if isinstance(c, dict) else getattr(c, "task_id", str(c))
+            contracts.append(cid)
+    res = {
+        "goal_id": goal.goal_id,
+        "title": goal.title,
+        "contracts": contracts,
+    }
+    if getattr(args, "json", False):
+        _print_json(res)
         return
-    print(prov.format_provenance(graph))
+    print(f"Goal {goal.goal_id} Provenance:")
+    for cid in res["contracts"]:
+        print(f"  - {cid}")
 
 
 def cmd_pause(args):

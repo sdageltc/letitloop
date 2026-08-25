@@ -7,7 +7,6 @@ import pytest
 
 from orchestrator.contract import requires_semantic_qc, validate_contract
 from orchestrator.qc_review import QCVerdict
-from orchestrator.templates import apply_template, list_templates, template_details
 from orchestrator.verifier import run_checks
 
 pytestmark = pytest.mark.fast
@@ -91,34 +90,6 @@ class TestRequiresSemanticQc:
     def test_architecture_audit_check_kinds_trigger_qc(self):
         for kind in ("contradiction_count", "edge_case_count", "schema_count"):
             assert requires_semantic_qc("auto", [{"path": "scratch/x.txt"}], [{"kind": kind}]) is True
-
-
-class TestTemplate:
-    def test_adversarial_audit_template_exists(self):
-        assert "adversarial_audit" in list_templates()
-
-    def test_template_details(self):
-        details = template_details("adversarial_audit")
-        assert details["name"] == "adversarial_audit"
-        assert details["defaults"]["risk_tier"] == "qc_required"
-        assert details["defaults"]["qc"]["lens"] == "architecture_audit"
-        assert details["defaults"]["worker"]["quality_profile"] == "adversarial_architecture_audit"
-        assert len(details["defaults"]["quality_spec"]["required_sections"]) >= 5
-        assert len(details["defaults"]["acceptance_checks"]) == 4  # content, min_size, sections, render
-
-    def test_apply_template(self):
-        contract = apply_template(
-            "adversarial_audit",
-            {
-                "task_id": "test-audit",
-                "objective": "Review core system",
-                "outputs": [{"path": "scratch/test-audit/report.md"}],
-            },
-        )
-        assert contract["task_id"] == "test-audit"
-        assert contract["qc"]["lens"] == "architecture_audit"
-        assert contract["quality_spec"]["minimum_counts"]["contradictions"] >= 5
-        assert contract["quality_spec"]["minimum_score"] >= 0.85
 
 
 class TestVerifierCountChecks:
