@@ -34,3 +34,6 @@ ENV/
 Thumbs.db
 
 *.metadata.json
+scratch/
+.opencode/
+*.log
