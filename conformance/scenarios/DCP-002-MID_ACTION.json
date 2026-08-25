@@ -1,0 +1,7 @@
+{
+  "id": "DCP-002-MID_ACTION",
+  "name": "Mid-Action SIGKILL",
+  "phase": "MID_ACTION",
+  "description": "Fault injected while worker process is executing in-flight mutation.",
+  "expected_recovery": "AT_LEAST_ONCE_STEP_RESUME"
+}
