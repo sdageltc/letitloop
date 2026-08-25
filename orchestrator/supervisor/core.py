@@ -1456,6 +1456,13 @@ class Supervisor(RecoveryMixin, ReportingMixin, CleanupMixin):
 
         metrics_path = os.path.join(self.run_dir, "metrics.json")
         self.metrics_coll.save(metrics_path)
+        # Tamper-evident receipt for the run metrics.
+        try:
+            from orchestrator.receipts import load_or_create_run_key, seal_artifact
+
+            seal_artifact(metrics_path, load_or_create_run_key(self.run_dir))
+        except OSError as seal_err:
+            print(f"[supervisor] metrics receipt seal failed: {seal_err}", file=sys.stderr)
 
         self._print_run_summary()
 

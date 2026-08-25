@@ -73,28 +73,30 @@ def test_splice_class_method_preserves_class_indentation():
 
 
 def test_splice_nested_closure_disambiguation():
-    """Verify that top-level function is spliced without mutating an identically-named inner closure."""
-    source = """def outer_wrapper():
-    def process_data(x: int) -> int:
-        # Inner closure helper
+    """Verify that ambiguous duplicate names raise ValueError and qualname targets splice with precision."""
+    import pytest
+
+    source = """class Outer:
+    def process_data(self, x: int) -> int:
+        # Inner class helper
         return x + 1
-    return process_data
 
 def process_data(x: int) -> int:
     # Top-level main function
     return x * 2
 """
-    new_top_level = """def process_data(x: int) -> int:
-    # Top-level main function updated
-    return x * 100
+    new_method = """def process_data(self, x: int) -> int:
+    # Inner class helper updated
+    return x + 100
 """
 
-    spliced = splice_ast_function(source, "process_data", new_top_level, enforce_strict_signature=True)
+    # Unqualified call with multiple functions raises ValueError
+    with pytest.raises(ValueError, match="ambiguous"):
+        splice_ast_function(source, "process_data", new_method, enforce_strict_signature=True)
 
-    # The inner closure helper must remain untouched
-    assert "# Inner closure helper" in spliced
-    assert "return x + 1" in spliced
-
-    # The top-level function must be updated
-    assert "# Top-level main function updated" in spliced
-    assert "return x * 100" in spliced
+    # Qualified call targets exact method
+    spliced = splice_ast_function(source, "Outer.process_data", new_method, enforce_strict_signature=True)
+    assert "# Inner class helper updated" in spliced
+    assert "return x + 100" in spliced
+    assert "# Top-level main function" in spliced
+    assert "return x * 2" in spliced
