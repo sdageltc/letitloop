@@ -47,20 +47,30 @@ KILL_WINDOWS = {
 SCENARIO_TO_WINDOW = {v: k for k, v in KILL_WINDOWS.items()}
 
 ALLOWED_SCENARIOS = {
-    "DCP-001", "DCP-002", "DCP-003", "DCP-004",
-    "DCP-001-PRE_STEP", "DCP-002-MID_ACTION", "DCP-003-POST_ACTION_PRE_JOURNAL", "DCP-004-POST_JOURNAL_PRE_FSYNC",
+    "DCP-001",
+    "DCP-002",
+    "DCP-003",
+    "DCP-004",
+    "DCP-001-PRE_STEP",
+    "DCP-002-MID_ACTION",
+    "DCP-003-POST_ACTION_PRE_JOURNAL",
+    "DCP-004-POST_JOURNAL_PRE_FSYNC",
 }
+
 
 def _load_scenario_json(scenario_id: str) -> dict:
     import json as _json
     import re
+
     # Hardening: whitelist + no path traversal
     if ".." in scenario_id or "/" in scenario_id or "\\" in scenario_id:
         raise ValueError(f"sandbox: scenario_id {scenario_id!r} contains path traversal")
     if not re.fullmatch(r"[A-Za-z0-9._-]+", scenario_id):
         raise ValueError(f"sandbox: scenario_id {scenario_id!r} contains invalid characters")
     # allow prefix like DCP-002 to match DCP-002-MID_ACTION, but must be known prefix
-    if scenario_id not in ALLOWED_SCENARIOS and not any(scenario_id == s[:len(scenario_id)] for s in ALLOWED_SCENARIOS):
+    if scenario_id not in ALLOWED_SCENARIOS and not any(
+        scenario_id == s[: len(scenario_id)] for s in ALLOWED_SCENARIOS
+    ):
         # also allow if any allowed starts with scenario_id
         if not any(s.startswith(scenario_id) for s in ALLOWED_SCENARIOS):
             raise FileNotFoundError(f"Scenario {scenario_id} not in whitelist {sorted(ALLOWED_SCENARIOS)}")
@@ -69,6 +79,7 @@ def _load_scenario_json(scenario_id: str) -> dict:
         if scenario_id in f.name:
             return _json.loads(f.read_text(encoding="utf-8"))
     raise FileNotFoundError(f"Scenario {scenario_id} not found in {base}")
+
 
 def _scenario_to_task_spec(scenario: dict):
     phase = scenario.get("phase", "PRE_STEP")
@@ -81,12 +92,29 @@ def _scenario_to_task_spec(scenario: dict):
     kill_idx = phase_to_kill.get(phase, 1)
     sid = scenario.get("id", "DCP-UNKNOWN")
     steps = [
-        SyntheticStep(step_id=f"{sid}_s1", action_type="FILE_WRITE", target_path=f"build/{sid}_f1.txt", expected_content="c1", simulated_token_cost=120),
-        SyntheticStep(step_id=f"{sid}_s2", action_type="FILE_WRITE", target_path=f"build/{sid}_f2.txt", expected_content="c2", simulated_token_cost=180),
-        SyntheticStep(step_id=f"{sid}_s3", action_type="FILE_WRITE", target_path=f"build/{sid}_f3.txt", expected_content="c3", simulated_token_cost=220),
+        SyntheticStep(
+            step_id=f"{sid}_s1",
+            action_type="FILE_WRITE",
+            target_path=f"build/{sid}_f1.txt",
+            expected_content="c1",
+            simulated_token_cost=120,
+        ),
+        SyntheticStep(
+            step_id=f"{sid}_s2",
+            action_type="FILE_WRITE",
+            target_path=f"build/{sid}_f2.txt",
+            expected_content="c2",
+            simulated_token_cost=180,
+        ),
+        SyntheticStep(
+            step_id=f"{sid}_s3",
+            action_type="FILE_WRITE",
+            target_path=f"build/{sid}_f3.txt",
+            expected_content="c3",
+            simulated_token_cost=220,
+        ),
     ]
     return SyntheticTaskSpec(task_id=sid, steps=steps, kill_at_step_index=kill_idx, kill_signal="SIGKILL")
-
 
 
 class DurabilityBenchmarkRunner:
@@ -255,7 +283,11 @@ class DurabilityBenchmarkRunner:
         for idx, row in enumerate(leaderboard_data["leaderboard"], 1):
             if is_dcp2:
                 # DCP-2.0 receipt fields: avg_T_resume_ms, avg_W_token_pct, total_C_fail, recovery_rate_pct
-                badge = "🟢 CONFORMANT" if row.get("recovery_rate_pct", 0) == 100.0 and row.get("avg_W_token_pct", 100) < 5.0 else "🔴 NON-CONFORMANT"
+                badge = (
+                    "🟢 CONFORMANT"
+                    if row.get("recovery_rate_pct", 0) == 100.0 and row.get("avg_W_token_pct", 100) < 5.0
+                    else "🔴 NON-CONFORMANT"
+                )
                 status_icon = "🥇" if idx == 1 else ("🥈" if idx == 2 else f"**{idx}**")
                 lines.append(
                     f"| {status_icon} | **`{row['archetype_label']}`** | `{row.get('recovery_rate_pct', 0)}%` | `{row.get('avg_W_token_pct', 0)}%` | `{row.get('avg_T_resume_ms', 0)} ms` | {badge} |"
@@ -281,7 +313,6 @@ class DurabilityBenchmarkRunner:
         )
 
         p.write_text("\n".join(lines), encoding="utf-8")
-
 
     def run_scenario_trial(self, framework_name: str, scenario_id: str) -> dict:
         """Run a single DCP scenario and emit structured JSON receipt with real metrics."""
@@ -326,7 +357,17 @@ class DurabilityBenchmarkRunner:
         summary = {}
         for r in receipts:
             fw = r.get("framework", "unknown")
-            summary.setdefault(fw, {"framework": fw, "archetype_label": ARCHETYPE_LABELS.get(fw, fw), "receipts": [], "avg_T_resume_ms": 0, "avg_W_token_pct": 0, "total_C_fail": 0})
+            summary.setdefault(
+                fw,
+                {
+                    "framework": fw,
+                    "archetype_label": ARCHETYPE_LABELS.get(fw, fw),
+                    "receipts": [],
+                    "avg_T_resume_ms": 0,
+                    "avg_W_token_pct": 0,
+                    "total_C_fail": 0,
+                },
+            )
             summary[fw]["receipts"].append(r)
             summary[fw]["avg_T_resume_ms"] += r.get("T_resume_ms", 0)
             summary[fw]["avg_W_token_pct"] += r.get("W_token_pct", 0)
@@ -334,16 +375,25 @@ class DurabilityBenchmarkRunner:
         leaderboard = []
         for fw, s in summary.items():
             n = len(s["receipts"]) or 1
-            leaderboard.append({
-                "framework": fw,
-                "archetype_label": s["archetype_label"],
-                "avg_T_resume_ms": round(s["avg_T_resume_ms"] / n, 2),
-                "avg_W_token_pct": round(s["avg_W_token_pct"] / n, 2),
-                "total_C_fail": s["total_C_fail"],
-                "recovery_rate_pct": round(100 * (n - s["total_C_fail"]) / n, 1),
-            })
+            leaderboard.append(
+                {
+                    "framework": fw,
+                    "archetype_label": s["archetype_label"],
+                    "avg_T_resume_ms": round(s["avg_T_resume_ms"] / n, 2),
+                    "avg_W_token_pct": round(s["avg_W_token_pct"] / n, 2),
+                    "total_C_fail": s["total_C_fail"],
+                    "recovery_rate_pct": round(100 * (n - s["total_C_fail"]) / n, 1),
+                }
+            )
         leaderboard.sort(key=lambda x: (-x["recovery_rate_pct"], x["avg_W_token_pct"]))
-        return {"protocol_version": "DCP-2.0", "methodology": "Physical OS Subprocess Fault Injection (SIGKILL) — 4 kill windows (PROMPT, EXEC, WRITE, VERIFY)", "timestamp": time.time(), "leaderboard": leaderboard, "receipts": receipts}
+        return {
+            "protocol_version": "DCP-2.0",
+            "methodology": "Physical OS Subprocess Fault Injection (SIGKILL) — 4 kill windows (PROMPT, EXEC, WRITE, VERIFY)",
+            "timestamp": time.time(),
+            "leaderboard": leaderboard,
+            "receipts": receipts,
+        }
+
 
 def main():
     parser = argparse.ArgumentParser(description="Agent Durability Benchmark Runner (DCP-2.0)")
