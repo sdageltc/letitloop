@@ -90,22 +90,6 @@ class DurableContext:
         release_lock(self.run_dir)
 
 
-import sys
-import threading
-
-# Thread-local active context: concurrent @durable workflows in one process
-# each get an isolated context (module globals would cross-contaminate them).
-_CONTEXT_STORAGE = threading.local()
-
-
-def _get_active_context() -> Optional["DurableContext"]:
-    return getattr(_CONTEXT_STORAGE, "active", None)
-
-
-def _set_active_context(ctx: Optional["DurableContext"]) -> None:
-    _CONTEXT_STORAGE.active = ctx
-
-
 @contextlib.contextmanager
 def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
     """Context manager guarding non-idempotent external side effects via O_CREAT | O_EXCL.
