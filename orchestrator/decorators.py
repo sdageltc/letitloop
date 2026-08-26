@@ -75,7 +75,20 @@ class DurableContext:
         release_lock(self.run_dir)
 
 
-_ACTIVE_CONTEXT: Optional[DurableContext] = None
+import sys
+import threading
+
+# Thread-local active context: concurrent @durable workflows in one process
+# each get an isolated context (module globals would cross-contaminate them).
+_CONTEXT_STORAGE = threading.local()
+
+
+def _get_active_context() -> Optional["DurableContext"]:
+    return getattr(_CONTEXT_STORAGE, "active", None)
+
+
+def _set_active_context(ctx: Optional["DurableContext"]) -> None:
+    _CONTEXT_STORAGE.active = ctx
 
 
 @contextlib.contextmanager
@@ -85,7 +98,8 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
     Yields True if this execution is the first to claim the marker (should execute mutation).
     Yields False if the marker already exists on disk (was already executed prior to crash).
     """
-    active_dir = run_dir or (_ACTIVE_CONTEXT.run_dir if _ACTIVE_CONTEXT else ".durable_wal")
+    ctx = _get_active_context()
+    active_dir = run_dir or (ctx.run_dir if ctx else ".durable_wal")
     markers_dir = os.path.join(active_dir, "markers")
     os.makedirs(markers_dir, exist_ok=True)
     marker_file = os.path.join(markers_dir, f"{marker_id}.marker")
@@ -101,11 +115,14 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
 
 def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
     """Execute a step durably: skip if already completed in WAL; else execute and append."""
-    global _ACTIVE_CONTEXT
-    if _ACTIVE_CONTEXT is None:
+    ctx = _get_active_context()
+    if ctx is None:
+        print(
+            f"[durable] WARNING: step('{step_id}') called outside @durable context — executing non-durably",
+            file=sys.stderr,
+        )
         return fn(*args, **kwargs)
 
-    ctx = _ACTIVE_CONTEXT
     # 1. Skip on resume if step was already completed in WAL
     if step_id in ctx.completed_steps:
         return ctx.completed_steps[step_id]
@@ -139,15 +156,14 @@ def durable(goal_id: Optional[str] = None, wal_dir: str = ".durable_wal"):
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             effective_goal_id = goal_id or fn.__name__
             ctx = DurableContext(effective_goal_id, wal_dir)
-            global _ACTIVE_CONTEXT
-            _ACTIVE_CONTEXT = ctx
+            _set_active_context(ctx)
             ctx.initialize()
             try:
                 result = fn(*args, **kwargs)
                 return result
             finally:
                 ctx.close()
-                _ACTIVE_CONTEXT = None
+                _set_active_context(None)
 
         return wrapper
 
