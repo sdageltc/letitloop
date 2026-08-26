@@ -8,7 +8,13 @@ def test_target_path_traversal_rejected(tmp_path):
     spec = SyntheticTaskSpec(
         task_id="evil",
         steps=[
-            SyntheticStep(step_id="s1", action_type="FILE_WRITE", target_path="../../etc/passwd", expected_content="x", simulated_token_cost=10)
+            SyntheticStep(
+                step_id="s1",
+                action_type="FILE_WRITE",
+                target_path="../../etc/passwd",
+                expected_content="x",
+                simulated_token_cost=10,
+            )
         ],
         kill_at_step_index=-1,
     )
