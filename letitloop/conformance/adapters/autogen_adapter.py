@@ -13,7 +13,6 @@ class AutoGenAdapter(FrameworkAdapter):
     def __init__(self, wal_dir: str = ".bench_wal"):
         self.wal_dir = wal_dir
 
-
     def wrap_tool(self, tool_fn):
         if self.is_shim:
             return tool_fn
