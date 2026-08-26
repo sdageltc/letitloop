@@ -1,0 +1,7 @@
+{
+  "id": "DCP-001-PRE_STEP",
+  "name": "Pre-Step SIGKILL",
+  "phase": "PRE_STEP",
+  "description": "Fault injected immediately before dispatching action to worker.",
+  "expected_recovery": "ZERO_TOKEN_WASTE_RESUME"
+}
