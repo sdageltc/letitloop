@@ -36,13 +36,21 @@ class ReceiptsHandler(BaseHTTPRequestHandler):
             if self.path in ("/", "/index.html"):
                 self._serve_dashboard()
             elif self.path == "/api/leaderboard":
-                data = _load_json([pathlib.Path("results/leaderboard.json"), pathlib.Path("docs/leaderboard.json"), pathlib.Path("results/V033_SCORECARD.md")])
+                data = _load_json(
+                    [
+                        pathlib.Path("results/leaderboard.json"),
+                        pathlib.Path("docs/leaderboard.json"),
+                        pathlib.Path("results/V033_SCORECARD.md"),
+                    ]
+                )
                 # if leaderboard not found, try to load from docs/V033
                 if "error" in data and pathlib.Path("docs/V033_SCORECARD.md").exists():
                     data = {"note": "see docs/V033_SCORECARD.md"}
                 self._json(data)
             elif self.path == "/api/chaos":
-                data = _load_json([pathlib.Path("results/chaos_report.json"), pathlib.Path("results/chaos_report_500.json")])
+                data = _load_json(
+                    [pathlib.Path("results/chaos_report.json"), pathlib.Path("results/chaos_report_500.json")]
+                )
                 self._json(data)
             elif self.path == "/health":
                 self._text(b"ok")
