@@ -338,30 +338,47 @@ def _run_content_check(path, pattern, kind, workspace_root):
         else:
             return VerifierResult(check_id="content", kind=kind, passed=False, message="content does not match exact")
     elif kind == "content_regex":
-        import concurrent.futures
+        # ReDoS guard: LLM-authored patterns are evaluated in an ISOLATED
+        # SUBPROCESS with a hard timeout. Threads are insufficient here: a
+        # catastrophic regex holds the GIL inside C-level backtracking code,
+        # starving every waiter (daemon-thread and executor joins hang too —
+        # empirically confirmed). Only a killable process bounds the damage.
+        import json as _json
 
-        def _eval_regex():
-            return re.search(pattern, content, re.DOTALL) is not None
-
+        eval_script = (
+            "import re,sys,json\n"
+            "d=json.load(sys.stdin)\n"
+            "m=re.search(d['pattern'],d['content'],re.DOTALL) is not None\n"
+            "sys.stdout.write('1' if m else '0')\n"
+        )
         try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_eval_regex)
-                match = future.result(timeout=2.0)
-                if match:
-                    return VerifierResult(
-                        check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}"
-                    )
-                else:
-                    return VerifierResult(
-                        check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}"
-                    )
-        except concurrent.futures.TimeoutError:
+            proc = subprocess.run(
+                [sys.executable, "-c", eval_script],
+                input=_json.dumps({"pattern": pattern, "content": content}),
+                capture_output=True,
+                text=True,
+                timeout=2.0,
+                cwd=workspace_root,
+            )
+            match = proc.stdout.strip() == "1"
+        except subprocess.TimeoutExpired:
             return VerifierResult(
                 check_id="content",
                 kind=kind,
                 passed=False,
                 message=f"regex timed out (ReDoS protection): {pattern[:50]}",
             )
+        except (OSError, ValueError) as e:
+            return VerifierResult(
+                check_id="content", kind=kind, passed=False, message=f"regex eval error: {e}"
+            )
+        if match:
+            return VerifierResult(
+                check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}"
+            )
+        return VerifierResult(
+            check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}"
+        )
 
     return VerifierResult(check_id="content", kind=kind, passed=False, message=f"unknown content kind: {kind}")
 
@@ -1170,12 +1187,26 @@ class ProofReceipt:
             p = os.path.join(run_dir, "proof_receipt.json")
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
+            # Tamper-evident seal: HMAC sidecar keyed by the run-scoped key.
+            try:
+                from .receipts import load_or_create_run_key, seal_artifact
+
+                seal_artifact(p, load_or_create_run_key(run_dir))
+            except OSError as seal_err:
+                print(f"[verify] proof receipt seal failed: {seal_err}", file=sys.stderr)
 
         # 2. Write to standard .bench_wal/proof_receipt.json
         wal_path = Path(wal_dir)
         wal_path.mkdir(parents=True, exist_ok=True)
         target = wal_path / "proof_receipt.json"
         target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        # Seal the bench copy too (key scoped to the bench WAL dir).
+        try:
+            from .receipts import load_or_create_run_key, seal_artifact
+
+            seal_artifact(str(target), load_or_create_run_key(str(wal_path)))
+        except OSError as seal_err:
+            print(f"[verify] bench receipt seal failed: {seal_err}", file=sys.stderr)
         return str(target)
 
 

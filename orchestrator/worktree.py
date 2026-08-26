@@ -248,9 +248,17 @@ class WorktreeManager:
         single-parent commit. On ANY failure the base branch is left untouched
         and False is returned (the caller decides whether to prune). On
         success the worktree and its branch are cleaned up.
+
+        Concurrent merges are serialized through a repo-scoped admission lock:
+        without it, interleaved ff/squash/reset --hard sequences lose sibling
+        commits (empirically confirmed with 4 parallel merges — 3 files lost).
         """
+        from .lock import FileLock
+
+        lock_path = os.path.join(self.worktrees_dir, ".merge_admission.lock")
         try:
-            return self._merge_on_pass_impl(handle, base_branch)
+            with FileLock(lock_path, timeout_sec=120):
+                return self._merge_on_pass_impl(handle, base_branch)
         except (WorktreeError, subprocess.TimeoutExpired, OSError, ValueError) as exc:
             print(f"[worktree] merge_on_pass failed for {handle.branch}: {exc}", file=sys.stderr)
             return False
