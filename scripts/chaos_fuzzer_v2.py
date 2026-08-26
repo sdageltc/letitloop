@@ -80,7 +80,7 @@ def _check_wal_integrity(wal_path: Path) -> tuple[bool, str]:
         return False, f"integrity check error: {e}"
 
 
-WORKER_SYNC_CODE = r'''
+WORKER_SYNC_CODE = r"""
 import sys, os, time, pathlib
 sys.path.insert(0, r"__ROOT__")
 from orchestrator.decorators import durable, step
@@ -101,9 +101,9 @@ try:
 except Exception as e:
     print(f"[WORKER_ERROR] {e}", flush=True)
     sys.exit(1)
-'''
+"""
 
-WORKER_ASYNC_CODE = r'''
+WORKER_ASYNC_CODE = r"""
 import sys, os, time, asyncio, pathlib
 sys.path.insert(0, r"__ROOT__")
 from orchestrator.decorators import durable_async, async_step
@@ -128,7 +128,7 @@ try:
 except Exception as e:
     print(f"[WORKER_ERROR] {e}", flush=True)
     sys.exit(1)
-'''
+"""
 
 
 def _spawn_worker(wal_dir: str, goal_id: str, is_async: bool) -> subprocess.Popen:
@@ -180,7 +180,7 @@ def run_fuzz(cycles: int = 500, workers: int = 20, report_path: str | None = Non
             idx = b * batch + i
             if idx >= total:
                 break
-            is_async = (i % 2 == 1)
+            is_async = i % 2 == 1
             wal_dir = str(wal_root / f"fuzz_{idx:04d}")
             os.makedirs(wal_dir, exist_ok=True)
             goal = f"fuzz_goal_{idx:04d}"
@@ -233,7 +233,7 @@ def run_fuzz(cycles: int = 500, workers: int = 20, report_path: str | None = Non
                 lost += 1
                 print(f"[LOSS] {wal_dir}: {e}")
 
-        print(f"[BATCH {b+1}/{batches}] killed={killed} completed={completed} corrupted={corrupted} lost={lost}")
+        print(f"[BATCH {b + 1}/{batches}] killed={killed} completed={completed} corrupted={corrupted} lost={lost}")
 
     elapsed = time.perf_counter() - t_start
     result = {

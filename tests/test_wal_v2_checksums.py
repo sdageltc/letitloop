@@ -154,12 +154,38 @@ class TestLilWal02Framing:
         from orchestrator.state import _canonical, _event_hash
 
         def _mk(seq, typ, payload, prev):
-            ev = {"seq": seq, "timestamp": "2026-01-01T00:00:00+00:00", "event_type": typ, "task_id": "t_legacy", "prev_hash": prev, "payload": payload}
+            ev = {
+                "seq": seq,
+                "timestamp": "2026-01-01T00:00:00+00:00",
+                "event_type": typ,
+                "task_id": "t_legacy",
+                "prev_hash": prev,
+                "payload": payload,
+            }
             ev["event_hash"] = _event_hash(ev)
             return ev
 
-        ev1 = _mk(1, "INIT", {"status": "DRAFTED", "attempt": 1, "changed_approaches": [], "evidence": {}, "worker_results": [], "data": {}}, "")
-        ev2 = {"seq": 2, "timestamp": "2026-01-01T00:00:01+00:00", "event_type": "TRANSITION", "task_id": "t_legacy", "prev_hash": ev1["event_hash"], "payload": {"from": "DRAFTED", "to": "PREFLIGHT_RUNNING"}}
+        ev1 = _mk(
+            1,
+            "INIT",
+            {
+                "status": "DRAFTED",
+                "attempt": 1,
+                "changed_approaches": [],
+                "evidence": {},
+                "worker_results": [],
+                "data": {},
+            },
+            "",
+        )
+        ev2 = {
+            "seq": 2,
+            "timestamp": "2026-01-01T00:00:01+00:00",
+            "event_type": "TRANSITION",
+            "task_id": "t_legacy",
+            "prev_hash": ev1["event_hash"],
+            "payload": {"from": "DRAFTED", "to": "PREFLIGHT_RUNNING"},
+        }
         ev2["event_hash"] = _event_hash(ev2)
         with open(wal, "w", encoding="utf-8") as f:
             f.write(_canonical(ev1) + "\n")
@@ -197,7 +223,14 @@ class TestLilWal02Framing:
         last_payload = json.loads(existing[-1].split(":", 3)[3])
         last_hash = last_payload["event_hash"]
         last_seq = last_payload["seq"]
-        nxt = {"seq": last_seq + 1, "timestamp": "2026-01-01T00:00:02+00:00", "event_type": "TRANSITION", "task_id": "t_mixed", "prev_hash": last_hash, "payload": {"from": "PREFLIGHT_RUNNING", "to": "READY"}}
+        nxt = {
+            "seq": last_seq + 1,
+            "timestamp": "2026-01-01T00:00:02+00:00",
+            "event_type": "TRANSITION",
+            "task_id": "t_mixed",
+            "prev_hash": last_hash,
+            "payload": {"from": "PREFLIGHT_RUNNING", "to": "READY"},
+        }
         nxt["event_hash"] = _event_hash(nxt)
         with open(wal, "a", encoding="utf-8") as f:
             f.write(_canonical(nxt) + "\n")

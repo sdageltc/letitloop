@@ -1994,8 +1994,14 @@ def main():
     p_bench = sub.add_parser("bench", help="Run agent durability conformance benchmark (DCP-2.0)")
     p_bench.add_argument("--framework", default="letitloop", help="Target framework adapter (default: letitloop)")
     p_bench.add_argument("--signal", default="SIGKILL", help="Fault signal to inject (default: SIGKILL)")
-    p_bench.add_argument("--compare", default=None, help="Compare mode: 'all' runs DCP-2.0 matrix across all frameworks (lil bench --compare all)")
-    p_bench.add_argument("--scenario", default=None, help="Run single DCP scenario by ID (e.g., DCP-002 or DCP-002-MID_ACTION)")
+    p_bench.add_argument(
+        "--compare",
+        default=None,
+        help="Compare mode: 'all' runs DCP-2.0 matrix across all frameworks (lil bench --compare all)",
+    )
+    p_bench.add_argument(
+        "--scenario", default=None, help="Run single DCP scenario by ID (e.g., DCP-002 or DCP-002-MID_ACTION)"
+    )
     p_bench.add_argument("--matrix", action="store_true", help="Legacy: run full matrix sweep")
 
     p_heal = sub.add_parser("heal", help="Bounded autonomous repair on current codebase")

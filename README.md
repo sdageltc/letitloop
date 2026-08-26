@@ -71,17 +71,19 @@ Embed LetItLoop's crash-resilient WAL kernel directly into your Python functions
 ```python
 from letitloop import durable, step, atomic_marker
 
+
 @durable(goal_id="customer_sync")
 def main():
     # If your script crashes or gets SIGKILLed midway,
     # completed steps are skipped on resume. Zero duplicate tokens wasted.
     user = step("fetch_user", fetch_crm_record, user_id=123)
     summary = step("llm_summarize", call_claude, user)
-    
+
     # Guard external mutations against duplicate execution
     with atomic_marker("slack_notification") as should_execute:
         if should_execute:
             step("post_slack", notify_team, summary)
+
 
 if __name__ == "__main__":
     main()
