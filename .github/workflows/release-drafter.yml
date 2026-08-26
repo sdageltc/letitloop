@@ -1,11 +1,9 @@
-name: Release Drafter
+﻿name: Release Drafter
 
 on:
   push:
     branches:
       - main
-  pull_request_target:
-    types: [opened, reopened, synchronize]
 
 jobs:
   update_release_draft:
@@ -14,7 +12,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@v6
+      - uses: release-drafter/release-drafter@67e173cadb2fbd3de94f4a861e0c48c913b462ae # v6
         with:
           config-name: release-drafter.config.yml
         env:
