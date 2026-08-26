@@ -15,7 +15,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Architecture](docs/index.html) • [Quickstart](#quickstart) • [Marketplace Action](https://github.com/sdageltc/letitloop-action) • [Crash Benchmark](https://github.com/sdageltc/agent-durability-bench) • [Worker Adapters](#supported-worker-adapters--gateways) • [Cookbook](#recipes--cookbooks)
+[Official Website](https://sdageltc.github.io/letitloop/) • [DCP-2.0 Benchmark](https://sdageltc.github.io/agent-durability-bench/) • [GitHub Action](https://github.com/sdageltc/letitloop-action) • [Quickstart](#quickstart) • [Cookbook](#recipes--cookbooks)
 
 </div>
 
