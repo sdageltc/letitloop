@@ -155,7 +155,7 @@ def _process_start_token(pid: int) -> Optional[str]:
         import psutil
 
         return f"psutil:{psutil.Process(pid).create_time():.6f}"
-    except (ImportError, OSError, ValueError, TypeError):
+    except Exception:
         return None
 
 
