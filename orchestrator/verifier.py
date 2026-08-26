@@ -369,23 +369,10 @@ def _run_content_check(path, pattern, kind, workspace_root):
                 message=f"regex timed out (ReDoS protection): {pattern[:50]}",
             )
         except (OSError, ValueError) as e:
-<<<<<<< HEAD
             return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex eval error: {e}")
         if match:
             return VerifierResult(check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}")
         return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}")
-=======
-            return VerifierResult(
-                check_id="content", kind=kind, passed=False, message=f"regex eval error: {e}"
-            )
-        if match:
-            return VerifierResult(
-                check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}"
-            )
-        return VerifierResult(
-            check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}"
-        )
->>>>>>> origin/main
 
     return VerifierResult(check_id="content", kind=kind, passed=False, message=f"unknown content kind: {kind}")
 
