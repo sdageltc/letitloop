@@ -124,7 +124,7 @@ markers = [
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = ["scratch", ".venv", "dist", "build", ".benchmarks", "htmlcov"]
+exclude = ["scratch", ".venv", "dist", "build", ".benchmarks", "htmlcov", ".github", "results", ".bench_wal"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

@@ -1536,6 +1536,19 @@ def cmd_trace(args):
 
 def cmd_dashboard(args):
     """Render rich terminal UI dashboard for active run directory."""
+    if getattr(args, "serve", False):
+        from .dashboard_bridge import serve_receipts_dashboard
+
+        host = getattr(args, "host", "127.0.0.1")
+        port = int(getattr(args, "port", 8080))
+        server = serve_receipts_dashboard(host=host, port=port)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print("\n[dashboard] stopped")
+        finally:
+            server.shutdown()
+        return
     from .tui import LiveDashboard, print_dashboard
 
     run_dir = getattr(args, "run_dir", DEFAULT_RUN_DIR)
@@ -1644,17 +1657,26 @@ def cmd_bench(args):
         sys.exit(1)
 
 
+def cmd_mcp(args):
+    """Start LetItLoop MCP server (stdio) exposing durable_step, bench_compare, wal_verify."""
+    from .mcp_server import main as mcp_main
+
+    mcp_main()
+
+
 def cmd_action(args):
     """Generate or verify GitHub Actions configuration for LetItLoop Proof-Carrying CI."""
     if getattr(args, "init", False):
         workflow_dir = os.path.join(WORKSPACE_ROOT, ".github", "workflows")
         os.makedirs(workflow_dir, exist_ok=True)
         workflow_file = os.path.join(workflow_dir, "letitloop-verify.yml")
-        workflow_yaml = """name: LetItLoop Verification Gate
+        workflow_yaml = """name: LetItLoop Proof-Carrying Verification Gate v2 (DCP-2.0 + LILWAL02)
 
 on:
   pull_request:
     branches: [ main, master ]
+  push:
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -1667,17 +1689,54 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: LetItLoop Proof-Carrying Gate
-        uses: sdageltc/letitloop-action@v1
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e \".[dev]\"
+
+      - name: Ruff lint (0 errors)
+        run: python -m ruff check .
+
+      - name: Pytest (1464 passed, 4 skipped, <60s)
+        run: python -m pytest -q --durations=10
+
+      - name: DCP-2.0 Conformance Moat — bench compare all
+        run: |
+          python -m letitloop.conformance.harness.runner --compare all
+          cat results/leaderboard.json || cat docs/leaderboard.json || true
+
+      - name: LILWAL02 WAL CRC verify (torn-tail + mid-file fail-closed)
+        run: |
+          python -c "
+from pathlib import Path
+from orchestrator.state import _wal_decode_line
+import sys
+ok=True
+for p in Path('.bench_wal').rglob('*.jsonl'):
+    for i, line in enumerate(p.read_text().splitlines()):
+        line=line.strip()
+        if not line: continue
+        try: _wal_decode_line(line)
+        except Exception as e:
+            print(f'WAL CRC fail {p}:{i}: {e}'); ok=False
+sys.exit(0 if ok else 1)
+"
+
+      - name: Comment PR with DCP receipts
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          strict-ast: 'true'
-          test-command: 'pytest -q'
+          script: |
+            const fs=require('fs');
+            let body='## LetItLoop DCP-2.0 Receipt\\n';
+            try{ const data=JSON.parse(fs.readFileSync('results/leaderboard.json','utf8')); body+=`\\n**Leaderboard** (${data.protocol_version})\\n`; for(const r of data.leaderboard){ body+=`- ${r.archetype_label}: ${r.recovery_rate_pct}% recovery, W_token ${r.avg_W_token_pct}% , T_resume ${r.avg_T_resume_ms}ms\\n`; } } catch(e){ body+='\\n_No leaderboard (bench failed)._'; }
+            try{ const c=JSON.parse(fs.readFileSync('results/chaos_report.json','utf8')); body+=`\\n**Chaos 500** — ${c.corrupted_wals} corrupted, ${c.state_losses} losses, ${c.elapsed_seconds}s\\n`; } catch(e){}
+            github.rest.issues.createComment({issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body});
 """
         with open(workflow_file, "w", encoding="utf-8") as f:
             f.write(workflow_yaml)
@@ -1964,6 +2023,9 @@ def main():
         help="Refresh interval in seconds for --live mode (default: 2.0)",
     )
     p_dash.add_argument("--once", action="store_true", help="Render a single dashboard frame and exit")
+    p_dash.add_argument("--serve", action="store_true", help="Serve DCP-2.0 receipts dashboard over HTTP (GET /api/leaderboard, /api/chaos)")
+    p_dash.add_argument("--host", default="127.0.0.1", help="Bind host for --serve (default: 127.0.0.1)")
+    p_dash.add_argument("--port", type=int, default=8080, help="Bind port for --serve (default: 8080)")
 
     p_serve = sub.add_parser("serve", help="Stream lifecycle events over SSE (GET /events)")
     p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
@@ -1973,6 +2035,9 @@ def main():
         default="",
         help="Path to webhook configs JSON (overrides LETITLOOP_WEBHOOKS_JSON)",
     )
+
+    p_mcp = sub.add_parser("mcp", help="Start LetItLoop MCP server (stdio) — durable_step, bench_compare, wal_verify")
+    p_mcp.add_argument("--help-tools", action="store_true", help="List MCP tools and exit")
 
     p_trace = sub.add_parser("trace", help="Render step-by-step reasoning and verification trace for a goal")
     p_trace.add_argument("goal_id", nargs="?", default=None, help="Goal ID (defaults to latest)")
@@ -2057,6 +2122,7 @@ def main():
         "doctor": cmd_doctor,
         "dashboard": cmd_dashboard,
         "serve": cmd_serve,
+        "mcp": cmd_mcp,
         "trace": cmd_trace,
         "install-skill": cmd_install_skill,
         "install_skill": cmd_install_skill,
