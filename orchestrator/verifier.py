@@ -369,16 +369,10 @@ def _run_content_check(path, pattern, kind, workspace_root):
                 message=f"regex timed out (ReDoS protection): {pattern[:50]}",
             )
         except (OSError, ValueError) as e:
-            return VerifierResult(
-                check_id="content", kind=kind, passed=False, message=f"regex eval error: {e}"
-            )
+            return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex eval error: {e}")
         if match:
-            return VerifierResult(
-                check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}"
-            )
-        return VerifierResult(
-            check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}"
-        )
+            return VerifierResult(check_id="content", kind=kind, passed=True, message=f"regex matches: {pattern}")
+        return VerifierResult(check_id="content", kind=kind, passed=False, message=f"regex no match: {pattern}")
 
     return VerifierResult(check_id="content", kind=kind, passed=False, message=f"unknown content kind: {kind}")
 
@@ -1208,6 +1202,18 @@ class ProofReceipt:
         except OSError as seal_err:
             print(f"[verify] bench receipt seal failed: {seal_err}", file=sys.stderr)
         return str(target)
+
+
+def verify_receipt(artifact_path: str, key: Optional[str] = None) -> bool:
+    """Verify a sealed artifact's HMAC receipt. Fails closed on any problem.
+
+    When ``key`` is omitted, the run-scoped key is loaded from the artifact's
+    own directory (the standard ``.receipt_key`` location).
+    """
+    from .receipts import load_or_create_run_key, verify_artifact
+
+    resolved_key = key if key is not None else load_or_create_run_key(os.path.dirname(os.path.abspath(artifact_path)))
+    return verify_artifact(artifact_path, resolved_key)
 
 
 def run_verification(contract, workspace_root, run_dir, start_time: Optional[float] = None):

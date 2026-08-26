@@ -592,6 +592,25 @@ class State:
     # Serialization
     # ------------------------------------------------------------------
 
+    def rollback(self):
+        """Return an independent deep copy of the full state projection.
+
+        Mutating the returned dict (or any nested object) can never corrupt
+        the live state — every level is deep-copied. Use for diagnostics,
+        handoff snapshots, and caller-side inspection.
+        """
+        import copy
+
+        return {
+            "task_id": self.task_id,
+            "status": self.status,
+            "attempt": self.attempt,
+            "data": copy.deepcopy(self.data),
+            "events": copy.deepcopy(self.events),
+            "evidence": copy.deepcopy(self.evidence),
+            "worker_results": copy.deepcopy(self.worker_results),
+        }
+
     def to_dict(self):
         return {
             "task_id": self.task_id,

@@ -1,4 +1,4 @@
-name: Auto-Fix & Format PR
+﻿name: Auto-Fix & Format PR
 
 on:
   pull_request:
@@ -30,7 +30,7 @@ jobs:
           ruff format . || true
 
       - name: Auto-Commit Fixes to PR Branch
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
         with:
           commit_message: "style(auto-heal): format and fix lint issues [skip ci]"
           commit_user_name: "letitloop-bot[bot]"
