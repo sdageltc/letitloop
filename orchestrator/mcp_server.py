@@ -28,7 +28,12 @@ if HAS_MCP and FastMCP is not None:
     mcp = FastMCP("letitloop-durability")
 
     @mcp.tool()  # type: ignore[misc]
-    async def durable_step(step_id: str, payload: dict[str, Any] | None = None, wal_dir: str = ".durable_wal", goal_id: str = "mcp-workflow") -> dict[str, Any]:
+    async def durable_step(
+        step_id: str,
+        payload: dict[str, Any] | None = None,
+        wal_dir: str = ".durable_wal",
+        goal_id: str = "mcp-workflow",
+    ) -> dict[str, Any]:
         """Durable step via LetItLoop — survives SIGKILL, validated by LILWAL02 CRC.
 
         Args:
@@ -54,7 +59,13 @@ if HAS_MCP and FastMCP is not None:
         ctx = _get_async_context()
         if ctx is not None:
             result = await async_step(step_id, _echo, payload)
-            return {"step_id": step_id, "result": result, "wal_dir": ctx.run_dir, "goal_id": ctx.goal_id, "cached": True}
+            return {
+                "step_id": step_id,
+                "result": result,
+                "wal_dir": ctx.run_dir,
+                "goal_id": ctx.goal_id,
+                "cached": True,
+            }
 
         @durable_async(goal_id=goal_id, wal_dir=wal_dir)
         async def _workflow():
@@ -92,15 +103,33 @@ if HAS_MCP and FastMCP is not None:
                 except Exception as e:
                     corrupted += 1
                     details.append({"file": str(p), "line": i, "error": str(e)})
-        return {"wal_path": wal_path, "total_frames": total, "corrupted": corrupted, "details": details, "ok": corrupted == 0}
+        return {
+            "wal_path": wal_path,
+            "total_frames": total,
+            "corrupted": corrupted,
+            "details": details,
+            "ok": corrupted == 0,
+        }
 
 else:
     # Shim for environments without mcp SDK — exposes same functions for direct import/tests
     mcp = None  # type: ignore
 
-    async def durable_step(step_id: str, payload: dict[str, Any] | None = None, wal_dir: str = ".durable_wal", goal_id: str = "mcp-workflow") -> dict[str, Any]:
+    async def durable_step(
+        step_id: str,
+        payload: dict[str, Any] | None = None,
+        wal_dir: str = ".durable_wal",
+        goal_id: str = "mcp-workflow",
+    ) -> dict[str, Any]:
         payload = payload or {}
-        return {"step_id": step_id, "result": {"echo": payload}, "wal_dir": wal_dir, "goal_id": goal_id, "cached": False, "note": "mcp SDK not installed — shim"}
+        return {
+            "step_id": step_id,
+            "result": {"echo": payload},
+            "wal_dir": wal_dir,
+            "goal_id": goal_id,
+            "cached": False,
+            "note": "mcp SDK not installed — shim",
+        }
 
     def bench_compare(scenario: str = "DCP-002") -> dict[str, Any]:
         return {"error": "mcp SDK not installed", "scenario": scenario}

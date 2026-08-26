@@ -76,10 +76,15 @@ Expected: Confirms shims are not real integrations.
 ```python
 # letitloop/conformance/adapters/langgraph_adapter.py
 """Shim: real LangGraph bridge lands in Task 7 (A). This class intentionally delegates to SnapshotGraphAdapter and is labeled SHIM for DCP moat honesty."""
+
 from letitloop.conformance.adapters.snapshot_graph_adapter import SnapshotGraphAdapter
+
+
 class LangGraphAdapter(SnapshotGraphAdapter):
     @property
-    def name(self) -> str: return "langgraph"
+    def name(self) -> str:
+        return "langgraph"
+
     is_shim = True
 ```
 
@@ -114,6 +119,7 @@ git commit -m "fix(repo-scan): label langgraph/crewai/autogen adapters as shims,
 def test_truncate_oserror_is_not_swallowed(tmp_path, monkeypatch):
     from orchestrator.state import create_initial_state, save_state, load_state
     import os
+
     td = str(tmp_path / "t_trunc_fail")
     os.makedirs(td, exist_ok=True)
     st = create_initial_state("t_trunc_fail", journal_dir=td)
@@ -121,7 +127,8 @@ def test_truncate_oserror_is_not_swallowed(tmp_path, monkeypatch):
     save_state(st, os.path.join(td, "state.json"))
     wal = os.path.join(td, "state.wal.jsonl")
     # corrupt tail to trigger truncate path
-    with open(wal, "ab") as f: f.write(b"\nLILWAL02:0:0:bad\n")
+    with open(wal, "ab") as f:
+        f.write(b"\nLILWAL02:0:0:bad\n")
     monkeypatch.setattr("orchestrator.state.open", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
     # Actually monkeypatch builtins open inside replay_wal's truncate block
     # Expect StateError or propagated OSError, not silent pass
@@ -219,16 +226,32 @@ git commit -m "fix(silent): surface WAL truncate and DurableContext close failur
 import pytest
 from letitloop.conformance.harness.runner import _scenario_to_task_spec
 
+
 def test_target_path_traversal_rejected(tmp_path):
     from letitloop.conformance.harness.synthetic_engine import SyntheticTaskRunner
     from letitloop.conformance.harness.schema import SyntheticTaskSpec, SyntheticStep
-    spec = SyntheticTaskSpec(task_id="evil", steps=[SyntheticStep(step_id="s1", action_type="FILE_WRITE", target_path="../../etc/passwd", expected_content="x", simulated_token_cost=10)], kill_at_step_index=-1)
+
+    spec = SyntheticTaskSpec(
+        task_id="evil",
+        steps=[
+            SyntheticStep(
+                step_id="s1",
+                action_type="FILE_WRITE",
+                target_path="../../etc/passwd",
+                expected_content="x",
+                simulated_token_cost=10,
+            )
+        ],
+        kill_at_step_index=-1,
+    )
     runner = SyntheticTaskRunner(spec, wal_dir=str(tmp_path))
     with pytest.raises(ValueError, match="sandbox"):
         runner.run_until_kill_or_complete()
 
+
 def test_scenario_whitelist_rejects_unknown():
     from letitloop.conformance.harness.runner import _load_scenario_json
+
     with pytest.raises(FileNotFoundError):
         _load_scenario_json("DCP-999")
 ```
@@ -239,25 +262,36 @@ Expected: FAIL — currently no sandbox, traversal succeeds.
 
 ```python
 def _is_safe_path(target: str, wal_dir: pathlib.Path) -> bool:
-    p = (pathlib.Path(target).resolve() if pathlib.Path(target).is_absolute() else (wal_dir.parent / target).resolve())
+    p = pathlib.Path(target).resolve() if pathlib.Path(target).is_absolute() else (wal_dir.parent / target).resolve()
     try:
         p.relative_to(wal_dir.parent.resolve())
     except ValueError:
         raise ValueError(f"sandbox violation: {target} escapes {wal_dir.parent}")
     return True
 
-# in run_until_kill_or_complete, before p.write_text:
+    # in run_until_kill_or_complete, before p.write_text:
     _is_safe_path(step.target_path, self.wal_dir)
 ```
 
 - [ ] **Step 3: Harden `_load_scenario_json` whitelist**
 
 ```python
-ALLOWED_SCENARIOS = {"DCP-001", "DCP-002", "DCP-003", "DCP-004", "DCP-001-PRE_STEP", "DCP-002-MID_ACTION", "DCP-003-POST_ACTION_PRE_JOURNAL", "DCP-004-POST_JOURNAL_PRE_FSYNC"}
+ALLOWED_SCENARIOS = {
+    "DCP-001",
+    "DCP-002",
+    "DCP-003",
+    "DCP-004",
+    "DCP-001-PRE_STEP",
+    "DCP-002-MID_ACTION",
+    "DCP-003-POST_ACTION_PRE_JOURNAL",
+    "DCP-004-POST_JOURNAL_PRE_FSYNC",
+}
+
+
 def _load_scenario_json(scenario_id: str) -> dict:
     if scenario_id not in ALLOWED_SCENARIOS and not any(scenario_id in s for s in ALLOWED_SCENARIOS):
         # allow prefix like DCP-002 matches DCP-002-MID_ACTION
-        if not any(scenario_id.startswith(p) for p in ["DCP-001","DCP-002","DCP-003","DCP-004"]):
+        if not any(scenario_id.startswith(p) for p in ["DCP-001", "DCP-002", "DCP-003", "DCP-004"]):
             raise FileNotFoundError(f"Scenario {scenario_id} not in whitelist")
 ```
 
@@ -407,18 +441,37 @@ import asyncio, pytest
 from letitloop.conformance.adapters.langgraph_adapter import LangGraphAdapter
 from letitloop.conformance.harness.schema import SyntheticTaskSpec, SyntheticStep
 
+
 @pytest.mark.asyncio
 async def test_langgraph_node_wrapped_with_durable_survives(tmp_path):
     # Simulate: LangGraph StateGraph node that does FILE_WRITE via @durable_async
     # If adapter is still shim, this will fail with InMemory 100% waste — expect 0 waste after real bridge
     adapter = LangGraphAdapter(wal_dir=str(tmp_path / "wal"))
-    spec = SyntheticTaskSpec(task_id="lg-test", steps=[SyntheticStep(step_id="s1", action_type="FILE_WRITE", target_path=str(tmp_path / "out.txt"), expected_content="x", simulated_token_cost=10)], kill_at_step_index=0)
+    spec = SyntheticTaskSpec(
+        task_id="lg-test",
+        steps=[
+            SyntheticStep(
+                step_id="s1",
+                action_type="FILE_WRITE",
+                target_path=str(tmp_path / "out.txt"),
+                expected_content="x",
+                simulated_token_cost=10,
+            )
+        ],
+        kill_at_step_index=0,
+    )
     score = adapter.run_durability_trial = None  # placeholder, actual bridge will wrap
     # Instead test the mixin directly:
     from orchestrator.decorators import durable_async, async_step
+
     @durable_async(goal_id="lg-node", wal_dir=str(tmp_path / "wal2"))
-    async def node(state): return await async_step("s1", _fn, 1)
-    async def _fn(x): await asyncio.sleep(0.01); return {"v": x}
+    async def node(state):
+        return await async_step("s1", _fn, 1)
+
+    async def _fn(x):
+        await asyncio.sleep(0.01)
+        return {"v": x}
+
     r1 = await node({})
     r2 = await node({})  # fast-forward
     assert r1 == r2
@@ -432,10 +485,13 @@ Expected: FAIL until bridge implemented.
 # letitloop/conformance/adapters/_durable_mixin.py
 import asyncio
 from orchestrator.decorators import durable_async, async_step
+
+
 def wrap_langgraph_node(node_fn, wal_dir):
     @durable_async(goal_id=node_fn.__name__, wal_dir=wal_dir)
     async def wrapped(state):
         return await async_step(node_fn.__name__, node_fn, state)
+
     return wrapped
 ```
 
@@ -445,6 +501,7 @@ def wrap_langgraph_node(node_fn, wal_dir):
 try:
     import langgraph
     from ._durable_mixin import wrap_langgraph_node
+
     HAS_LANGGRAPH = True
 except ImportError:
     HAS_LANGGRAPH = False
@@ -526,10 +583,14 @@ def test_dashboard_serves_leaderboard(tmp_path):
 # orchestrator/dashboard_bridge.py
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json, pathlib
+
+
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/api/leaderboard": return self._json(pathlib.Path("results/leaderboard.json"))
-        if self.path == "/api/chaos": return self._json(pathlib.Path("results/chaos_report.json"))
+        if self.path == "/api/leaderboard":
+            return self._json(pathlib.Path("results/leaderboard.json"))
+        if self.path == "/api/chaos":
+            return self._json(pathlib.Path("results/chaos_report.json"))
 ```
 
 - [ ] **Step 3: Wire CLI**
@@ -538,7 +599,10 @@ class Handler(SimpleHTTPRequestHandler):
 # orchestrator/cli.py
 p_dashboard = sub.add_parser("dashboard", help="Serve DCP receipts")
 p_dashboard.add_argument("--port", type=int, default=8080)
-def cmd_dashboard(args): HTTPServer(...).serve_forever()
+
+
+def cmd_dashboard(args):
+    HTTPServer(...).serve_forever()
 ```
 
 - [ ] **Step 4: Commit**
@@ -569,8 +633,11 @@ python -m mcp_builder init --name letitloop-durability --tool durable_step
 # orchestrator/mcp_server.py
 from mcp.server import Server
 from orchestrator.decorators import durable_async, async_step
+
+
 @mcp.tool()
-async def durable_step(step_id: str, payload: dict): return await async_step(step_id, _echo, payload)
+async def durable_step(step_id: str, payload: dict):
+    return await async_step(step_id, _echo, payload)
 ```
 
 - [ ] **Step 3: Test with MCP inspector**

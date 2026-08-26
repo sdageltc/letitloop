@@ -2023,7 +2023,11 @@ def main():
         help="Refresh interval in seconds for --live mode (default: 2.0)",
     )
     p_dash.add_argument("--once", action="store_true", help="Render a single dashboard frame and exit")
-    p_dash.add_argument("--serve", action="store_true", help="Serve DCP-2.0 receipts dashboard over HTTP (GET /api/leaderboard, /api/chaos)")
+    p_dash.add_argument(
+        "--serve",
+        action="store_true",
+        help="Serve DCP-2.0 receipts dashboard over HTTP (GET /api/leaderboard, /api/chaos)",
+    )
     p_dash.add_argument("--host", default="127.0.0.1", help="Bind host for --serve (default: 127.0.0.1)")
     p_dash.add_argument("--port", type=int, default=8080, help="Bind port for --serve (default: 8080)")
 
