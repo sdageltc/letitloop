@@ -38,3 +38,5 @@ scratch/
 .opencode/
 *.log
 .bench_wal/
+results/
+docs/plans/.tmp/

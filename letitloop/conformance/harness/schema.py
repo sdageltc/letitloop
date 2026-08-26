@@ -1,17 +1,26 @@
-from typing import List, Literal
+from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import dataclasses
+from typing import Any, Dict, List, Literal
 
 
-class SyntheticStep(BaseModel):
+@dataclasses.dataclass
+class SyntheticStep:
     step_id: str
     action_type: Literal["FILE_WRITE", "TEST_EXECUTION", "INVARIANT_CHECK"]
     target_path: str
     expected_content: str
     simulated_token_cost: int = 100
 
+    def model_dump(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
 
-class SyntheticTaskSpec(BaseModel):
+    def dict(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
+
+
+@dataclasses.dataclass
+class SyntheticTaskSpec:
     task_id: str
     steps: List[SyntheticStep]
     kill_at_step_index: int = -1  # -1 means do not inject kill
@@ -19,13 +28,26 @@ class SyntheticTaskSpec(BaseModel):
     timeout_seconds: int = 60
     phase_sentinel_regex: str = r"\[PHASE:(PREFLIGHT|WORKING|VERIFYING|QC_REVIEW|STEP_\d+_[a-zA-Z0-9_-]+)\]"
 
+    def model_dump(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
 
-class DurabilityScore(BaseModel):
+    def dict(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
+
+
+@dataclasses.dataclass
+class DurabilityScore:
     task_id: str
     framework: str
     resumed_successfully: bool
-    duplicate_token_waste_pct: float = Field(..., ge=0.0, le=100.0)
+    duplicate_token_waste_pct: float
     state_corruption_detected: bool
     impossibility_artifact_emitted: bool
     recovery_latency_seconds: float
     final_verdict: Literal["PASS", "FAIL_DATA_LOSS", "FAIL_DUPLICATE_WORK", "FAIL_HANG"]
+
+    def model_dump(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
+
+    def dict(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)

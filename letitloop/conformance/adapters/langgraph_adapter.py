@@ -1,13 +1,22 @@
 import time
 from typing import Any, Tuple
 
+from letitloop.conformance.adapters._durable_mixin import is_host_available, wrap_with_durable_async
 from letitloop.conformance.adapters.base import FrameworkAdapter
 from letitloop.conformance.harness.schema import DurabilityScore, SyntheticTaskSpec
 from letitloop.conformance.harness.synthetic_engine import SyntheticTaskRunner
 
 
 class LangGraphAdapter(FrameworkAdapter):
-    """Simulates LangGraph with periodic checkpointing (e.g. MemorySaver/PostgresSaver)."""
+    """LangGraph bridge — wraps StateGraph nodes with @durable_async when langgraph is installed; falls back to honest synthetic simulation (is_shim=True) otherwise.
+
+    Real usage (when `pip install langgraph`):
+        from letitloop.conformance.adapters.langgraph_adapter import LangGraphAdapter
+        adapter = LangGraphAdapter(wal_dir=".bench_wal")
+        # adapter.wrap_node(my_node) -> durable version
+    """
+
+    is_shim = not is_host_available("langgraph")
 
     def __init__(self, wal_dir: str = ".bench_wal"):
         self.wal_dir = wal_dir
@@ -15,6 +24,12 @@ class LangGraphAdapter(FrameworkAdapter):
     @property
     def name(self) -> str:
         return "langgraph"
+
+    def wrap_node(self, node_fn):
+        """Wrap a LangGraph node with durability if host is available."""
+        if self.is_shim:
+            return node_fn
+        return wrap_with_durable_async(node_fn, wal_dir=self.wal_dir)
 
     def start_task(self, spec: SyntheticTaskSpec) -> Tuple[int, Any]:
         runner = SyntheticTaskRunner(spec, wal_dir=self.wal_dir)
