@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import shutil
+import zlib
 from datetime import datetime, timezone
 from typing import Any, Dict
 
@@ -102,6 +103,54 @@ def _now():
 
 def _canonical(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# LILWAL02 checksummed frame format (WAL v2)
+#
+# Frame layout:  \nLILWAL02:<length_hex>:<crc32_hex>:<canonical_json_payload>\n
+#   length_hex = byte length of the UTF-8 payload
+#   crc32_hex  = zlib.crc32 of the UTF-8 payload
+#
+# Backward compatible: replay accepts legacy plain-JSONL lines alongside
+# LILWAL02 frames. A corrupt/torn frame is tolerated ONLY as the file tail
+# (truncated back to the last valid frame offset); a corrupt frame mid-file
+# fails closed — mid-file corruption indicates tampering, not a crash.
+
+_WAL_FRAME_PREFIX = "LILWAL02:"
+
+
+class _WalFrameError(ValueError):
+    """A LILWAL02 frame failed length/CRC/payload validation."""
+
+
+def _wal_frame_encode(event: Any) -> str:
+    payload = _canonical(event)
+    payload_bytes = payload.encode("utf-8")
+    crc = zlib.crc32(payload_bytes) & 0xFFFFFFFF
+    return f"\n{_WAL_FRAME_PREFIX}{len(payload_bytes):x}:{crc:x}:{payload}\n"
+
+
+def _wal_decode_line(line_clean: str) -> Any:
+    """Decode one WAL line: LILWAL02 frame (CRC-validated) or legacy JSON line."""
+    if line_clean.startswith(_WAL_FRAME_PREFIX):
+        parts = line_clean.split(":", 3)
+        if len(parts) != 4:
+            raise _WalFrameError("malformed frame header")
+        _, length_hex, crc_hex, payload = parts
+        try:
+            length = int(length_hex, 16)
+            crc = int(crc_hex, 16)
+        except ValueError:
+            raise _WalFrameError("malformed frame header") from None
+        payload_bytes = payload.encode("utf-8")
+        if len(payload_bytes) != length or (zlib.crc32(payload_bytes) & 0xFFFFFFFF) != crc:
+            raise _WalFrameError("frame CRC/length mismatch")
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise _WalFrameError(f"frame payload not JSON: {exc}") from exc
+    return json.loads(line_clean)
 
 
 def _sha256_text(text: str) -> str:
@@ -238,7 +287,7 @@ class State:
         try:
             os.makedirs(self._journal_dir, exist_ok=True)
             with open(self.wal_path, "a", encoding="utf-8") as f:
-                f.write(_canonical(event) + "\n")
+                f.write(_wal_frame_encode(event))
                 f.flush()
                 os.fsync(f.fileno())
         except OSError as e:
@@ -794,32 +843,62 @@ def replay_wal(state_path, state=None):
         return state
     wal_events = []
     corrupt_tail = False
+    good_end = 0
     try:
-        with open(wal_path, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
+        with open(wal_path, "rb") as fb:
+            raw = fb.read()
     except OSError as exc:
         raise StateError(f"failed to read WAL file: {exc}") from exc
-
-    for idx, line in enumerate(lines):
-        line_clean = line.strip()
+    # Split into physical lines preserving byte offsets for torn-tail truncation.
+    # Use manual scan to handle both \n-terminated and torn (no trailing \n) last line.
+    lines_raw: list[bytes] = []
+    pos = 0
+    while pos < len(raw):
+        nl = raw.find(b"\n", pos)
+        if nl == -1:
+            lines_raw.append(raw[pos:])
+            break
+        lines_raw.append(raw[pos : nl + 1])
+        pos = nl + 1
+    # Empty file -> lines_raw == []
+    current_offset = 0
+    for idx, raw_line in enumerate(lines_raw):
+        line_clean = raw_line.decode("utf-8", errors="replace").strip()
+        line_end = current_offset + len(raw_line)
         if not line_clean:
+            current_offset = line_end
             continue
         try:
-            parsed = json.loads(line_clean)
+            parsed = _wal_decode_line(line_clean)
             wal_events.append(parsed)
-        except (json.JSONDecodeError, ValueError):
-            if idx == len(lines) - 1 and wal_events:
+            good_end = line_end
+        except _WalFrameError as exc:
+            is_tail = idx == len(lines_raw) - 1 or all(
+                not ln.decode("utf-8", errors="replace").strip() for ln in lines_raw[idx + 1 :]
+            )
+            if is_tail and wal_events:
                 corrupt_tail = True
                 break
-            raise StateError("WAL file corrupt: invalid event")
+            raise StateError(f"WAL file corrupt: frame CRC mismatch: {exc}") from exc
+        except (json.JSONDecodeError, ValueError) as exc:
+            is_tail = idx == len(lines_raw) - 1 or all(
+                not ln.decode("utf-8", errors="replace").strip() for ln in lines_raw[idx + 1 :]
+            )
+            if is_tail and wal_events:
+                corrupt_tail = True
+                break
+            raise StateError(f"WAL file corrupt: invalid event: {exc}") from exc
+        current_offset = line_end
+    else:
+        # for/else: loop completed without corrupt-tail break — current_offset already tracked
+        pass
 
     if corrupt_tail and wal_events:
         try:
-            with open(wal_path, "w", encoding="utf-8") as f:
-                for ev in wal_events:
-                    f.write(_canonical(ev) + "\n")
-                f.flush()
-                os.fsync(f.fileno())
+            with open(wal_path, "r+b") as fb:
+                fb.truncate(good_end)
+                fb.flush()
+                os.fsync(fb.fileno())
         except OSError:
             pass
 

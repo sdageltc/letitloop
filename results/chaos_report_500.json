@@ -1,0 +1,14 @@
+{
+  "cycles": 500,
+  "workers": 20,
+  "batches": 25,
+  "killed": 129,
+  "completed": 500,
+  "corrupted_wals": 0,
+  "state_losses": 0,
+  "zero_state_loss": true,
+  "zero_corrupted": true,
+  "elapsed_seconds": 80.18,
+  "success": true,
+  "note": "Full 500-cycle gate verified on 2026-08-26; see V033_SCORECARD.md for logs. Small 100-cycle smoke also in chaos_report.json"
+}

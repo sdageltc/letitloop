@@ -1,0 +1,7 @@
+{
+  "id": "DCP-004-POST_JOURNAL_PRE_FSYNC",
+  "name": "Post-Journal Pre-Fsync Torn-Tail",
+  "phase": "POST_JOURNAL_PRE_FSYNC",
+  "description": "Fault injected during disk write causing torn-tail WAL line.",
+  "expected_recovery": "VALID_PREFIX_TRUNCATE_AND_RESUME"
+}

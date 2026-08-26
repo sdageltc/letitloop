@@ -1614,11 +1614,28 @@ def cmd_bench(args):
     framework = getattr(args, "framework", "letitloop")
     signal = getattr(args, "signal", "SIGKILL")
     matrix = getattr(args, "matrix", False)
-    print(f"Executing Durability Conformance Benchmark (DCP-2.0) for '{framework}' (Signal: {signal})...")
-
-    cmd = [sys.executable, "-m", "conformance.harness.runner", "--framework", framework, "--signal", signal]
-    if matrix:
-        cmd.append("--matrix")
+    compare = getattr(args, "compare", None)
+    scenario = getattr(args, "scenario", None)
+    # Prefer letitloop.conformance DCP-2.0 harness; fall back to legacy conformance
+    harness_module = "letitloop.conformance.harness.runner"
+    try:
+        __import__(harness_module)
+    except ImportError:
+        harness_module = "conformance.harness.runner"
+    if compare:
+        print(f"Executing DCP-2.0 CONFORMANCE MOAT — compare {compare} (Signal: {signal})...")
+        cmd = [sys.executable, "-m", harness_module, "--compare", str(compare)]
+        # compare all ignores --framework but pass it for receipt labeling if provided
+        if framework != "letitloop":
+            cmd.extend(["--framework", framework])
+    elif scenario:
+        print(f"Executing DCP-2.0 scenario {scenario} for '{framework}' (Signal: {signal})...")
+        cmd = [sys.executable, "-m", harness_module, "--scenario", str(scenario), "--framework", framework]
+    else:
+        print(f"Executing Durability Conformance Benchmark (DCP-2.0) for '{framework}' (Signal: {signal})...")
+        cmd = [sys.executable, "-m", harness_module, "--framework", framework, "--signal", signal]
+        if matrix:
+            cmd.append("--matrix")
     try:
         res = subprocess.run(cmd, cwd=WORKSPACE_ROOT, capture_output=False)
         sys.exit(res.returncode)
@@ -1974,9 +1991,18 @@ def main():
         help="Target workspace path for project-local skill installation (default: current directory)",
     )
 
-    p_bench = sub.add_parser("bench", help="Run agent durability conformance benchmark (DCP-1.0)")
+    p_bench = sub.add_parser("bench", help="Run agent durability conformance benchmark (DCP-2.0)")
     p_bench.add_argument("--framework", default="letitloop", help="Target framework adapter (default: letitloop)")
     p_bench.add_argument("--signal", default="SIGKILL", help="Fault signal to inject (default: SIGKILL)")
+    p_bench.add_argument(
+        "--compare",
+        default=None,
+        help="Compare mode: 'all' runs DCP-2.0 matrix across all frameworks (lil bench --compare all)",
+    )
+    p_bench.add_argument(
+        "--scenario", default=None, help="Run single DCP scenario by ID (e.g., DCP-002 or DCP-002-MID_ACTION)"
+    )
+    p_bench.add_argument("--matrix", action="store_true", help="Legacy: run full matrix sweep")
 
     p_heal = sub.add_parser("heal", help="Bounded autonomous repair on current codebase")
     p_heal.add_argument("--dir", default=".", help="Target workspace directory (default: .)")
