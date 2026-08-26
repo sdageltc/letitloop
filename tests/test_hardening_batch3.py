@@ -141,8 +141,15 @@ class TestWalCrashResume:
         save_state(st, os.path.join(td, "state.json"))
         wal = os.path.join(td, "state.wal.jsonl")
         with open(wal, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        obj = json.loads(lines[-1])
+            raw_lines = f.readlines()
+        # LILWAL02-aware extraction: decode frame if present, else plain JSON
+        last = raw_lines[-1].strip()
+        if last.startswith("LILWAL02:"):
+            # extract canonical payload after header for tampering
+            _, _, _, payload = last.split(":", 3)
+            obj = json.loads(payload)
+        else:
+            obj = json.loads(last)
         obj["hash"] = "f" * 64
         with open(wal, "w", encoding="utf-8") as f:
             f.write(json.dumps(obj) + "\n")
