@@ -7,6 +7,8 @@ import dataclasses
 import functools
 import json
 import os
+import sys
+import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
@@ -16,6 +18,19 @@ from .state import State, create_initial_state, load_state, save_state
 
 class DurableSerializationError(TypeError):
     """Raised when a durable step returns an object that cannot be serialized to JSON/WAL."""
+
+
+# Thread-local active context: concurrent @durable workflows in one process
+# each get an isolated context (module globals would cross-contaminate them).
+_CONTEXT_STORAGE = threading.local()
+
+
+def _get_active_context() -> Optional["DurableContext"]:
+    return getattr(_CONTEXT_STORAGE, "active", None)
+
+
+def _set_active_context(ctx: Optional["DurableContext"]) -> None:
+    _CONTEXT_STORAGE.active = ctx
 
 
 def _to_json_serializable(val: Any) -> Any:
@@ -98,8 +113,12 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
     Yields True if this execution is the first to claim the marker (should execute mutation).
     Yields False if the marker already exists on disk (was already executed prior to crash).
     """
+<<<<<<< HEAD
+    active_dir = run_dir or (_get_active_context().run_dir if _get_active_context() else ".durable_wal")
+=======
     ctx = _get_active_context()
     active_dir = run_dir or (ctx.run_dir if ctx else ".durable_wal")
+>>>>>>> origin/main
     markers_dir = os.path.join(active_dir, "markers")
     os.makedirs(markers_dir, exist_ok=True)
     marker_file = os.path.join(markers_dir, f"{marker_id}.marker")
@@ -117,12 +136,23 @@ def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
     """Execute a step durably: skip if already completed in WAL; else execute and append."""
     ctx = _get_active_context()
     if ctx is None:
+<<<<<<< HEAD
+        # Silent degradation is a durability hole: warn loudly so a scoping
+        # mistake never disables the guarantee unnoticed.
+        print(
+            f"[durable] WARNING: step '{step_id}' called outside a @durable context — "
+            "executing NON-durably (result will NOT be recovered after a crash)",
+            file=sys.stderr,
+        )
+        return fn(*args, **kwargs)
+=======
         print(
             f"[durable] WARNING: step('{step_id}') called outside @durable context — executing non-durably",
             file=sys.stderr,
         )
         return fn(*args, **kwargs)
 
+>>>>>>> origin/main
     # 1. Skip on resume if step was already completed in WAL
     if step_id in ctx.completed_steps:
         return ctx.completed_steps[step_id]
