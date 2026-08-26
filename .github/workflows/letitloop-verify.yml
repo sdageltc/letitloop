@@ -1,4 +1,4 @@
-name: LetItLoop Proof Verification Gate
+﻿name: LetItLoop Proof Verification Gate
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run LetItLoop Verification Action
-        uses: sdageltc/letitloop-action@v1
+        uses: sdageltc/letitloop-action@76187c81c3dd765c616f0db307e5778542f14178 # v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           strict-ast: 'true'
