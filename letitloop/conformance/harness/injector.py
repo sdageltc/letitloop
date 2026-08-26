@@ -1,10 +1,19 @@
+import os
 import queue
 import re
+import signal
+import subprocess
+import sys
 import threading
 import time
 from typing import Optional
 
-import psutil
+try:
+    import psutil
+
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
 
 
 class ProcessLifecycleGuard:
@@ -14,42 +23,58 @@ class ProcessLifecycleGuard:
         self.pid = pid
 
     def inject_kill(self, signal_type: str = "SIGKILL") -> bool:
-        try:
-            parent = psutil.Process(self.pid)
-            children = parent.children(recursive=True)
+        if HAS_PSUTIL:
+            try:
+                parent = psutil.Process(self.pid)
+                children = parent.children(recursive=True)
 
-            # 1. Terminate children bottom-up (leaves first)
-            for child in reversed(children):
+                # 1. Terminate children bottom-up (leaves first)
+                for child in reversed(children):
+                    try:
+                        if signal_type == "SIGKILL":
+                            child.kill()
+                        else:
+                            child.terminate()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+                # 2. Terminate parent process
                 try:
                     if signal_type == "SIGKILL":
-                        child.kill()
+                        parent.kill()
                     else:
-                        child.terminate()
+                        parent.terminate()
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
 
-            # 2. Terminate parent process
-            try:
-                if signal_type == "SIGKILL":
-                    parent.kill()
-                else:
-                    parent.terminate()
+                # 3. Wait for full tree termination to prevent orphan locks
+                procs = children + [parent]
+                gone, alive = psutil.wait_procs(procs, timeout=3.0)
+
+                # Force kill any lingering processes
+                for p in alive:
+                    try:
+                        p.kill()
+                    except Exception:
+                        pass
+                return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
+                return False
 
-            # 3. Wait for full tree termination to prevent orphan locks
-            procs = children + [parent]
-            gone, alive = psutil.wait_procs(procs, timeout=3.0)
-
-            # Force kill any lingering processes
-            for p in alive:
-                try:
-                    p.kill()
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-
+        # Fallback without psutil
+        try:
+            if sys.platform == "win32":
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self.pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+            else:
+                sig = signal.SIGKILL if signal_type == "SIGKILL" else signal.SIGTERM
+                os.kill(self.pid, sig)
             return True
-        except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+        except Exception:
             return False
 
 
