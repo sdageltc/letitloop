@@ -132,6 +132,8 @@ except Exception as e:
 
 
 def _spawn_worker(wal_dir: str, goal_id: str, is_async: bool) -> subprocess.Popen:
+    if ".." in wal_dir or ".." in goal_id or "/" in goal_id or "\\" in goal_id:
+        raise ValueError(f"sandbox: wal_dir/goal_id contains traversal: {wal_dir!r} {goal_id!r}")
     root = str(WORKSPACE_ROOT)
     template = WORKER_ASYNC_CODE if is_async else WORKER_SYNC_CODE
     code = template.replace("__ROOT__", root).replace("__WAL__", wal_dir).replace("__GOAL__", goal_id)

@@ -46,10 +46,34 @@ KILL_WINDOWS = {
 }
 SCENARIO_TO_WINDOW = {v: k for k, v in KILL_WINDOWS.items()}
 
+ALLOWED_SCENARIOS = {
+    "DCP-001",
+    "DCP-002",
+    "DCP-003",
+    "DCP-004",
+    "DCP-001-PRE_STEP",
+    "DCP-002-MID_ACTION",
+    "DCP-003-POST_ACTION_PRE_JOURNAL",
+    "DCP-004-POST_JOURNAL_PRE_FSYNC",
+}
+
 
 def _load_scenario_json(scenario_id: str) -> dict:
     import json as _json
+    import re
 
+    # Hardening: whitelist + no path traversal
+    if ".." in scenario_id or "/" in scenario_id or "\\" in scenario_id:
+        raise ValueError(f"sandbox: scenario_id {scenario_id!r} contains path traversal")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", scenario_id):
+        raise ValueError(f"sandbox: scenario_id {scenario_id!r} contains invalid characters")
+    # allow prefix like DCP-002 to match DCP-002-MID_ACTION, but must be known prefix
+    if scenario_id not in ALLOWED_SCENARIOS and not any(
+        scenario_id == s[: len(scenario_id)] for s in ALLOWED_SCENARIOS
+    ):
+        # also allow if any allowed starts with scenario_id
+        if not any(s.startswith(scenario_id) for s in ALLOWED_SCENARIOS):
+            raise FileNotFoundError(f"Scenario {scenario_id} not in whitelist {sorted(ALLOWED_SCENARIOS)}")
     base = pathlib.Path(__file__).parent.parent / "scenarios"
     for f in base.glob("*.json"):
         if scenario_id in f.name:

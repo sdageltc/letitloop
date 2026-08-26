@@ -53,6 +53,11 @@ class SyntheticTaskRunner:
                 print(f"[KILL_POINT_REACHED:{idx}:{step.step_id}]", flush=True)
                 time.sleep(1.0)
 
+            # Security: sandbox target_path — reject directory traversal (P1-1 hardening)
+            if ".." in pathlib.PurePath(step.target_path).parts:
+                raise ValueError(f"sandbox violation: target_path {step.target_path!r} contains '..'")
+            if pathlib.Path(step.target_path).is_absolute() and ".." in str(step.target_path):
+                raise ValueError(f"sandbox violation: absolute target_path {step.target_path!r}")
             # Execute the deterministic synthetic operation
             if step.action_type == "FILE_WRITE":
                 p = pathlib.Path(step.target_path)
