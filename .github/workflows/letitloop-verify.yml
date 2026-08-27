@@ -22,10 +22,8 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      # Pinned to 40-char SHAs (Scorecard Pinned-Dependencies). Renovate/Dependabot can bump.
-      # actions/checkout v4.2.2 — pin: 11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
