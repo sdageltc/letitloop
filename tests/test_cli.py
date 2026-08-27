@@ -542,7 +542,6 @@ class TestFakeWorker:
         assert "In progress" in stdout, f"missing In progress: {stdout}"
         assert "Run dir" in stdout, f"missing Run dir: {stdout}"
 
-    @pytest.mark.fast
     @pytest.mark.integration
     @pytest.mark.phase2
     def test_phase2_two_step_goal(self, tmp_path, monkeypatch):
