@@ -201,3 +201,51 @@ class TestProcessStartToken:
 
         assert lk._lock_is_stale(run_dir) is True
         lk.release_lock(run_dir)
+
+
+def test_filelock_stale_steal_dead_pid(tmp_path):
+    """FileLock auto-steals a lock whose holder PID is dead (no 120s wait)."""
+    lock_path = os.path.join(str(tmp_path), ".merge_admission.lock")
+
+    # Simulate a crash-left stale lock: dead PID on this host, fresh-ish heartbeat.
+    from datetime import datetime, timezone
+
+    with open(lock_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "pid": 999999999,
+                "hostname": lk.socket.gethostname(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+            f,
+        )
+
+    # With staleness detection, acquisition must succeed quickly (dead PID).
+    lock = lk.FileLock(lock_path, timeout_sec=120, poll_sec=0.01)
+    import time as _time
+
+    t0 = _time.monotonic()
+    lock.acquire()
+    elapsed = _time.monotonic() - t0
+    assert lock._acquired
+    assert elapsed < 5.0  # must NOT wait out the 120s timeout
+    lock.release()
+    assert not os.path.exists(lock_path)
+
+
+def test_filelock_does_not_steal_live_lock(tmp_path):
+    """FileLock must NOT steal a lock held by a live process (self-PID)."""
+    lock_path = os.path.join(str(tmp_path), ".live.lock")
+
+    lock = lk.FileLock(lock_path, timeout_sec=0.2, poll_sec=0.01)
+    lock.acquire()
+    try:
+        # A second lock on the same path is held by THIS process (live) -> not stale.
+        second = lk.FileLock(lock_path, timeout_sec=0.2, poll_sec=0.01)
+        with pytest.raises(lk.LockHeldError):
+            second.acquire()
+        assert not second._acquired
+        # The live lock must not have been removed.
+        assert os.path.exists(lock_path)
+    finally:
+        lock.release()
