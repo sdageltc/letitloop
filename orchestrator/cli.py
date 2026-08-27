@@ -28,6 +28,7 @@ from .handoff import build_handoff
 from .plan_preview import render_plan_preview, write_plan_preview
 from .preferences import apply_preferences_to_goal, collect_preferences
 from .preflight import run_preflight
+from .remediate import remediate as _remediate_core
 from .safety import format_approval_reasons, requires_approval
 from .schemas import get_schema
 from .state import (
@@ -1818,6 +1819,38 @@ def cmd_schema(args):
     _print_json(get_schema(args.kind))
 
 
+def cmd_remediate(args):
+    """Proof-carrying auto-repair via isolated worktree + HMAC receipt."""
+    import json
+
+    cve = args.cve
+    target_file = args.file
+    new_code = args.patch
+    old_code = getattr(args, "old", None)
+    workspace = getattr(args, "workspace", ".")
+    test_cmd = getattr(args, "test_cmd", "pytest -q")
+    run_dir = getattr(args, "run_dir", None)
+    receipt = _remediate_core(
+        cve_id=cve,
+        target_file=target_file,
+        new_code=new_code,
+        workspace_root=workspace,
+        old_code=old_code,
+        test_cmd=test_cmd,
+        run_dir=run_dir,
+    )
+    # Emit JSON receipt to stdout for test to capture
+    print(json.dumps(receipt.to_dict(), indent=2))
+    # Also print markers expected by test
+    print(f"ProofReceipt {receipt.cve_id} receipt_sha256={receipt.receipt_sha256}")
+    if receipt.test_passed and receipt.patched:
+        return
+    # Non-zero exit on failure
+    import sys
+
+    sys.exit(1)
+
+
 def main():
     global DEFAULT_RUN_DIR
     parser = argparse.ArgumentParser(
@@ -2097,15 +2130,30 @@ def main():
     )
 
     p_schema = sub.add_parser("schema", help="Print a bundled JSON Schema")
-    p_version = sub.add_parser("version", help="Print version information")
-    p_version.set_defaults(func=None)
-
     p_schema.add_argument(
         "--kind",
         choices=["contract", "goal", "mcp"],
         default="contract",
         help="Schema kind to output (default: contract)",
     )
+
+    p_remediate = sub.add_parser("remediate", help="Proof-carrying auto-repair of CVEs via worktree + HMAC receipt")
+    p_remediate.add_argument("--cve", required=True, help="CVE identifier (e.g., CVE-2024-0001)")
+    p_remediate.add_argument("--file", required=True, help="Target file path to patch (relative to --workspace)")
+    p_remediate.add_argument("--patch", required=True, help="New code to write (ASCII / UTF-8)")
+    p_remediate.add_argument("--old", dest="old", help="Optional old code to replace (makes patch idempotent)")
+    p_remediate.add_argument("--workspace", default=".", help="Workspace root (default: current dir)")
+    p_remediate.add_argument(
+        "--test-cmd", default="pytest -q", help="Test command to run in worktree (default: pytest -q)"
+    )
+    p_remediate.add_argument(
+        "--run-dir",
+        dest="run_dir",
+        help="Explicit run directory for receipt (default: .letitloop/remediate_runs/<cve>)",
+    )
+
+    p_version = sub.add_parser("version", help="Print version information")
+    p_version.set_defaults(func=None)
 
     cmds = {
         "version": cmd_version,
@@ -2175,6 +2223,7 @@ def main():
         "dry-run": cmd_dryrun,
         "dry_run": cmd_dryrun,
         "pause": cmd_pause,
+        "remediate": cmd_remediate,
         "cancel": cmd_cancel,
         "inspect": cmd_inspect,
     }
