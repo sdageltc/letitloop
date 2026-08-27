@@ -116,6 +116,10 @@ def _process_start_token(pid: int) -> Optional[str]:
                 )
                 if not ok:
                     return None
+                exit_code = wintypes.DWORD()
+                if ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                    if exit_code.value != 259:  # STILL_ACTIVE
+                        return None
                 value = (int(creation.dwHighDateTime) << 32) | int(creation.dwLowDateTime)
                 return f"win:{value}"
             finally:
@@ -163,10 +167,7 @@ def _pid_alive(pid: int, expected_start_token: Optional[str] = None) -> bool:
     if not pid or pid <= 0:
         return False
 
-    if expected_start_token is not None:
-        actual_start_token = _process_start_token(pid)
-        return actual_start_token is not None and actual_start_token == expected_start_token
-
+    is_alive = False
     if sys.platform == "win32":
         try:
             import ctypes
@@ -177,27 +178,37 @@ def _pid_alive(pid: int, expected_start_token: Optional[str] = None) -> bool:
             ERROR_ACCESS_DENIED = 5
             handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
             if not handle:
-                # If access is denied, the process exists and is alive
                 err = ctypes.GetLastError()
-                return err == ERROR_ACCESS_DENIED
-            try:
-                exit_code = wintypes.DWORD()
-                if ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
-                    return exit_code.value == STILL_ACTIVE
-                return True
-            finally:
-                ctypes.windll.kernel32.CloseHandle(handle)
+                is_alive = err == ERROR_ACCESS_DENIED
+            else:
+                try:
+                    exit_code = wintypes.DWORD()
+                    if ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                        is_alive = exit_code.value == STILL_ACTIVE
+                    else:
+                        is_alive = True
+                finally:
+                    ctypes.windll.kernel32.CloseHandle(handle)
         except (AttributeError, OSError, TypeError, ValueError):
-            return False
+            is_alive = False
+    else:
+        try:
+            os.kill(pid, 0)
+            is_alive = True
+        except ProcessLookupError:
+            is_alive = False
+        except PermissionError:
+            is_alive = True
+        except OSError:
+            is_alive = False
 
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+    if not is_alive:
         return False
-    except PermissionError:
-        return True
-    except OSError:
-        return False
+
+    if expected_start_token is not None:
+        actual_start_token = _process_start_token(pid)
+        return actual_start_token is not None and actual_start_token == expected_start_token
+
     return True
 
 
