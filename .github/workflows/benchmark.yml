@@ -88,10 +88,12 @@ jobs:
 
       - name: Prepare Pages site
         run: |
+          mkdir -p _site
+          cp -r docs/* _site/
           mkdir -p _site/bench
           cp -r _site_src/docs/bench/* _site/bench/ 2>/dev/null || cp _site_src/results/leaderboard.json _site/bench/ 2>/dev/null || true
           cp -r _site_src/docs/badges _site/ 2>/dev/null || true
-          ls -la _site/bench/ || true
+          ls -la _site/ || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
