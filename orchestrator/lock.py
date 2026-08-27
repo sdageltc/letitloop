@@ -170,16 +170,23 @@ def _pid_alive(pid: int, expected_start_token: Optional[str] = None) -> bool:
     if sys.platform == "win32":
         try:
             import ctypes
+            from ctypes import wintypes
 
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
             ERROR_ACCESS_DENIED = 5
             handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
             if not handle:
                 # If access is denied, the process exists and is alive
                 err = ctypes.GetLastError()
                 return err == ERROR_ACCESS_DENIED
-            ctypes.windll.kernel32.CloseHandle(handle)
-            return True
+            try:
+                exit_code = wintypes.DWORD()
+                if ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                    return exit_code.value == STILL_ACTIVE
+                return True
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
         except (AttributeError, OSError, TypeError, ValueError):
             return False
 
