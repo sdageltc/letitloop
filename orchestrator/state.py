@@ -332,120 +332,147 @@ class State:
         if not isinstance(payload, dict):
             raise StateError("payload must be dict")
 
-        if event_type == "INIT":
-            if self._seq != 0:
-                raise StateError("duplicate INIT")
-            if payload.get("status", "DRAFTED") not in STATES:
-                raise StateError("invalid init status")
-            self.status = payload.get("status", "DRAFTED")
-            self.attempt = int(payload.get("attempt", 1))
-            self.changed_approaches = list(payload.get("changed_approaches", []))
-            self.evidence = dict(payload.get("evidence", {}))
-            self.worker_results = list(payload.get("worker_results", []))
-            self.data = dict(payload.get("data", {}))
-            self.events.append(
-                {
+        try:
+            if event_type == "INIT":
+                if self._seq != 0:
+                    raise StateError("duplicate INIT")
+                if payload.get("status", "DRAFTED") not in STATES:
+                    raise StateError("invalid init status")
+                self.status = payload.get("status", "DRAFTED")
+                try:
+                    self.attempt = int(payload.get("attempt", 1))
+                except (ValueError, TypeError) as e:
+                    raise StateError(f"INIT attempt invalid: {e}") from e
+                self.changed_approaches = list(payload.get("changed_approaches", []))
+                self.evidence = dict(payload.get("evidence", {}))
+                self.worker_results = list(payload.get("worker_results", []))
+                self.data = dict(payload.get("data", {}))
+                self.events.append(
+                    {
+                        "timestamp": event["timestamp"],
+                        "from": "",
+                        "to": self.status,
+                        "reason": event.get("reason", "state initialized"),
+                    }
+                )
+            elif event_type == "TRANSITION":
+                if "to" not in payload:
+                    raise StateError("TRANSITION payload missing 'to'")
+                new_status = payload["to"]
+                if new_status not in STATES:
+                    raise IllegalTransitionError(self.status, new_status, f"unknown target state: {new_status}")
+                self._validate_transition(self.status, new_status)
+                self.status = new_status
+                transition_entry = {
                     "timestamp": event["timestamp"],
-                    "from": "",
-                    "to": self.status,
-                    "reason": event.get("reason", "state initialized"),
+                    "from": payload.get("from", self.status),
+                    "to": new_status,
+                    "reason": payload.get("reason", event.get("reason", "")),
                 }
-            )
-        elif event_type == "TRANSITION":
-            new_status = payload["to"]
-            if new_status not in STATES:
-                raise IllegalTransitionError(self.status, new_status, f"unknown target state: {new_status}")
-            self._validate_transition(self.status, new_status)
-            self.status = new_status
-            transition_entry = {
-                "timestamp": event["timestamp"],
-                "from": payload.get("from", self.status),
-                "to": new_status,
-                "reason": payload.get("reason", event.get("reason", "")),
-            }
-            if payload.get("evidence_path"):
-                transition_entry["evidence_path"] = payload["evidence_path"]
-            self.events.append(transition_entry)
-        elif event_type == "ATTEMPT_INCREMENT":
-            self.attempt += int(payload.get("delta", 1))
-            if self.attempt < 1:
-                raise StateError("attempt invalid after increment")
-        elif event_type == "APPROACH_RECORDED":
-            self.changed_approaches.append(str(payload.get("description", "")))
-        elif event_type == "EVIDENCE_ADD":
-            self.evidence[str(payload["key"])] = str(payload["path"])
-        elif event_type == "WORKER_RESULT_ADD":
-            self.worker_results.append(copy.deepcopy(payload["result"]))
-        elif event_type == "RETRY_METADATA_ADD":
-            self.data.setdefault("retry_metadata", [])
-            self.data["retry_metadata"].append(copy.deepcopy(payload["metadata"]))
-        elif event_type == "DATA_PATCH":
-            patch = payload.get("patch", {})
-            if not isinstance(patch, dict):
-                raise StateError("DATA_PATCH patch must be dict")
-            for k, v in patch.items():
-                if v is _DELETE_SENTINEL:
-                    self.data.pop(k, None)
-                else:
-                    self.data[k] = copy.deepcopy(v)
-        elif event_type == "FORCE_COMPLETE":
-            self.status = "FORCE_COMPLETE"
-            self.data["force_complete"] = copy.deepcopy(payload)
-        elif event_type == "ESCALATE":
-            if self.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS"):
-                raise IllegalTransitionError(f"cannot force-escalate a {self.status} task")
-            self.status = "ESCALATED"
-            self.data["escalation_reason"] = event.get("reason", "")
-            self.events.append(
-                {
-                    "timestamp": event["timestamp"],
-                    "from": payload.get("from", ""),
-                    "to": "ESCALATED",
-                    "reason": event.get("reason", "force escalation"),
-                }
-            )
-        elif event_type == "FORCE_BLOCK":
-            if self.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS"):
-                raise IllegalTransitionError(f"cannot force-block a {self.status} task")
-            self.status = "BLOCKED"
-            self.data["block_reason"] = event.get("reason", "")
-            self.events.append(
-                {
-                    "timestamp": event["timestamp"],
-                    "from": payload.get("from", ""),
-                    "to": "BLOCKED",
-                    "reason": event.get("reason", "forced block"),
-                }
-            )
-        elif event_type == "WORKER_RESULT_PATCH":
-            idx = int(payload["index"])
-            if idx < 0 or idx >= len(self.worker_results):
-                raise StateError(f"WORKER_RESULT_PATCH index {idx} out of range")
-            self.worker_results[idx] = copy.deepcopy(payload["result"])
-        elif event_type == "PAUSE":
-            self._validate_transition(self.status, "PAUSED")
-            self.status = "PAUSED"
-            self.events.append(
-                {
-                    "timestamp": event["timestamp"],
-                    "from": payload.get("from", ""),
-                    "to": "PAUSED",
-                    "reason": event.get("reason", "operator pause"),
-                }
-            )
-        elif event_type == "CANCEL":
-            self._validate_transition(self.status, "CANCELLED")
-            self.status = "CANCELLED"
-            self.events.append(
-                {
-                    "timestamp": event["timestamp"],
-                    "from": payload.get("from", ""),
-                    "to": "CANCELLED",
-                    "reason": event.get("reason", "operator cancel"),
-                }
-            )
-        else:
-            raise StateError(f"unknown event_type: {event_type}")
+                if payload.get("evidence_path"):
+                    transition_entry["evidence_path"] = payload["evidence_path"]
+                self.events.append(transition_entry)
+            elif event_type == "ATTEMPT_INCREMENT":
+                try:
+                    delta = int(payload.get("delta", 1))
+                except (ValueError, TypeError) as e:
+                    raise StateError(f"ATTEMPT_INCREMENT delta invalid: {e}") from e
+                self.attempt += delta
+                if self.attempt < 1:
+                    raise StateError("attempt invalid after increment")
+            elif event_type == "APPROACH_RECORDED":
+                self.changed_approaches.append(str(payload.get("description", "")))
+            elif event_type == "EVIDENCE_ADD":
+                if "key" not in payload or "path" not in payload:
+                    raise StateError("EVIDENCE_ADD payload missing 'key' or 'path'")
+                self.evidence[str(payload["key"])] = str(payload["path"])
+            elif event_type == "WORKER_RESULT_ADD":
+                if "result" not in payload:
+                    raise StateError("WORKER_RESULT_ADD payload missing 'result'")
+                self.worker_results.append(copy.deepcopy(payload["result"]))
+            elif event_type == "RETRY_METADATA_ADD":
+                if "metadata" not in payload:
+                    raise StateError("RETRY_METADATA_ADD payload missing 'metadata'")
+                self.data.setdefault("retry_metadata", [])
+                self.data["retry_metadata"].append(copy.deepcopy(payload["metadata"]))
+            elif event_type == "DATA_PATCH":
+                patch = payload.get("patch", {})
+                if not isinstance(patch, dict):
+                    raise StateError("DATA_PATCH patch must be dict")
+                for k, v in patch.items():
+                    if v is _DELETE_SENTINEL:
+                        self.data.pop(k, None)
+                    else:
+                        self.data[k] = copy.deepcopy(v)
+            elif event_type == "FORCE_COMPLETE":
+                self.status = "FORCE_COMPLETE"
+                self.data["force_complete"] = copy.deepcopy(payload)
+            elif event_type == "ESCALATE":
+                if self.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS"):
+                    raise IllegalTransitionError(f"cannot force-escalate a {self.status} task")
+                self.status = "ESCALATED"
+                self.data["escalation_reason"] = event.get("reason", "")
+                self.events.append(
+                    {
+                        "timestamp": event["timestamp"],
+                        "from": payload.get("from", ""),
+                        "to": "ESCALATED",
+                        "reason": event.get("reason", "force escalation"),
+                    }
+                )
+            elif event_type == "FORCE_BLOCK":
+                if self.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS"):
+                    raise IllegalTransitionError(f"cannot force-block a {self.status} task")
+                self.status = "BLOCKED"
+                self.data["block_reason"] = event.get("reason", "")
+                self.events.append(
+                    {
+                        "timestamp": event["timestamp"],
+                        "from": payload.get("from", ""),
+                        "to": "BLOCKED",
+                        "reason": event.get("reason", "forced block"),
+                    }
+                )
+            elif event_type == "WORKER_RESULT_PATCH":
+                if "index" not in payload or "result" not in payload:
+                    raise StateError("WORKER_RESULT_PATCH payload missing 'index' or 'result'")
+                try:
+                    idx = int(payload["index"])
+                except (ValueError, TypeError) as e:
+                    raise StateError(f"WORKER_RESULT_PATCH index invalid: {e}") from e
+                if idx < 0 or idx >= len(self.worker_results):
+                    raise StateError(f"WORKER_RESULT_PATCH index {idx} out of range")
+                self.worker_results[idx] = copy.deepcopy(payload["result"])
+            elif event_type == "PAUSE":
+                self._validate_transition(self.status, "PAUSED")
+                self.status = "PAUSED"
+                self.events.append(
+                    {
+                        "timestamp": event["timestamp"],
+                        "from": payload.get("from", ""),
+                        "to": "PAUSED",
+                        "reason": event.get("reason", "operator pause"),
+                    }
+                )
+            elif event_type == "CANCEL":
+                self._validate_transition(self.status, "CANCELLED")
+                self.status = "CANCELLED"
+                self.events.append(
+                    {
+                        "timestamp": event["timestamp"],
+                        "from": payload.get("from", ""),
+                        "to": "CANCELLED",
+                        "reason": event.get("reason", "operator cancel"),
+                    }
+                )
+            else:
+                raise StateError(f"unknown event_type: {event_type}")
+        except (KeyError, ValueError, TypeError) as e:
+            # Corrupted WAL payload (bit-flip / fuzz) must fail closed as StateError,
+            # never leak raw KeyError/ValueError/TypeError to the caller.
+            if isinstance(e, StateError) or isinstance(e, IllegalTransitionError):
+                raise
+            raise StateError(f"event payload invalid for {event_type}: {e}") from e
 
         self._seq = event["seq"]
         self._hash_head = event["event_hash"]
@@ -919,7 +946,16 @@ def replay_wal(state_path, state=None):
         raise StateError("WAL INIT event missing task_id")
     fresh = State(task_id=task_id, status="DRAFTED", journal_dir=journal_dir)
     for event in wal_events:
-        fresh._apply_event(event, replay=True)
+        try:
+            fresh._apply_event(event, replay=True)
+        except (StateError, IllegalTransitionError):
+            raise
+        except (KeyError, ValueError, TypeError, IndexError) as exc:
+            raise StateError(f"WAL replay failed at seq {event.get('seq')}: {exc}") from exc
+        except Exception as exc:
+            # Any other unexpected error in replay (e.g. corrupted byte payload producing
+            # an uncaught exception) must fail closed as StateError, never leak raw.
+            raise StateError(f"WAL replay failed at seq {event.get('seq')}: {exc}") from exc
     if corrupt_tail:
         fresh.data["wal_torn_tail_recovered"] = True
     fresh.data.setdefault("recovered_from_wal", True)
