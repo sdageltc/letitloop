@@ -51,7 +51,7 @@ jobs:
       # In this repo we use the local path. In your repo use the
       # Marketplace pin (example below, replace SHA with release SHA):
       #
-      #   - uses: sdageltc/letitloop/letitloop-action@8b7f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f # v2.0.0
+      #   - uses: sdageltc/letitloop/letitloop-action@v2 # replace with release SHA for pinning: sdageltc/letitloop/letitloop-action@<40-char-SHA> # v2.0.0
       #     with:
       #       token: ${{ secrets.GITHUB_TOKEN }}
       #       wal-dir: .bench_wal
