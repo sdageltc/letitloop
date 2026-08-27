@@ -116,12 +116,14 @@ def _apply_patch(worktree_path: str, target_file: str, old_code: str | None, new
 
 def _run_tests(worktree_path: str, test_cmd: str = "pytest -q") -> tuple[bool, str]:
     """Run tests inside worktree. Returns (passed, output)."""
-    # Use subprocess, capture output, timeout 60s
+    import shlex
+
     try:
+        args = shlex.split(test_cmd) if isinstance(test_cmd, str) else list(test_cmd)
         result = subprocess.run(
-            test_cmd,
+            args,
             cwd=worktree_path,
-            shell=True,
+            shell=False,
             capture_output=True,
             text=True,
             timeout=60,

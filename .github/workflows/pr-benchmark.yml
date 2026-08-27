@@ -24,7 +24,7 @@ jobs:
       - name: Install LetItLoop
         run: |
           pip install -e .
-          pip install pytest pytest-benchmark
+          pip install pytest pytest-benchmark pytest-xdist
 
       - name: Run PR Benchmarks
         id: bench
