@@ -40,8 +40,11 @@ scratch/
 .opencode/
 *.log
 .bench_wal/
+.bench_wal*/
 results/
 docs/plans/.tmp/
+docs/bench/
+docs/badges/
 node_modules/
 !letitloop-action/package-lock.json
 !letitloop-action/package.json
