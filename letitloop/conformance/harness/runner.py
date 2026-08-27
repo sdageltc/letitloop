@@ -1,6 +1,10 @@
 import argparse
+import hashlib
+import hmac
 import json
+import os
 import pathlib
+import secrets
 import time
 from typing import Any, Dict, List, Optional
 
@@ -56,6 +60,55 @@ ALLOWED_SCENARIOS = {
     "DCP-003-POST_ACTION_PRE_JOURNAL",
     "DCP-004-POST_JOURNAL_PRE_FSYNC",
 }
+
+
+def _bench_run_key() -> str:
+    """Load or create a bench run key for HMAC anti-cheat (mode 0600 on POSIX)."""
+    # Prefer env, else .bench_wal/.bench_key, else ephemeral
+    env_key = os.environ.get("LETITLOOP_BENCH_KEY")
+    if env_key:
+        return env_key
+    key_path = pathlib.Path(".bench_wal") / ".bench_key"
+    try:
+        if key_path.is_file():
+            k = key_path.read_text(encoding="utf-8").strip()
+            if k:
+                return k
+        k = secrets.token_hex(32)
+        key_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = key_path.with_suffix(".tmp")
+        tmp.write_text(k, encoding="utf-8")
+        if os.name != "nt":
+            try:
+                os.chmod(tmp, 0o600)
+            except OSError:
+                pass
+        tmp.replace(key_path)
+        return k
+    except Exception:
+        return secrets.token_hex(32)
+
+
+def _sign_payload(payload: dict, key: str) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hmac.new(key.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _attach_trace_signature(data: dict, key: str | None = None) -> dict:
+    """Attach non-reproducible run trace (nonce+timestamp) + HMAC to prevent synthetic spoofing."""
+    key = key or _bench_run_key()
+    nonce = secrets.token_hex(16)
+    ts = time.time()
+    # Copy without existing hmac fields for canonical signing
+    base = {k: v for k, v in data.items() if k not in ("hmac_hex", "trace_id", "run_nonce")}
+    base["_trace_nonce"] = nonce
+    base["_trace_ts"] = ts
+    h = _sign_payload(base, key)
+    data["trace_id"] = nonce[:16]
+    data["run_nonce"] = nonce
+    data["hmac_hex"] = h
+    data["_trace_ts"] = ts
+    return data
 
 
 def _load_scenario_json(scenario_id: str) -> dict:
@@ -255,12 +308,13 @@ class DurabilityBenchmarkRunner:
             )
 
         leaderboard.sort(key=lambda x: (-x["recovery_rate_pct"], x["avg_duplicate_token_waste_pct"]))
-        return {
+        data = {
             "protocol_version": "DCP-2.0",
             "methodology": "Physical OS Subprocess Fault Injection (SIGKILL)",
             "timestamp": time.time(),
             "leaderboard": leaderboard,
         }
+        return _attach_trace_signature(data)
 
     def export_markdown_leaderboard(self, leaderboard_data: Dict[str, Any], target_path: str):
         p = pathlib.Path(target_path)
@@ -339,6 +393,7 @@ class DurabilityBenchmarkRunner:
             "recovery_latency_seconds": score.recovery_latency_seconds,
             "timestamp": time.time(),
         }
+        _attach_trace_signature(receipt)
         return receipt
 
     def run_compare_all(self, scenario_ids: list | None = None) -> dict:
@@ -386,13 +441,14 @@ class DurabilityBenchmarkRunner:
                 }
             )
         leaderboard.sort(key=lambda x: (-x["recovery_rate_pct"], x["avg_W_token_pct"]))
-        return {
+        data = {
             "protocol_version": "DCP-2.0",
             "methodology": "Physical OS Subprocess Fault Injection (SIGKILL) — 4 kill windows (PROMPT, EXEC, WRITE, VERIFY)",
             "timestamp": time.time(),
             "leaderboard": leaderboard,
             "receipts": receipts,
         }
+        return _attach_trace_signature(data)
 
 
 def main():
