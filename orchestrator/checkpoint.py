@@ -3,6 +3,7 @@
 import glob
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -111,8 +112,8 @@ def _prune_checkpoints(cp_dir: str, max_checkpoints: int) -> None:
     for f in remove:
         try:
             os.remove(f)
-        except OSError:
-            pass
+        except OSError as e:
+            print(f"[checkpoint] prune failed for {f}: {e}", file=sys.stderr)
 
 
 def list_checkpoints(run_dir: str) -> List[Dict[str, Any]]:
@@ -136,8 +137,9 @@ def list_checkpoints(run_dir: str) -> List[Dict[str, Any]]:
                     "total_contracts": data.get("total_contracts", 0),
                 }
             )
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[checkpoint] skipping corrupt {f}: {e}", file=sys.stderr)
+            continue
     return entries
 
 
@@ -179,8 +181,8 @@ def clear_checkpoints(run_dir: str) -> int:
     for f in files:
         try:
             os.remove(f)
-        except OSError:
-            pass
+        except OSError as e:
+            print(f"[checkpoint] clear failed for {f}: {e}", file=sys.stderr)
     return len(files)
 
 
@@ -224,11 +226,12 @@ def apply_checkpoint(
         if os.path.isfile(wal_file):
             try:
                 load_state(state_file, journal_dir=task_dir)
-            except Exception:
+            except Exception as e:
+                print(f"[checkpoint] quarantining corrupt WAL {wal_file}: {e}", file=sys.stderr)
                 try:
                     os.replace(wal_file, f"{wal_file}.corrupt-{int(time.time())}")
-                except OSError:
-                    pass
+                except OSError as qe:
+                    print(f"[checkpoint] quarantine failed for {wal_file}: {qe}", file=sys.stderr)
 
         if os.path.isfile(state_file):
             try:
