@@ -1,0 +1,30 @@
+{
+  "name": "letitloop-action",
+  "version": "2.0.0",
+  "description": "LetItLoop Proof-Carrying Verification Gate v2 — zero-runtime-dep TypeScript Action (DCP-2.0 / LILWAL02)",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "jest --runInBand --passWithNoTests",
+    "format": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\" 2>&1 | head -20; echo done",
+    "prepare": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": ["letitloop", "DCP-2.0", "LILWAL02", "github-action", "proof-carrying"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sdageltc/letitloop.git"
+  }
+}

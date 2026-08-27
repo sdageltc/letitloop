@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 import dataclasses
+import json
 from typing import Any, Dict, List, Literal
 
 
@@ -18,6 +20,17 @@ class SyntheticStep:
     def dict(self) -> Dict[str, Any]:
         return dataclasses.asdict(self)
 
+    def model_dump_json(self) -> str:
+        return json.dumps(dataclasses.asdict(self))
+
+    def model_copy(self, deep: bool = False) -> "SyntheticStep":
+        return copy.deepcopy(self) if deep else copy.copy(self)
+
+    @classmethod
+    def model_validate_json(cls, data: str) -> "SyntheticStep":
+        obj = json.loads(data)
+        return cls(**obj)
+
 
 @dataclasses.dataclass
 class SyntheticTaskSpec:
@@ -33,6 +46,19 @@ class SyntheticTaskSpec:
 
     def dict(self) -> Dict[str, Any]:
         return dataclasses.asdict(self)
+
+    def model_dump_json(self) -> str:
+        return json.dumps(dataclasses.asdict(self))
+
+    def model_copy(self, deep: bool = False) -> "SyntheticTaskSpec":
+        return copy.deepcopy(self) if deep else copy.copy(self)
+
+    @classmethod
+    def model_validate_json(cls, data: str) -> "SyntheticTaskSpec":
+        obj = json.loads(data)
+        if "steps" in obj and isinstance(obj["steps"], list):
+            obj["steps"] = [SyntheticStep(**s) if isinstance(s, dict) else s for s in obj["steps"]]
+        return cls(**obj)
 
 
 @dataclasses.dataclass
@@ -51,3 +77,14 @@ class DurabilityScore:
 
     def dict(self) -> Dict[str, Any]:
         return dataclasses.asdict(self)
+
+    def model_dump_json(self) -> str:
+        return json.dumps(dataclasses.asdict(self))
+
+    def model_copy(self, deep: bool = False) -> "DurabilityScore":
+        return copy.deepcopy(self) if deep else copy.copy(self)
+
+    @classmethod
+    def model_validate_json(cls, data: str) -> "DurabilityScore":
+        obj = json.loads(data)
+        return cls(**obj)

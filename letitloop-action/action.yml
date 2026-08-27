@@ -1,0 +1,50 @@
+name: 'LetItLoop Proof-Carrying Verification Gate v2'
+description: 'Fail-closed AST + WAL + HMAC durability certificate — DCP-2.0 / LILWAL02 gate in <2.5s with deterministic PR proof comments'
+author: 'sdageltc'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  token:
+    description: 'GitHub token for PR comments (least-privilege: pull-requests: write)'
+    required: false
+    default: '${{ github.token }}'
+  mode:
+    description: 'gate mode: gate (fail-closed) or report (never-fail, just comment)'
+    required: false
+    default: 'gate'
+  wal-dir:
+    description: 'WAL directory to verify (glob for *.jsonl WAL frames)'
+    required: false
+    default: '.bench_wal'
+  workspace:
+    description: 'Workspace root for AST scope checks'
+    required: false
+    default: '.'
+  proof-key:
+    description: 'Optional HMAC-SHA256 key for deterministic Proof ID (default: SHA256 of base/head)'
+    required: false
+    default: ''
+  fail-closed:
+    description: 'Fail closed on WAL/AST violations (true/false). Overrides mode=gate.'
+    required: false
+    default: 'true'
+  comment:
+    description: 'Post deterministic PR proof comment (true/false)'
+    required: false
+    default: 'true'
+
+outputs:
+  verified:
+    description: 'Whether all gates passed (true/false)'
+  proof-id:
+    description: 'Cryptographic Proof ID (HMAC-SHA256 or SHA256 of base+head)'
+  ast-verdict:
+    description: 'AST integrity verdict (PASS/FAIL + file counts)'
+  wal-verdict:
+    description: 'WAL chain verdict (PASS/FAIL + frame counts)'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
