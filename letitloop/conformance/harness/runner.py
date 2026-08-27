@@ -11,7 +11,9 @@ from typing import Any, Dict, List, Optional
 from letitloop.conformance.adapters.atomic_wal_adapter import AtomicWalAdapter
 from letitloop.conformance.adapters.base import FrameworkAdapter
 from letitloop.conformance.adapters.in_memory_adapter import InMemoryAdapter
+from letitloop.conformance.adapters.llamaindex_adapter import LlamaIndexAdapter
 from letitloop.conformance.adapters.snapshot_graph_adapter import SnapshotGraphAdapter
+from letitloop.conformance.adapters.swarm_adapter import SwarmAdapter
 from letitloop.conformance.adapters.unmanaged_script_adapter import UnmanagedScriptAdapter
 from letitloop.conformance.harness.schema import DurabilityScore, SyntheticStep, SyntheticTaskSpec
 
@@ -20,6 +22,8 @@ ADAPTERS: Dict[str, type] = {
     "snapshot_graph": SnapshotGraphAdapter,
     "in_memory_loop": InMemoryAdapter,
     "unmanaged_script": UnmanagedScriptAdapter,
+    "llamaindex": LlamaIndexAdapter,
+    "swarm": SwarmAdapter,
     # Backward compatibility aliases
     "letitloop": AtomicWalAdapter,
     "langgraph": SnapshotGraphAdapter,
@@ -30,6 +34,8 @@ ADAPTERS: Dict[str, type] = {
 
 ARCHETYPE_LABELS: Dict[str, str] = {
     "atomic_wal": "Atomic WAL Engine (LetItLoop / Temporal)",
+    "llamaindex": "LlamaIndex Workflow (Event-Driven DAG)",
+    "swarm": "OpenAI Swarm (Multi-Agent Handoff)",
     "snapshot_graph": "Periodic Snapshot Graph (LangGraph / Pregel)",
     "in_memory_loop": "In-Memory Event Loop (AutoGen / CrewAI)",
     "unmanaged_script": "Unmanaged Script Execution (Raw Python CLI)",
@@ -40,7 +46,7 @@ ARCHETYPE_LABELS: Dict[str, str] = {
     "raw_python": "Unmanaged Script Execution (Raw Python CLI)",
 }
 
-PRIMARY_ARCHETYPES = ["atomic_wal", "snapshot_graph", "in_memory_loop", "unmanaged_script"]
+PRIMARY_ARCHETYPES = ["atomic_wal", "snapshot_graph", "in_memory_loop", "unmanaged_script", "llamaindex", "swarm"]
 
 KILL_WINDOWS = {
     "PROMPT": "DCP-001-PRE_STEP",

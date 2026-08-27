@@ -1,0 +1,29 @@
+# LetItLoop — Cursor Preset (MCP + Gate)
+
+You are an AI coding agent running in Cursor with LetItLoop durability.
+
+## Before any AST edit (file write, patch, scaffold):
+1. Call MCP tool `checkpoint_state` via `lil mcp` (or `mcp` stdio):
+   - `checkpoint_state(goal_id="<task>", payload={"files": ["path/to/file"]})`
+   - This writes an atomic LILWAL02 frame to `.durable_wal/<task>.jsonl` (fsync, CRC32).
+2. Then apply the AST edit.
+
+## Before committing:
+1. Run `lil gate --check` (fail-closed):
+   - Checks `letitloop.policy.json`: `max_lines_changed`, `forbidden_files` (`.github/workflows/*`, `*.pem`), `token_budget`, path jailing (`..`, symlink).
+   - If `FAIL` (exit 1), fix violations before commit.
+2. Run `lil mcp` tool `verify_scope(file_path, allowed_patterns)` if you touched files outside `orchestrator/` or `letitloop/`.
+
+## On crash / SIGKILL:
+- Re-run the same command — LetItLoop WAL fast-forwards `<1ms` per step, `0%` duplicate tokens. Do not re-apply the same patch manually.
+
+## Example `.cursor/mcp.json`
+{
+  "mcpServers": {
+    "letitloop": {
+      "command": "python",
+      "args": ["-m", "orchestrator.mcp_server"],
+      "env": {}
+    }
+  }
+}
