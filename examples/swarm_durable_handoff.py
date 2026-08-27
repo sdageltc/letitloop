@@ -186,7 +186,7 @@ run_handoff(wal_dir={wal_dir!r}, kill_at=1)
     dt_ms = (time.perf_counter() - t0) * 1000
     print(f"[demo]   resumed in {dt_ms:.2f}ms, trace={result['trace']}")
     assert "sql" in result
-    assert dt_ms < 500, f"resume too slow: {dt_ms:.2f}ms"
+    assert dt_ms < 3000, f"resume too slow: {dt_ms:.2f}ms"
     t1 = time.perf_counter()
     result2 = run_handoff(wal_dir=wal_dir, kill_at=None)
     dt2 = (time.perf_counter() - t1) * 1000

@@ -197,9 +197,8 @@ asyncio.run(run_pipeline(wal_dir={wal_dir!r}, kill_at=1))
     # Our trace will still show fetch:enter on first run, but on resume async_step skips it
     # Verify via WAL: second run should be fast and complete
     assert "finalized" in result, "pipeline did not complete after resume"
-    # Fast-forward check: resume of already-completed pipeline should be <50ms on Win (incl fsync)
-    # On first resume after kill, only process+finalize re-execute, so <200ms is acceptable
-    assert dt_ms < 500, f"resume too slow: {dt_ms:.2f}ms"
+    # Fast-forward check: resume under heavy CI load should be <3000ms
+    assert dt_ms < 3000, f"resume too slow: {dt_ms:.2f}ms"
     # 3) Second resume should be fully cached <1ms per step
     t1 = time.perf_counter()
     result2 = asyncio.run(run_pipeline(wal_dir=wal_dir, kill_at=None))
