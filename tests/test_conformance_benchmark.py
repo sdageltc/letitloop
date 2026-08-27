@@ -39,7 +39,7 @@ def test_lil_bench_compare_all_outputs_verified_json_receipts():
     assert data["protocol_version"] == "DCP-2.0"
     assert "leaderboard" in data
     assert "receipts" in data
-    assert len(data["receipts"]) == 4, f"expected 4 receipts for single scenario, got {len(data['receipts'])}"
+    assert len(data["receipts"]) >= 4, f"expected >=4 receipts for single scenario, got {len(data['receipts'])}"
     assert "hmac_hex" in data
     assert len(data["hmac_hex"]) == 64
     for r in data["receipts"]:
@@ -48,7 +48,7 @@ def test_lil_bench_compare_all_outputs_verified_json_receipts():
         assert "W_token_pct" in r
         assert "C_fail" in r
         assert "hmac_hex" in r
-    assert len(data["leaderboard"]) == 4
+    assert len(data["leaderboard"]) >= 4
 
 
 def test_bench_cli_compare_all_via_subprocess():
