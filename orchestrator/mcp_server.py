@@ -397,18 +397,29 @@ else:
         if not allowed_patterns:
             return {"file_path": str(target), "allowed": True, "violations": []}
         rel = str(target.relative_to(WORKSPACE_ROOT))
-        allowed = any(
-            pat in rel or rel.startswith(pat.replace("/**", "").replace("/*", "")) for pat in allowed_patterns
-        )
+        import fnmatch
+
+        allowed = False
+        for pat in allowed_patterns:
+            if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(target.name, pat):
+                allowed = True
+                break
+            if pat.endswith("/**") and rel.startswith(pat[:-3]):
+                allowed = True
+                break
+            if pat == rel:
+                allowed = True
+                break
         violations = [] if allowed else [f"{rel} not in {allowed_patterns}"]
         return {"file_path": str(target), "allowed": allowed, "violations": violations}
 
     def emit_receipt(goal_id: str, wal_dir: str = ".durable_wal", requestId: str | None = None) -> dict[str, Any]:
         if requestId and requestId in _IDEMPOTENCY:
             return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        wal_path = _assert_jailed(wal_dir)
         out = {
             "goal_id": goal_id,
-            "receipt_path": f"{wal_dir}/{goal_id}/proof_{goal_id}.json",
+            "receipt_path": f"{wal_path}/{goal_id}/proof_{goal_id}.json",
             "verified": True,
             "note": "shim",
         }
@@ -420,6 +431,7 @@ else:
         return {"error": "mcp SDK not installed", "scenario": scenario}
 
     def wal_verify(wal_path: str = ".bench_wal") -> dict[str, Any]:
+        _assert_jailed(wal_path)
         return {"error": "mcp SDK not installed", "wal_path": wal_path}
 
 
