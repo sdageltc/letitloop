@@ -69,7 +69,17 @@ def _corrupt_bytes(data: bytes, flip_positions: list[int], flip_values: list[int
 
 
 # Pre-generate a valid WAL frame for in-memory fuzzing (avoid per-example file I/O)
-_VALID_FRAME = _wal_frame_encode({"seq": 1, "payload": "x", "task_id": "fuzz", "event_type": "TEST", "event_hash": "abc", "prev_hash": "", "timestamp": "2026-01-01T00:00:00+00:00"})
+_VALID_FRAME = _wal_frame_encode(
+    {
+        "seq": 1,
+        "payload": "x",
+        "task_id": "fuzz",
+        "event_type": "TEST",
+        "event_hash": "abc",
+        "prev_hash": "",
+        "timestamp": "2026-01-01T00:00:00+00:00",
+    }
+)
 _VALID_FRAME_BYTES = _VALID_FRAME.encode("utf-8")
 _VALID_JSON_LINE = json.dumps({"seq": 1, "task_id": "t", "event_type": "INIT", "payload": {"status": "DRAFTED"}})
 
@@ -141,7 +151,17 @@ def test_fuzz_wal_byte_flips(data, pos, flip_val, truncate):
                 f.write(corrupted + b"\n")
             try:
                 loaded = load_state(snap, journal_dir=td)
-                assert loaded.status in {"DRAFTED", "PREFLIGHT_RUNNING", "READY", "WORKING", "PREFLIGHT_FAILED", "BLOCKED", "VERIFYING", "VERIFIED", "COMPLETE"}
+                assert loaded.status in {
+                    "DRAFTED",
+                    "PREFLIGHT_RUNNING",
+                    "READY",
+                    "WORKING",
+                    "PREFLIGHT_FAILED",
+                    "BLOCKED",
+                    "VERIFYING",
+                    "VERIFIED",
+                    "COMPLETE",
+                }
                 assert _read_wal_raw(wal) is not None
             except (StateError, DurableSerializationError):
                 pass
@@ -192,7 +212,17 @@ def test_fuzz_invalid_utf8_payloads(binary_noise):
                 f.write(corrupted)
             try:
                 loaded = load_state(snap, journal_dir=td)
-                assert loaded.status in {"DRAFTED", "PREFLIGHT_RUNNING", "READY", "WORKING", "PREFLIGHT_FAILED", "BLOCKED", "VERIFYING", "VERIFIED", "COMPLETE"}
+                assert loaded.status in {
+                    "DRAFTED",
+                    "PREFLIGHT_RUNNING",
+                    "READY",
+                    "WORKING",
+                    "PREFLIGHT_FAILED",
+                    "BLOCKED",
+                    "VERIFYING",
+                    "VERIFIED",
+                    "COMPLETE",
+                }
             except (StateError, DurableSerializationError, UnicodeDecodeError) as e:
                 if isinstance(e, UnicodeDecodeError):
                     pytest.fail(f"Raw UnicodeDecodeError leaked: {e}")
@@ -210,11 +240,13 @@ _TORN_VALID_WAL = None
 _TORN_SNAP = None
 _TORN_TD = None
 
+
 def _get_torn_valid_wal(tmp_path_factory=None):
     global _TORN_VALID_WAL, _TORN_SNAP, _TORN_TD
     if _TORN_VALID_WAL is None:
         import pathlib as _pl
         import tempfile
+
         _TORN_TD = tempfile.mkdtemp()
         st_obj = create_initial_state("fuzz_torn", journal_dir=_TORN_TD)
         st_obj.transition("PREFLIGHT_RUNNING", reason="fuzz")
@@ -226,12 +258,19 @@ def _get_torn_valid_wal(tmp_path_factory=None):
         _TORN_SNAP = snap
     return _TORN_VALID_WAL, _TORN_SNAP, _TORN_TD
 
+
 @given(
     valid_payload_extra=st.text(min_size=0, max_size=20, alphabet=st.characters(blacklist_categories=("Cs",))),
     trunc_ratio=st.floats(min_value=0.1, max_value=0.9, allow_nan=False, allow_infinity=False),
     append_garbage=st.binary(min_size=0, max_size=20),
 )
-@settings(max_examples=int(os.environ.get("HYPOTHESIS_MAX_EXAMPLES", "1000")), deadline=None, derandomize=False, print_blob=False, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=int(os.environ.get("HYPOTHESIS_MAX_EXAMPLES", "1000")),
+    deadline=None,
+    derandomize=False,
+    print_blob=False,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 def test_fuzz_torn_tail_recovery(tmp_path, valid_payload_extra, trunc_ratio, append_garbage):
     """Simulates power-loss midway through writing a CRC frame (fast, 1000 examples).
 
@@ -259,6 +298,7 @@ def test_fuzz_torn_tail_recovery(tmp_path, valid_payload_extra, trunc_ratio, app
     # Full file I/O for 10% (every 10th)
     import pathlib as _pl
     import tempfile
+
     valid_wal, snap, valid_td = _get_torn_valid_wal()
     with tempfile.TemporaryDirectory(dir=str(tmp_path)) as sub:
         td = sub
@@ -289,7 +329,13 @@ def test_fuzz_torn_tail_recovery(tmp_path, valid_payload_extra, trunc_ratio, app
     stale_hostname=st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("Lu", "Ll"))),
     lock_age_sec=st.integers(min_value=0, max_value=1000),
 )
-@settings(max_examples=int(os.environ.get("HYPOTHESIS_LOCK_MAX_EXAMPLES", "100")), deadline=None, derandomize=False, print_blob=False, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=int(os.environ.get("HYPOTHESIS_LOCK_MAX_EXAMPLES", "100")),
+    deadline=None,
+    derandomize=False,
+    print_blob=False,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 def test_fuzz_concurrent_lock_stealing(tmp_path, stale_pid, stale_hostname, lock_age_sec):
     """Simulates rapid multi-process lock contention with killed holder PIDs (fast).
 
