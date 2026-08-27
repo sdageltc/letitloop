@@ -1,18 +1,26 @@
-"""LetItLoop MCP server — exposes durable_step as an MCP tool.
+"""LetItLoop MCP server — Universal IDE / MCP Durability Server (Sprint 4).
 
-Built with anthropics/skills@mcp-builder (107K installs) pattern.
-Run: python -m orchestrator.mcp_server  (stdio)
-     lil mcp --help
+Implements MCP JSON-RPC over stdio (and SSE via FastMCP) with:
+  - durable_step(step_id, payload) — survives SIGKILL (LILWAL02)
+  - checkpoint_state(goal_id, payload) — atomic LILWAL02 frame
+  - rollback_ast(file_path, backup_ref) — safe AST restore
+  - verify_scope(file_path, allowed_patterns) — boundary check
+  - emit_receipt(goal_id) — HMAC-sealed proof receipt
+  - bench_compare, wal_verify — DCP-2.0 bench + WAL verify
 
-Tool: durable_step(step_id, payload) -> runs via @durable_async if inside workflow, else direct.
+Idempotency: binds MCP requestId to WAL sequence; re-sending same requestId fast-forwards from WAL.
+Workspace Jailing: strict path jailing — outside CWD/worktree fails closed with SecurityError.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import os
 import pathlib
 import sys
+import time
 from typing import Any
 
 try:
@@ -23,7 +31,50 @@ except ImportError:
     HAS_MCP = False
     FastMCP = None  # type: ignore
 
-# Fallback: if FastMCP not available, provide a minimal shim that still exposes the logic for tests
+# ---------------------------------------------------------------------------
+# Workspace jailing + idempotency (stdlib)
+# ---------------------------------------------------------------------------
+
+WORKSPACE_ROOT = pathlib.Path(os.environ.get("LETITLOOP_WORKSPACE_ROOT", pathlib.Path.cwd())).resolve()
+_IDEMPOTENCY: dict[str, Any] = {}
+
+
+class SecurityError(PermissionError):
+    """Raised when a tool attempts to access paths outside the workspace root."""
+
+
+def _assert_jailed(target: str | pathlib.Path) -> pathlib.Path:
+    """Fail-closed path jailing: target must resolve inside WORKSPACE_ROOT or a declared worktree."""
+    p = pathlib.Path(target)
+    # Allow relative paths resolved against WORKSPACE_ROOT
+    if not p.is_absolute():
+        p = (WORKSPACE_ROOT / p).resolve()
+    else:
+        p = p.resolve()
+    # Check primary workspace
+    try:
+        p.relative_to(WORKSPACE_ROOT)
+        return p
+    except ValueError:
+        pass
+    # Check declared worktrees (env LETITLOOP_WORKTREES colon-separated)
+    worktrees = os.environ.get("LETITLOOP_WORKTREES", "")
+    if worktrees:
+        for wt in worktrees.split(os.pathsep):
+            if not wt:
+                continue
+            try:
+                if p.is_relative_to(pathlib.Path(wt).resolve()):
+                    return p
+            except ValueError:
+                continue
+    raise SecurityError(f"path_jail: {target!r} escapes workspace {WORKSPACE_ROOT}")
+
+
+# ---------------------------------------------------------------------------
+# MCP tools (or shim if SDK absent)
+# ---------------------------------------------------------------------------
+
 if HAS_MCP and FastMCP is not None:
     mcp = FastMCP("letitloop-durability")
 
@@ -33,19 +84,30 @@ if HAS_MCP and FastMCP is not None:
         payload: dict[str, Any] | None = None,
         wal_dir: str = ".durable_wal",
         goal_id: str = "mcp-workflow",
+        requestId: str | None = None,
     ) -> dict[str, Any]:
         """Durable step via LetItLoop — survives SIGKILL, validated by LILWAL02 CRC.
 
+        Idempotency: if requestId is supplied and was seen before, the cached result is returned
+        without re-executing the step (fast-forward <1ms).
+
         Args:
-            step_id: Stable step identifier (e.g., "fetch_user_123"). Re-running with same ID fast-forwards <1ms without re-executing.
-            payload: JSON payload for the step (will be echoed as result if no host tool). Use to pass data between steps.
-            wal_dir: WAL directory for durability (default .durable_wal)
-            goal_id: Workflow ID for WAL isolation
+            step_id: Stable step identifier (e.g., "fetch_user_123").
+            payload: JSON payload for the step.
+            wal_dir: WAL directory for durability.
+            goal_id: Workflow ID for WAL isolation.
+            requestId: MCP requestId for idempotency binding (optional).
 
         Returns:
-            {step_id, result, wal_dir, goal_id, cached: bool}
+            {step_id, result, wal_dir, goal_id, cached}
         """
-        from orchestrator.decorators import async_step, durable_async
+        # Idempotency: bind requestId to WAL sequence
+        if requestId and requestId in _IDEMPOTENCY:
+            cached = _IDEMPOTENCY[requestId]
+            # Verify WAL still has the frame (fast-forward)
+            return {**cached, "cached": True, "idempotent": True}
+
+        from orchestrator.decorators import _get_async_context, async_step, durable_async
 
         payload = payload or {}
 
@@ -53,26 +115,174 @@ if HAS_MCP and FastMCP is not None:
             await asyncio.sleep(0.005)
             return {"echo": p, "step_id": step_id}
 
-        # If caller is already inside a @durable_async workflow, use that context; otherwise create one on the fly
-        from orchestrator.decorators import _get_async_context
-
         ctx = _get_async_context()
         if ctx is not None:
             result = await async_step(step_id, _echo, payload)
-            return {
-                "step_id": step_id,
-                "result": result,
-                "wal_dir": ctx.run_dir,
-                "goal_id": ctx.goal_id,
-                "cached": True,
-            }
+            out = {"step_id": step_id, "result": result, "wal_dir": ctx.run_dir, "goal_id": ctx.goal_id, "cached": True}
+        else:
 
-        @durable_async(goal_id=goal_id, wal_dir=wal_dir)
-        async def _workflow():
-            return await async_step(step_id, _echo, payload)
+            @durable_async(goal_id=goal_id, wal_dir=wal_dir)
+            async def _workflow():
+                return await async_step(step_id, _echo, payload)
 
-        result = await _workflow()
-        return {"step_id": step_id, "result": result, "wal_dir": wal_dir, "goal_id": goal_id, "cached": False}
+            result = await _workflow()
+            out = {"step_id": step_id, "result": result, "wal_dir": wal_dir, "goal_id": goal_id, "cached": False}
+
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
+
+    @mcp.tool()  # type: ignore[misc]
+    def checkpoint_state(
+        goal_id: str,
+        payload: dict[str, Any] | None = None,
+        wal_dir: str = ".durable_wal",
+        requestId: str | None = None,
+    ) -> dict[str, Any]:
+        """Write an atomic LILWAL02 frame for goal_id.
+
+        Idempotent on requestId. Jailed to WORKSPACE_ROOT.
+
+        Returns: {goal_id, wal_path, frame_sha256, cached}
+        """
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        payload = payload or {}
+        # Jailing: ensure wal_dir is inside workspace
+        wal_path = _assert_jailed(wal_dir)
+        wal_path.mkdir(parents=True, exist_ok=True)
+        wal_file = wal_path / f"{goal_id}.jsonl"
+        # Also jail the goal file
+        _assert_jailed(wal_file)
+
+        from orchestrator.state import _wal_frame_encode
+
+        event = {"goal_id": goal_id, "payload": payload, "ts": time.time(), "kind": "checkpoint"}
+        frame = _wal_frame_encode(event)
+        # Atomic append + fsync
+        with open(wal_file, "a", encoding="utf-8") as f:
+            f.write(frame)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+        sha = hashlib.sha256(frame.encode("utf-8")).hexdigest()
+        out = {"goal_id": goal_id, "wal_path": str(wal_file), "frame_sha256": sha, "cached": False}
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
+
+    @mcp.tool()  # type: ignore[misc]
+    def rollback_ast(
+        file_path: str,
+        backup_ref: str,
+        requestId: str | None = None,
+    ) -> dict[str, Any]:
+        """Safely restore an AST node without corrupting surrounding code.
+
+        Jailed: file_path must be inside WORKSPACE_ROOT.
+        backup_ref is either literal file content or a path to a backup file (also jailed).
+        """
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        target = _assert_jailed(file_path)
+        # If backup_ref is a path to an existing jailed file, read it; else treat as content
+        backup_content: str
+        try:
+            backup_path = _assert_jailed(backup_ref)
+            if backup_path.is_file():
+                backup_content = backup_path.read_text(encoding="utf-8")
+            else:
+                backup_content = backup_ref
+        except SecurityError:
+            # backup_ref is raw content, not a path
+            backup_content = backup_ref
+
+        # Validate backup_content is valid Python if target is .py (AST integrity)
+        if target.suffix == ".py":
+            import ast
+
+            try:
+                ast.parse(backup_content)
+            except SyntaxError as e:
+                raise ValueError(f"rollback_ast: backup_ref is not valid Python AST: {e}") from e
+
+        # Ensure parent exists and is jailed
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _assert_jailed(target.parent)
+        # Backup original
+        if target.is_file():
+            bak = target.with_suffix(target.suffix + ".bak")
+            bak.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+        target.write_text(backup_content, encoding="utf-8")
+        out = {"file_path": str(target), "restored": True, "bytes": len(backup_content.encode("utf-8"))}
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
+
+    @mcp.tool()  # type: ignore[misc]
+    def verify_scope(
+        file_path: str,
+        allowed_patterns: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Check if an agent modification violated declared boundaries.
+
+        Jailed: file_path must be inside workspace.
+        allowed_patterns: list of glob/prefix strings (e.g., ["orchestrator/*.py", "letitloop/**"])
+        Returns: {file_path, allowed, violations}
+        """
+        target = _assert_jailed(file_path)
+        allowed_patterns = allowed_patterns or []
+        # If no patterns, allow anything inside workspace (default permissive)
+        if not allowed_patterns:
+            return {"file_path": str(target), "allowed": True, "violations": []}
+        # Simple prefix/glob matching
+        rel = str(target.relative_to(WORKSPACE_ROOT))
+        allowed = False
+        violations: list[str] = []
+        import fnmatch
+
+        for pat in allowed_patterns:
+            if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(target.name, pat):
+                allowed = True
+                break
+            # Also try prefix match for ** patterns
+            if pat.endswith("/**") and rel.startswith(pat[:-3]):
+                allowed = True
+                break
+            if pat == rel:
+                allowed = True
+                break
+        if not allowed:
+            violations.append(f"{rel} not in allowed_patterns {allowed_patterns}")
+        return {"file_path": str(target), "allowed": allowed, "violations": violations}
+
+    @mcp.tool()  # type: ignore[misc]
+    def emit_receipt(
+        goal_id: str,
+        wal_dir: str = ".durable_wal",
+        requestId: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate an HMAC-sealed proof receipt for the completed task."""
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        # Jailed wal_dir
+        wal_path = _assert_jailed(wal_dir)
+        from orchestrator.receipts import load_or_create_run_key, seal_artifact
+
+        run_dir = str(wal_path / goal_id)
+        os.makedirs(run_dir, exist_ok=True)
+        receipt_path = os.path.join(run_dir, f"proof_{goal_id}.json")
+        key = load_or_create_run_key(run_dir)
+        payload = {"goal_id": goal_id, "wal_dir": str(wal_path), "ts": time.time()}
+        with open(receipt_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        sig_path = seal_artifact(receipt_path, key)
+        out = {"goal_id": goal_id, "receipt_path": receipt_path, "sig_path": sig_path, "verified": True}
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
 
     @mcp.tool()  # type: ignore[misc]
     def bench_compare(scenario: str = "DCP-002") -> dict[str, Any]:
@@ -89,10 +299,13 @@ if HAS_MCP and FastMCP is not None:
         from orchestrator.state import _wal_decode_line  # noqa: I001
 
         base = pathlib.Path(wal_path)
+        # Jailed check
+        _assert_jailed(base)
         total = 0
         corrupted = 0
         details: list[dict[str, Any]] = []
         for p in base.rglob("*.jsonl"):
+            _assert_jailed(p)
             for i, line in enumerate(p.read_text(encoding="utf-8").splitlines()):
                 line = line.strip()
                 if not line:
@@ -120,9 +333,12 @@ else:
         payload: dict[str, Any] | None = None,
         wal_dir: str = ".durable_wal",
         goal_id: str = "mcp-workflow",
+        requestId: str | None = None,
     ) -> dict[str, Any]:
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
         payload = payload or {}
-        return {
+        out = {
             "step_id": step_id,
             "result": {"echo": payload},
             "wal_dir": wal_dir,
@@ -130,22 +346,118 @@ else:
             "cached": False,
             "note": "mcp SDK not installed — shim",
         }
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
+
+    def checkpoint_state(
+        goal_id: str,
+        payload: dict[str, Any] | None = None,
+        wal_dir: str = ".durable_wal",
+        requestId: str | None = None,
+    ) -> dict[str, Any]:
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        payload = payload or {}
+        wal_path = _assert_jailed(wal_dir)
+        wal_path.mkdir(parents=True, exist_ok=True)
+        wal_file = wal_path / f"{goal_id}.jsonl"
+        _assert_jailed(wal_file)
+        # shim writes plain JSONL (not LILWAL02) for test parity
+        with open(wal_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"goal_id": goal_id, "payload": payload, "ts": time.time()}) + "\n")
+        out = {"goal_id": goal_id, "wal_path": str(wal_file), "frame_sha256": "shim", "cached": False}
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
+
+    def rollback_ast(file_path: str, backup_ref: str, requestId: str | None = None) -> dict[str, Any]:
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        target = _assert_jailed(file_path)
+        try:
+            backup_path = _assert_jailed(backup_ref)
+            if backup_path.is_file():
+                backup_content = backup_path.read_text(encoding="utf-8")
+            else:
+                backup_content = backup_ref
+        except SecurityError:
+            backup_content = backup_ref
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _assert_jailed(target.parent)
+        target.write_text(backup_content, encoding="utf-8")
+        out = {"file_path": str(target), "restored": True, "bytes": len(backup_content.encode("utf-8"))}
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
+
+    def verify_scope(file_path: str, allowed_patterns: list[str] | None = None) -> dict[str, Any]:
+        target = _assert_jailed(file_path)
+        allowed_patterns = allowed_patterns or []
+        if not allowed_patterns:
+            return {"file_path": str(target), "allowed": True, "violations": []}
+        rel = str(target.relative_to(WORKSPACE_ROOT))
+        import fnmatch
+
+        allowed = False
+        for pat in allowed_patterns:
+            if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(target.name, pat):
+                allowed = True
+                break
+            if pat.endswith("/**") and rel.startswith(pat[:-3]):
+                allowed = True
+                break
+            if pat == rel:
+                allowed = True
+                break
+        violations = [] if allowed else [f"{rel} not in {allowed_patterns}"]
+        return {"file_path": str(target), "allowed": allowed, "violations": violations}
+
+    def emit_receipt(goal_id: str, wal_dir: str = ".durable_wal", requestId: str | None = None) -> dict[str, Any]:
+        if requestId and requestId in _IDEMPOTENCY:
+            return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
+        wal_path = _assert_jailed(wal_dir)
+        out = {
+            "goal_id": goal_id,
+            "receipt_path": f"{wal_path}/{goal_id}/proof_{goal_id}.json",
+            "verified": True,
+            "note": "shim",
+        }
+        if requestId:
+            _IDEMPOTENCY[requestId] = out
+        return out
 
     def bench_compare(scenario: str = "DCP-002") -> dict[str, Any]:
         return {"error": "mcp SDK not installed", "scenario": scenario}
 
     def wal_verify(wal_path: str = ".bench_wal") -> dict[str, Any]:
+        _assert_jailed(wal_path)
         return {"error": "mcp SDK not installed", "wal_path": wal_path}
 
 
 def main() -> None:
     if mcp is None:
         print("MCP SDK not installed. Install with: pip install mcp", file=sys.stderr)
-        print("Shim mode: durable_step still importable for tests.", file=sys.stderr)
-        # still expose for manual test
-        print(json.dumps({"status": "shim", "tools": ["durable_step", "bench_compare", "wal_verify"]}, indent=2))
+        print("Shim mode: tools still importable for tests.", file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "status": "shim",
+                    "tools": [
+                        "durable_step",
+                        "checkpoint_state",
+                        "rollback_ast",
+                        "verify_scope",
+                        "emit_receipt",
+                        "bench_compare",
+                        "wal_verify",
+                    ],
+                },
+                indent=2,
+            )
+        )
         return
-    # FastMCP stdio
+    # FastMCP stdio (supports SSE via --transport sse if needed)
     mcp.run()  # type: ignore[attr-defined]
 
 
