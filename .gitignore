@@ -6,6 +6,8 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+!letitloop-action/dist/
+!letitloop-action/dist/**
 downloads/
 eggs/
 .eggs/
@@ -40,3 +42,6 @@ scratch/
 .bench_wal/
 results/
 docs/plans/.tmp/
+node_modules/
+!letitloop-action/package-lock.json
+!letitloop-action/package.json
