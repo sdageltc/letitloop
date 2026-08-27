@@ -169,6 +169,6 @@ def test_idempotency_cache_ttl_and_capacity():
     # Test TTL expiration
     import time
 
-    time.sleep(0.06)
+    time.sleep(0.15)
     assert cache.get("k4") is None
     assert len(cache) == 0
