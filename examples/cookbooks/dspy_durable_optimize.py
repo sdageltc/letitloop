@@ -225,74 +225,44 @@ def _build_dspy_module():
         return None
 
 
-@durable_async(goal_id=GOAL_ID, wal_dir=WAL_DIR_DEFAULT)
 async def run_dspy_optimizer(
     dataset_name: str = "gsm8k_mini",
     wal_dir: str = WAL_DIR_DEFAULT,
     kill_at: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Execute 5-step async DSPy prompt optimization with durable WAL checkpoints."""
-    if wal_dir != WAL_DIR_DEFAULT:
 
-        @durable_async(goal_id=GOAL_ID, wal_dir=wal_dir)
-        async def _inner():
-            ds = await async_step("load_dataset", _load_dataset, dataset_name)
-            if kill_at == 0:
-                os._exit(137)
+    @durable_async(goal_id=GOAL_ID, wal_dir=wal_dir)
+    async def _execute():
+        ds = await async_step("load_dataset", _load_dataset, dataset_name)
+        if kill_at == 0:
+            os._exit(137)
 
-            base = await async_step("evaluate_baseline", _evaluate_baseline, ds)
-            if kill_at == 1:
-                os._exit(137)
+        base = await async_step("evaluate_baseline", _evaluate_baseline, ds)
+        if kill_at == 1:
+            os._exit(137)
 
-            boot = await async_step("bootstrap_few_shot_traces", _bootstrap_few_shot_traces, ds, base)
-            if kill_at == 2:
-                os._exit(137)
+        boot = await async_step("bootstrap_few_shot_traces", _bootstrap_few_shot_traces, ds, base)
+        if kill_at == 2:
+            os._exit(137)
 
-            cand = await async_step("score_candidate_signatures", _score_candidate_signatures, ds, boot)
-            if kill_at == 3:
-                os._exit(137)
+        cand = await async_step("score_candidate_signatures", _score_candidate_signatures, ds, boot)
+        if kill_at == 3:
+            os._exit(137)
 
-            prog = await async_step("compile_dspy_program", _compile_dspy_program, cand, base)
-            if kill_at == 4:
-                os._exit(137)
+        prog = await async_step("compile_dspy_program", _compile_dspy_program, cand, base)
+        if kill_at == 4:
+            os._exit(137)
 
-            return {
-                "dataset": ds,
-                "baseline": base,
-                "bootstrapped": boot,
-                "candidate_scores": cand,
-                "compiled_program": prog,
-            }
+        return {
+            "dataset": ds,
+            "baseline": base,
+            "bootstrapped": boot,
+            "candidates": cand,
+            "compiled_program": prog,
+        }
 
-        return await _inner()
-
-    ds = await async_step("load_dataset", _load_dataset, dataset_name)
-    if kill_at == 0:
-        os._exit(137)
-
-    base = await async_step("evaluate_baseline", _evaluate_baseline, ds)
-    if kill_at == 1:
-        os._exit(137)
-
-    boot = await async_step("bootstrap_few_shot_traces", _bootstrap_few_shot_traces, ds, base)
-    if kill_at == 2:
-        os._exit(137)
-
-    cand = await async_step("score_candidate_signatures", _score_candidate_signatures, ds, boot)
-    if kill_at == 3:
-        os._exit(137)
-
-    prog = await async_step("compile_dspy_program", _compile_dspy_program, cand, base)
-    if kill_at == 4:
-        os._exit(137)
-
-    return {
-        "dataset": ds,
-        "baseline": base,
-        "bootstrapped": boot,
-        "candidate_scores": cand,
-        "compiled_program": prog,
-    }
+    return await _execute()
 
 
 def demo_sigkill_recovery(wal_dir: str = WAL_DIR_DEFAULT, dataset_name: str = "gsm8k_mini") -> Dict[str, Any]:

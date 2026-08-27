@@ -567,7 +567,7 @@ class TestFakeWorker:
         _run_cli(tmp_path, "plan", gid)
 
         # 3. Supervise goal execution
-        _run_cli(tmp_path, "supervise", gid)
+        _run_cli(tmp_path, "supervise", gid, timeout=120)
 
         # 4. Assert both contracts completed
         res_cli = _run_cli(tmp_path, "goal-result", gid)

@@ -223,66 +223,40 @@ def _build_langgraph_pipeline():
         return None
 
 
-@durable(goal_id=GOAL_ID, wal_dir=WAL_DIR_DEFAULT)
 def run_financial_analyst(
     ticker: str = "AAPL",
     wal_dir: str = WAL_DIR_DEFAULT,
     kill_at: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Execute 4-step financial analyst graph with durable WAL checkpoints."""
-    if wal_dir != WAL_DIR_DEFAULT:
 
-        @durable(goal_id=GOAL_ID, wal_dir=wal_dir)
-        def _inner_run(t: str) -> Dict[str, Any]:
-            m_data = step("fetch_market_data", _fetch_market_data, t)
-            if kill_at == 0:
-                os._exit(137)
+    @durable(goal_id=GOAL_ID, wal_dir=wal_dir)
+    def _execute():
+        m_data = step("fetch_market_data", _fetch_market_data, ticker)
+        if kill_at == 0:
+            os._exit(137)
 
-            signals = step("calculate_technical_signals", _calculate_technical_signals, m_data)
-            if kill_at == 1:
-                os._exit(137)
+        signals = step("calculate_technical_signals", _calculate_technical_signals, m_data)
+        if kill_at == 1:
+            os._exit(137)
 
-            thesis = step("synthesize_analyst_thesis", _synthesize_analyst_thesis, signals)
-            if kill_at == 2:
-                os._exit(137)
+        thesis = step("synthesize_analyst_thesis", _synthesize_analyst_thesis, signals)
+        if kill_at == 2:
+            os._exit(137)
 
-            report = step("generate_final_report", _generate_final_report, thesis, signals)
-            if kill_at == 3:
-                os._exit(137)
+        report = step("generate_final_report", _generate_final_report, thesis, signals)
+        if kill_at == 3:
+            os._exit(137)
 
-            return {
-                "ticker": t,
-                "market_data": m_data,
-                "signals": signals,
-                "thesis": thesis,
-                "report": report,
-            }
+        return {
+            "ticker": ticker,
+            "market_data": m_data,
+            "signals": signals,
+            "thesis": thesis,
+            "report": report,
+        }
 
-        return _inner_run(ticker)
-
-    m_data = step("fetch_market_data", _fetch_market_data, ticker)
-    if kill_at == 0:
-        os._exit(137)
-
-    signals = step("calculate_technical_signals", _calculate_technical_signals, m_data)
-    if kill_at == 1:
-        os._exit(137)
-
-    thesis = step("synthesize_analyst_thesis", _synthesize_analyst_thesis, signals)
-    if kill_at == 2:
-        os._exit(137)
-
-    report = step("generate_final_report", _generate_final_report, thesis, signals)
-    if kill_at == 3:
-        os._exit(137)
-
-    return {
-        "ticker": ticker,
-        "market_data": m_data,
-        "signals": signals,
-        "thesis": thesis,
-        "report": report,
-    }
+    return _execute()
 
 
 def demo_sigkill_recovery(wal_dir: str = WAL_DIR_DEFAULT, ticker: str = "NVDA") -> Dict[str, Any]:
