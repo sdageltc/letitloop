@@ -176,6 +176,17 @@ asyncio.run(run_pipeline(wal_dir={wal_dir!r}, kill_at=1))
             proc.kill()
     print(f"[demo]   killed pid={proc.pid} exit={proc.returncode}")
 
+    # Wait for OS to reap the killed PID (eliminates Windows handle release race)
+    for _ in range(20):
+        try:
+            import psutil
+
+            if not psutil.pid_exists(proc.pid):
+                break
+        except Exception:
+            break
+        time.sleep(0.05)
+
     # 2) Resume in current process — fetch must fast-forward (<1ms)
     print("[demo] 2) Resuming pipeline in current process...")
     t0 = time.perf_counter()
