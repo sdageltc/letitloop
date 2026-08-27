@@ -33,13 +33,50 @@ class FileLock:
     On Windows there is no flock(); the atomic-create + stale-PID check is the
     pragmatic portable approach. Raises LockHeldError if not acquired within
     `timeout_sec`.
+
+    With `stale_steal=True` (default), a lock file whose holder is dead on this
+    host — or whose heartbeat/`created_at` is older than `STALE_TIMEOUT_SEC` —
+    is transparently auto-stolen rather than waiting the full `timeout_sec`.
+    This mirrors `acquire_lock()`'s lock-v2 stale-steal and prevents a 120s
+    merge-admission deadlock when a crash leaves a stale `.merge_admission.lock`.
     """
 
-    def __init__(self, path: str, timeout_sec: float = 30.0, poll_sec: float = 0.1):
+    def __init__(self, path: str, timeout_sec: float = 30.0, poll_sec: float = 0.1, stale_steal: bool = True):
         self.path = path
         self.timeout_sec = timeout_sec
         self.poll_sec = poll_sec
+        self.stale_steal = stale_steal
         self._acquired = False
+
+    def _lock_file_is_stale(self) -> bool:
+        """Return True if the lock file at self.path is stale (holder dead or aged)."""
+        try:
+            with open(self.path, "r", encoding="utf-8") as f:
+                lock = json.load(f)
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            # Unparseable lock file is not provably stale — do not steal.
+            return False
+        if not isinstance(lock, dict):
+            return False
+
+        lock_pid = lock.get("pid")
+        lock_host = lock.get("hostname")
+        if lock_host == socket.gethostname() and isinstance(lock_pid, int) and lock_pid > 0:
+            expected_token = lock.get("process_start_token")
+            if expected_token is not None and not _pid_alive(lock_pid, expected_token):
+                return True
+            if expected_token is None and not _pid_alive(lock_pid):
+                return True
+
+        reference = lock.get("heartbeat") or lock.get("created_at")
+        if not isinstance(reference, str) or not reference:
+            return True
+        try:
+            ref_dt = datetime.fromisoformat(reference)
+            age = (datetime.now(timezone.utc) - ref_dt).total_seconds()
+            return age > STALE_TIMEOUT_SEC
+        except (ValueError, TypeError):
+            return True
 
     def acquire(self) -> None:
         deadline = time.monotonic() + self.timeout_sec
@@ -58,6 +95,17 @@ class FileLock:
                 self._acquired = True
                 return
             except FileExistsError:
+                if self.stale_steal and self._lock_file_is_stale():
+                    # Lock-v2 semantics: transparently auto-steal dead/stale locks
+                    # instead of waiting out the full timeout.
+                    try:
+                        os.remove(self.path)
+                    except OSError:
+                        pass
+                    # Re-run the race-check loop: if another process already
+                    # re-created the lock, we loop again and either steal (if
+                    # stale) or keep waiting.
+                    continue
                 if time.monotonic() >= deadline:
                     raise LockHeldError(f"File lock not acquired within {self.timeout_sec}s: {self.path}")
                 time.sleep(self.poll_sec)

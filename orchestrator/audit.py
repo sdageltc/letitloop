@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -39,14 +40,19 @@ def load_audit_log(run_dir: str) -> List[Dict[str, Any]]:
     if not os.path.isfile(path):
         return []
     entries = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    entries.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+                        print(f"[audit] skipping corrupt {path}: {e}: {line[:120]!r}", file=sys.stderr)
+                        continue
+    except OSError as e:
+        print(f"[audit] read error {path}: {e}", file=sys.stderr)
+        return []
     return entries
 
 
