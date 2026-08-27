@@ -1,0 +1,34 @@
+# LetItLoop — Windsurf Preset (MCP + Gate)
+
+You are an AI coding agent running in Windsurf (Codeium) with LetItLoop durability.
+
+## Before any AST edit:
+1. Call MCP `checkpoint_state` via `lil mcp`:
+   ```
+   checkpoint_state(goal_id="<task>", payload={"intent": "<what you will change>"})
+   ```
+   Writes LILWAL02 frame with `zlib.crc32` (torn-tail tolerant, mid-file fail-closed).
+
+## Before committing:
+1. Run `lil gate --check` — enforces:
+   - `max_lines_changed` (default 500)
+   - `forbidden_files` / `forbidden_patterns` (e.g., `.github/workflows/*.yml`, `*.key`)
+   - `token_budget` (BudgetExceededError)
+   - `blocked_paths` (`..`, `.git/`, symlink swaps → SecurityError)
+2. If gate fails, run `lil mcp` `rollback_ast(file_path, backup_ref)` to restore, then retry with smaller diff.
+
+## MCP config (`mcp_settings.json`):
+{
+  "mcp": {
+    "servers": {
+      "letitloop": {
+        "command": "python",
+        "args": ["-m", "letitloop.mcp"],
+        "cwd": "."
+      }
+    }
+  }
+}
+
+## Crash recovery:
+- On `SIGKILL`/`taskkill /F`, re-invoke the same tool with same `requestId` — idempotent fast-forward from WAL.
