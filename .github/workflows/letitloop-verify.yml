@@ -29,9 +29,9 @@ jobs:
         with:
           persist-credentials: false
 
-      # actions/setup-python v5.3.0 — pin: a26af69ea43a64d8f4c2d33e0242004b16d7ea04
+      # actions/setup-python v5
       - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69ea43a64d8f4c2d33e0242004b16d7ea04 # v5.3.0
+        uses: actions/setup-python@v5 # v5.3.0
         with:
           python-version: "3.11"
           cache: "pip"
