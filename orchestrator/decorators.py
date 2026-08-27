@@ -86,7 +86,8 @@ class DurableContext:
     def initialize(self) -> None:
         os.makedirs(self.run_dir, exist_ok=True)
         acquire_lock(self.goal_id, self.run_dir, force=False)
-        if os.path.isfile(self.state_file):
+        wal_file = os.path.join(self.run_dir, "state.wal.jsonl")
+        if os.path.isfile(self.state_file) or os.path.isfile(wal_file):
             self.state = load_state(self.state_file, journal_dir=self.run_dir)
             for k, v in self.state.data.items():
                 if k.startswith("step_output_"):
@@ -127,7 +128,8 @@ class DurableAsyncContext:
     def initialize(self) -> None:
         os.makedirs(self.run_dir, exist_ok=True)
         acquire_lock(self.goal_id, self.run_dir, force=False)
-        if os.path.isfile(self.state_file):
+        wal_file = os.path.join(self.run_dir, "state.wal.jsonl")
+        if os.path.isfile(self.state_file) or os.path.isfile(wal_file):
             self.state = load_state(self.state_file, journal_dir=self.run_dir)
             for k, v in self.state.data.items():
                 if k.startswith("step_output_"):
