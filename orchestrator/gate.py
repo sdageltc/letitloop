@@ -168,12 +168,6 @@ def evaluate_policy(
         violations.extend(check_ast_limits(diff_text, policy))
         # Scrub secrets in diff before persisting (side-effect: return scrubbed)
         scrubbed = scrub_text(diff_text)
-        # If scrubbing changed the diff, it indicates a secret was present
-        # We mask but do not fail on scrub alone — failure is for forbidden files etc.
-        # However, we should note if secret was masked for audit
-        if scrubbed != diff_text:
-            # Not a violation, just audit — but we can add info
-            pass
     else:
         scrubbed = None
 

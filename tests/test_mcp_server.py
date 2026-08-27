@@ -131,3 +131,44 @@ def test_mcp_idempotency_reconnect(tmp_path, monkeypatch):
     monkeypatch.delenv("LETITLOOP_WORKSPACE_ROOT", raising=False)
     importlib.reload(mcp_mod)
     mcp_mod._IDEMPOTENCY.clear()
+
+
+def test_mcp_emit_receipt_goal_id_traversal_rejected(tmp_path, monkeypatch):
+    """emit_receipt rejects goal_id attempting path traversal outside workspace."""
+    monkeypatch.setenv("LETITLOOP_WORKSPACE_ROOT", str(tmp_path))
+    import importlib
+
+    import orchestrator.mcp_server as mcp_mod
+
+    importlib.reload(mcp_mod)
+
+    with pytest.raises(mcp_mod.SecurityError):
+        mcp_mod.emit_receipt(goal_id="../../evil_goal", wal_dir=str(tmp_path / "wal"))
+
+    monkeypatch.delenv("LETITLOOP_WORKSPACE_ROOT", raising=False)
+    importlib.reload(mcp_mod)
+
+
+def test_idempotency_cache_ttl_and_capacity():
+    from orchestrator.mcp_server import IdempotencyCache
+
+    cache = IdempotencyCache(ttl=0.05, max_size=3)
+    cache.set("k1", "v1")
+    cache.set("k2", "v2")
+    cache.set("k3", "v3")
+
+    assert len(cache) == 3
+    assert cache.get("k1") == "v1"
+
+    # Exceed capacity
+    cache.set("k4", "v4")
+    assert len(cache) == 3
+    # Oldest (k2 since k1 was accessed or updated)
+    assert cache.get("k4") == "v4"
+
+    # Test TTL expiration
+    import time
+
+    time.sleep(0.06)
+    assert cache.get("k4") is None
+    assert len(cache) == 0

@@ -1,5 +1,7 @@
 """Proof-Carrying Auto-Repair — `lil remediate`.
 
+# EXPERIMENTAL: Enterprise compliance features — not for production use without [compliance] extra
+
 Runs AST modifications in isolated git worktrees, serializes merges through
 `.merge_admission.lock`, and emits an HMAC + Ed25519-signed ProofReceipt with SBOM diff on test pass.
 

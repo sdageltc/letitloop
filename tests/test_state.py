@@ -246,3 +246,43 @@ class TestIllegalTransitionsFromPlan:
         s.status = "WORKING"
         with pytest.raises(IllegalTransitionError):
             s.transition("DRAFTED")
+
+
+class TestSchemaForwardCompatibility:
+    def test_from_dict_future_schema_raises(self):
+        d = {
+            "task_id": "future-task",
+            "status": "DRAFTED",
+            "schema_version": 999,
+        }
+        with pytest.raises(StateError) as exc_info:
+            State.from_dict(d)
+        assert "WAL schema v999 not supported" in str(exc_info.value)
+
+    def test_load_state_future_schema_raises(self, tmp_path):
+        state_file = tmp_path / "state.json"
+        import json
+
+        state_file.write_text(json.dumps({"task_id": "future-task", "schema_version": 999}), encoding="utf-8")
+        with pytest.raises(StateError) as exc_info:
+            load_state(str(state_file))
+        assert "WAL schema v999 not supported" in str(exc_info.value)
+
+    def test_replay_wal_legacy_fails_closed(self, tmp_path):
+        wal_file = tmp_path / "state.wal.jsonl"
+        import json
+
+        # Legacy WAL without INIT seq=1
+        wal_file.write_text(json.dumps({"event_type": "TRANSITION", "to": "READY"}) + "\n", encoding="utf-8")
+        state_file = tmp_path / "state.json"
+        state_file.write_text(
+            json.dumps(
+                {"task_id": "t1", "status": "DRAFTED", "schema_version": 2, "data": {"migrated_from_snapshot_v1": True}}
+            ),
+            encoding="utf-8",
+        )
+        from orchestrator.state import replay_wal
+
+        with pytest.raises(StateError) as exc_info:
+            replay_wal(str(state_file))
+        assert "WAL does not start with INIT (seq=1)" in str(exc_info.value)

@@ -1,7 +1,7 @@
 "use strict";
 /**
  * LetItLoop Action v2 — Proof-Carrying Verification Gate
- * Zero runtime npm dependencies. Node built-ins only (https, fs, crypto, path, child_process, os).
+ * Zero runtime npm dependencies. Node built-ins only (https, fs, crypto, path, child_process, os, zlib).
  * Fail-closed <2.5s: WAL hash-chain + AST integrity + HMAC Proof ID + deterministic PR comment.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -38,6 +38,27 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.WAL_FRAME_PREFIX = void 0;
+exports.getInput = getInput;
+exports.getBooleanInput = getBooleanInput;
+exports.toCommandValue = toCommandValue;
+exports.escapeData = escapeData;
+exports.escapeProperty = escapeProperty;
+exports.issueCommand = issueCommand;
+exports.setOutput = setOutput;
+exports.setSummary = setSummary;
+exports.setFailed = setFailed;
+exports.info = info;
+exports.warning = warning;
+exports.error = error;
+exports.debug = debug;
+exports.startGroup = startGroup;
+exports.endGroup = endGroup;
+exports.findPython = findPython;
+exports.resetPythonCache = resetPythonCache;
+exports.computeCrc32 = computeCrc32;
+exports.encodeWalFrame = encodeWalFrame;
+exports.decodeWalLine = decodeWalLine;
 exports.parseInputs = parseInputs;
 exports.parseGitHubContext = parseGitHubContext;
 exports.getPullRequestNumber = getPullRequestNumber;
@@ -54,13 +75,15 @@ const path = __importStar(require("path"));
 const crypto = __importStar(require("crypto"));
 const https = __importStar(require("https"));
 const os = __importStar(require("os"));
+const zlib = __importStar(require("zlib"));
 const child_process_1 = require("child_process");
 // ---------------------------------------------------------------------------
-// Minimal @actions/core shim — zero dep, reads INPUT_* and writes GITHUB_OUTPUT
+// Minimal @actions/core shim — zero dep, reads standard GHA envs
 // ---------------------------------------------------------------------------
 function getInput(name, opts) {
-    const envKey = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
-    const val = (process.env[envKey] ?? "").trim();
+    const rawKey = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
+    const normKey = `INPUT_${name.replace(/[-\s]/g, "_").toUpperCase()}`;
+    const val = (process.env[rawKey] ?? process.env[normKey] ?? "").trim();
     if (opts?.required && !val)
         throw new Error(`Input required and not supplied: ${name}`);
     return val;
@@ -76,23 +99,46 @@ function toCommandValue(input) {
         return input;
     return JSON.stringify(input);
 }
+function escapeData(s) {
+    return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+function escapeProperty(s) {
+    return s
+        .replace(/%/g, "%25")
+        .replace(/\r/g, "%0D")
+        .replace(/\n/g, "%0A")
+        .replace(/:/g, "%3A")
+        .replace(/,/g, "%2C");
+}
 function issueCommand(command, properties, message) {
-    // Fallback file-command for GITHUB_OUTPUT / GITHUB_STATE etc.
-    const cmdStr = `::${command} ${Object.entries(properties).map(([k, v]) => `${k}=${escapeProperty(v)}`).join(",")}::${escapeData(message)}`;
+    const propEntries = Object.entries(properties);
+    const propsStr = propEntries.length
+        ? ` ${propEntries.map(([k, v]) => `${k}=${escapeProperty(v)}`).join(",")}`
+        : "";
+    const cmdStr = `::${command}${propsStr}::${escapeData(message)}`;
     process.stdout.write(cmdStr + os.EOL);
 }
-function escapeData(s) { return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A"); }
-function escapeProperty(s) { return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A").replace(/:/g, "%3A").replace(/,/g, "%2C"); }
 function setOutput(name, value) {
     const outPath = process.env.GITHUB_OUTPUT;
+    const str = toCommandValue(value);
     if (outPath) {
-        const str = toCommandValue(value);
-        // Use delimiter for multiline safety
-        const delimiter = `ghadelimiter_${crypto.randomBytes(4).toString("hex")}`;
+        // Multiline delimiter format recommended by GitHub Actions
+        const delimiter = `ghadelimiter_${crypto.randomBytes(8).toString("hex")}`;
         fs.appendFileSync(outPath, `${name}<<${delimiter}${os.EOL}${str}${os.EOL}${delimiter}${os.EOL}`, { encoding: "utf-8" });
     }
     else {
-        issueCommand("set-output", { name }, toCommandValue(value));
+        issueCommand("set-output", { name }, str);
+    }
+}
+function setSummary(markdown) {
+    const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+    if (summaryPath) {
+        try {
+            fs.appendFileSync(summaryPath, `${markdown}${os.EOL}`, { encoding: "utf-8" });
+        }
+        catch {
+            // Non-fatal
+        }
     }
 }
 function setFailed(message) {
@@ -106,8 +152,84 @@ function debug(message) { issueCommand("debug", {}, message); }
 function startGroup(name) { issueCommand("group", {}, name); }
 function endGroup() { issueCommand("endgroup", {}, ""); }
 // ---------------------------------------------------------------------------
-// Pure helpers — exported for Jest
+// Python discovery helper
 // ---------------------------------------------------------------------------
+let _cachedPython = undefined;
+function findPython() {
+    if (_cachedPython !== undefined)
+        return _cachedPython;
+    const candidates = ["python3", "python"];
+    for (const cmd of candidates) {
+        try {
+            const res = (0, child_process_1.spawnSync)(cmd, ["--version"], {
+                encoding: "utf-8",
+                timeout: 2000,
+                windowsHide: true,
+            });
+            if (res.status === 0) {
+                _cachedPython = cmd;
+                return cmd;
+            }
+        }
+        catch {
+            // ignore spawn failure
+        }
+    }
+    _cachedPython = null;
+    return null;
+}
+function resetPythonCache() {
+    _cachedPython = undefined;
+}
+// ---------------------------------------------------------------------------
+// LILWAL02 Frame Format & Pure helpers — exported for Jest
+// ---------------------------------------------------------------------------
+exports.WAL_FRAME_PREFIX = "LILWAL02:";
+function computeCrc32(data) {
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data, "utf-8");
+    return (zlib.crc32(buf) >>> 0);
+}
+function encodeWalFrame(event) {
+    const payload = typeof event === "string" ? event : JSON.stringify(event);
+    const payloadBytes = Buffer.from(payload, "utf-8");
+    const lenHex = payloadBytes.length.toString(16);
+    const crcHex = (zlib.crc32(payloadBytes) >>> 0).toString(16);
+    return `${exports.WAL_FRAME_PREFIX}${lenHex}:${crcHex}:${payload}`;
+}
+function decodeWalLine(lineClean) {
+    if (lineClean.startsWith(exports.WAL_FRAME_PREFIX)) {
+        const firstColon = lineClean.indexOf(":");
+        const secondColon = lineClean.indexOf(":", firstColon + 1);
+        const thirdColon = lineClean.indexOf(":", secondColon + 1);
+        if (firstColon === -1 || secondColon === -1 || thirdColon === -1) {
+            throw new Error("malformed frame header: missing delimiter colons");
+        }
+        const lengthHex = lineClean.slice(firstColon + 1, secondColon);
+        const crcHex = lineClean.slice(secondColon + 1, thirdColon);
+        const payload = lineClean.slice(thirdColon + 1);
+        const length = parseInt(lengthHex, 16);
+        const crc = parseInt(crcHex, 16);
+        if (Number.isNaN(length) || Number.isNaN(crc)) {
+            throw new Error("malformed frame header: non-hex length or crc");
+        }
+        const payloadBytes = Buffer.from(payload, "utf-8");
+        if (payloadBytes.length !== length) {
+            throw new Error(`frame length mismatch: expected ${length}, got ${payloadBytes.length}`);
+        }
+        const actualCrc = (zlib.crc32(payloadBytes) >>> 0);
+        if (actualCrc !== (crc >>> 0)) {
+            throw new Error(`frame CRC mismatch: expected ${crcHex} (${crc >>> 0}), got ${actualCrc.toString(16)} (${actualCrc})`);
+        }
+        try {
+            return JSON.parse(payload);
+        }
+        catch (e) {
+            throw new Error(`frame payload not JSON: ${e?.message ?? e}`);
+        }
+    }
+    // Legacy JSON line fallback
+    return JSON.parse(lineClean);
+}
 function parseInputs() {
     const mode = (getInput("mode") || "gate").toLowerCase();
     const walDir = getInput("wal-dir") || getInput("wal_dir") || ".bench_wal";
@@ -196,8 +318,9 @@ function verifyWalJs(walDir) {
             return;
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
             const full = path.join(dir, entry.name);
-            if (entry.isDirectory())
+            if (entry.isDirectory()) {
                 walk(full);
+            }
             else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
                 files++;
                 const content = fs.readFileSync(full, "utf-8");
@@ -207,14 +330,13 @@ function verifyWalJs(walDir) {
                     if (!line)
                         continue;
                     frames++;
-                    // LILWAL02 frames are JSON with crc or wal fields; best-effort CRC is Python-side;
-                    // JS fast-path: ensure JSON parses; Python delegate does full CRC. We fail-closed on JSON errors here.
                     try {
-                        JSON.parse(line);
+                        decodeWalLine(line);
                     }
                     catch (e) {
                         corrupted++;
-                        details.push(`${path.relative(process.cwd(), full)}:${i + 1}: json_parse_failed`);
+                        const relPath = path.relative(process.cwd(), full);
+                        details.push(`${relPath}:${i + 1}: ${e?.message ?? e}`);
                     }
                 }
             }
@@ -222,14 +344,22 @@ function verifyWalJs(walDir) {
     }
     walk(absDir);
     const duration_ms = Date.now() - t0;
-    // Fail-closed if walDir expected but missing and we are in gate mode with no wal? Let caller decide pass logic;
-    // Here pass means no corrupted frames.
-    return { pass: corrupted === 0, files_scanned: files, frames, corrupted, duration_ms, details: details.join("; ") || undefined };
+    return {
+        pass: corrupted === 0,
+        files_scanned: files,
+        frames,
+        corrupted,
+        duration_ms,
+        details: details.join("; ") || undefined,
+    };
 }
 // Full CRC verification via Python delegate (authoritative). Returns WalVerdict, falls back to JS on python miss.
 function verifyWal(walDir) {
     const t0 = Date.now();
-    // Try python delegate first for real LILWAL02 CRC chain verification
+    const pyCmd = findPython();
+    if (!pyCmd) {
+        return verifyWalJs(walDir);
+    }
     const pyScript = `
 import sys, pathlib, json
 try:
@@ -257,10 +387,11 @@ print(json.dumps({"files":files,"frames":frames,"corrupted":corrupted,"details":
 sys.exit(0 if corrupted==0 else 1)
 `;
     try {
-        const res = (0, child_process_1.spawnSync)(process.execPath.includes("python") ? process.execPath : "python", ["-c", pyScript, walDir], {
+        const res = (0, child_process_1.spawnSync)(pyCmd, ["-c", pyScript, walDir], {
             encoding: "utf-8",
             timeout: 3000,
             cwd: process.cwd(),
+            windowsHide: true,
         });
         if (res.status === 2 || (res.stderr && res.stderr.includes("SKIP:no_orchestrator"))) {
             // Fallback to JS
@@ -282,7 +413,6 @@ sys.exit(0 if corrupted==0 else 1)
             catch { /* fallback */ }
         }
         if (res.status === 0) {
-            // No stdout but success
             const duration_ms = Date.now() - t0;
             return { pass: true, files_scanned: 0, frames: 0, corrupted: 0, duration_ms };
         }
@@ -325,11 +455,13 @@ function verifyAst(workspace) {
         // Fallback inline AST check
         return verifyAstFallback(workspace);
     }
+    const pyCmd = findPython() || "python";
     try {
-        const res = (0, child_process_1.spawnSync)("python", [scriptPath, "--workspace", workspace, "--json"], {
+        const res = (0, child_process_1.spawnSync)(pyCmd, [scriptPath, "--workspace", workspace, "--json"], {
             encoding: "utf-8",
             timeout: 4000,
             cwd: process.cwd(),
+            windowsHide: true,
         });
         if (res.stdout) {
             try {
@@ -501,23 +633,25 @@ async function run() {
     setOutput("proof-id", proofId);
     setOutput("ast-verdict", `${verdict}:AST ${ast.pass ? "PASS" : "FAIL"} ${ast.files_scanned}/${ast.files_failed}`);
     setOutput("wal-verdict", `${verdict}:WAL ${wal.pass ? "PASS" : "FAIL"} ${wal.files_scanned}/${wal.frames}/${wal.corrupted}`);
+    const commentBody = renderComment({
+        proofId,
+        baseSha,
+        headSha,
+        ast,
+        wal,
+        elapsedMs,
+        repoOwner: ctx.owner,
+        repoName: ctx.repo,
+        runId: ctx.runId,
+    });
+    // Always write step summary if GITHUB_STEP_SUMMARY exists
+    setSummary(commentBody);
     // PR comment (deterministic body)
     if (inputs.comment && inputs.token && ctx.owner && ctx.repo) {
         const issueNumber = getPullRequestNumber(ctx.eventPath);
         if (issueNumber) {
-            const body = renderComment({
-                proofId,
-                baseSha,
-                headSha,
-                ast,
-                wal,
-                elapsedMs,
-                repoOwner: ctx.owner,
-                repoName: ctx.repo,
-                runId: ctx.runId,
-            });
             try {
-                await postComment(inputs.token, ctx.owner, ctx.repo, issueNumber, body);
+                await postComment(inputs.token, ctx.owner, ctx.repo, issueNumber, commentBody);
                 info(`Commented PR #${issueNumber}`);
             }
             catch (e) {

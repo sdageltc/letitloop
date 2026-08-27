@@ -33,6 +33,22 @@ WAL_FILENAME = "state.wal.jsonl"
 SNAPSHOT_FILENAME = "state.json"
 STATE_SCHEMA_VERSION = 2
 
+# ---------------------------------------------------------------------------
+# State Machine Topologies:
+#
+# 1. Standard 4-State Happy Path:
+#    DRAFTED ──► WORKING ──► VERIFIED ──► COMPLETE
+#    - DRAFTED: Task specification initialized; ready for execution.
+#    - WORKING: Active execution; actions and step mutations recorded to WAL.
+#    - VERIFIED: Local verification checks and tests passed cleanly.
+#    - COMPLETE: Terminal success state; HMAC-sealed proof receipt generated.
+#
+# 2. Legacy / Conformance & Compliance Extended States:
+#    - PREFLIGHT_*: Environment and prerequisite validation.
+#    - VERIFYING / VERIFICATION_FAILED: Detailed verification lifecycle.
+#    - QC_*: Multi-agent quality plane review states (QC_RUNNING, QC_PASSED, QC_REJECTED).
+#    - Fault & Exception States: CRASHED, RETRY_PENDING, BLOCKED, ESCALATED, PAUSED, CANCELLED.
+# ---------------------------------------------------------------------------
 STATES = frozenset(
     {
         "DRAFTED",
@@ -706,6 +722,9 @@ class State:
     def from_dict(cls, d, journal_dir=None):
         if not isinstance(d, dict) or not isinstance(d.get("task_id"), str) or not d["task_id"]:
             raise StateError("snapshot missing required 'task_id' field")
+        snapshot_version = int(d.get("schema_version", 1))
+        if snapshot_version > STATE_SCHEMA_VERSION:
+            raise StateError(f"WAL schema v{snapshot_version} not supported by this version")
         return cls(
             task_id=d["task_id"],
             status=d.get("status", "DRAFTED"),
@@ -718,7 +737,7 @@ class State:
             journal_dir=journal_dir,
             seq=int(d.get("seq", 0)),
             hash_head=d.get("hash_head", ""),
-            schema_version=int(d.get("schema_version", 1)),
+            schema_version=snapshot_version,
         )
 
     def __repr__(self):
@@ -822,7 +841,11 @@ def load_state(path, journal_dir=None):
         if not isinstance(raw, dict):
             raise StateError("state file must be a JSON object")
 
-        if raw.get("schema_version") == STATE_SCHEMA_VERSION:
+        snapshot_version = int(raw.get("schema_version", 1))
+        if snapshot_version > STATE_SCHEMA_VERSION:
+            raise StateError(f"WAL schema v{snapshot_version} not supported by this version")
+
+        if snapshot_version == STATE_SCHEMA_VERSION:
             state = State.from_dict(raw, journal_dir=effective_journal_dir)
         else:
             state = _migrate_legacy_snapshot(raw, effective_journal_dir)
@@ -916,9 +939,6 @@ def replay_wal(state_path, state=None):
                 break
             raise StateError(f"WAL file corrupt: invalid event: {exc}") from exc
         current_offset = line_end
-    else:
-        # for/else: loop completed without corrupt-tail break — current_offset already tracked
-        pass
 
     if corrupt_tail and wal_events:
         try:
@@ -935,9 +955,6 @@ def replay_wal(state_path, state=None):
     first = wal_events[0]
     is_new_format = isinstance(first, dict) and first.get("event_type") == "INIT" and first.get("seq") == 1
     if not is_new_format:
-        # Legacy WAL: only tolerated when the snapshot was migrated from v1.
-        if state is not None and state.data.get("migrated_from_snapshot_v1"):
-            return state
         raise StateError("WAL does not start with INIT (seq=1)")
 
     # Authoritative full-chain replay from a fresh empty state.

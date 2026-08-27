@@ -1,6 +1,6 @@
 /**
  * LetItLoop Action v2 — Proof-Carrying Verification Gate
- * Zero runtime npm dependencies. Node built-ins only (https, fs, crypto, path, child_process, os).
+ * Zero runtime npm dependencies. Node built-ins only (https, fs, crypto, path, child_process, os, zlib).
  * Fail-closed <2.5s: WAL hash-chain + AST integrity + HMAC Proof ID + deterministic PR comment.
  */
 
@@ -9,62 +9,92 @@ import * as path from "path";
 import * as crypto from "crypto";
 import * as https from "https";
 import * as os from "os";
+import * as zlib from "zlib";
 import { spawnSync } from "child_process";
 
 // ---------------------------------------------------------------------------
-// Minimal @actions/core shim — zero dep, reads INPUT_* and writes GITHUB_OUTPUT
+// Minimal @actions/core shim — zero dep, reads standard GHA envs
 // ---------------------------------------------------------------------------
 
-function getInput(name: string, opts?: { required?: boolean }): string {
-  const envKey = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
-  const val = (process.env[envKey] ?? "").trim();
+export function getInput(name: string, opts?: { required?: boolean }): string {
+  const rawKey = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
+  const normKey = `INPUT_${name.replace(/[-\s]/g, "_").toUpperCase()}`;
+  const val = (process.env[rawKey] ?? process.env[normKey] ?? "").trim();
   if (opts?.required && !val) throw new Error(`Input required and not supplied: ${name}`);
   return val;
 }
 
-function getBooleanInput(name: string): boolean {
+export function getBooleanInput(name: string): boolean {
   const v = getInput(name).toLowerCase();
   return v === "true" || v === "1" || v === "yes";
 }
 
-function toCommandValue(input: unknown): string {
+export function toCommandValue(input: unknown): string {
   if (input === null || input === undefined) return "";
   if (typeof input === "string" || input instanceof String) return input as string;
   return JSON.stringify(input);
 }
 
-function issueCommand(command: string, properties: Record<string, string>, message: string): void {
-  // Fallback file-command for GITHUB_OUTPUT / GITHUB_STATE etc.
-  const cmdStr = `::${command} ${Object.entries(properties).map(([k, v]) => `${k}=${escapeProperty(v)}`).join(",")}::${escapeData(message)}`;
+export function escapeData(s: string): string {
+  return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
+export function escapeProperty(s: string): string {
+  return s
+    .replace(/%/g, "%25")
+    .replace(/\r/g, "%0D")
+    .replace(/\n/g, "%0A")
+    .replace(/:/g, "%3A")
+    .replace(/,/g, "%2C");
+}
+
+export function issueCommand(command: string, properties: Record<string, string>, message: string): void {
+  const propEntries = Object.entries(properties);
+  const propsStr = propEntries.length
+    ? ` ${propEntries.map(([k, v]) => `${k}=${escapeProperty(v)}`).join(",")}`
+    : "";
+  const cmdStr = `::${command}${propsStr}::${escapeData(message)}`;
   process.stdout.write(cmdStr + os.EOL);
 }
 
-function escapeData(s: string): string { return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A"); }
-function escapeProperty(s: string): string { return s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A").replace(/:/g, "%3A").replace(/,/g, "%2C"); }
-
-function setOutput(name: string, value: unknown): void {
+export function setOutput(name: string, value: unknown): void {
   const outPath = process.env.GITHUB_OUTPUT;
+  const str = toCommandValue(value);
   if (outPath) {
-    const str = toCommandValue(value);
-    // Use delimiter for multiline safety
-    const delimiter = `ghadelimiter_${crypto.randomBytes(4).toString("hex")}`;
-    fs.appendFileSync(outPath, `${name}<<${delimiter}${os.EOL}${str}${os.EOL}${delimiter}${os.EOL}`, { encoding: "utf-8" });
+    // Multiline delimiter format recommended by GitHub Actions
+    const delimiter = `ghadelimiter_${crypto.randomBytes(8).toString("hex")}`;
+    fs.appendFileSync(
+      outPath,
+      `${name}<<${delimiter}${os.EOL}${str}${os.EOL}${delimiter}${os.EOL}`,
+      { encoding: "utf-8" }
+    );
   } else {
-    issueCommand("set-output", { name }, toCommandValue(value));
+    issueCommand("set-output", { name }, str);
   }
 }
 
-function setFailed(message: string): void {
+export function setSummary(markdown: string): void {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (summaryPath) {
+    try {
+      fs.appendFileSync(summaryPath, `${markdown}${os.EOL}`, { encoding: "utf-8" });
+    } catch {
+      // Non-fatal
+    }
+  }
+}
+
+export function setFailed(message: string): void {
   process.exitCode = 1;
   error(message);
 }
 
-function info(message: string): void { process.stdout.write(message + os.EOL); }
-function warning(message: string): void { issueCommand("warning", {}, message); }
-function error(message: string): void { issueCommand("error", {}, message); }
-function debug(message: string): void { issueCommand("debug", {}, message); }
-function startGroup(name: string): void { issueCommand("group", {}, name); }
-function endGroup(): void { issueCommand("endgroup", {}, ""); }
+export function info(message: string): void { process.stdout.write(message + os.EOL); }
+export function warning(message: string): void { issueCommand("warning", {}, message); }
+export function error(message: string): void { issueCommand("error", {}, message); }
+export function debug(message: string): void { issueCommand("debug", {}, message); }
+export function startGroup(name: string): void { issueCommand("group", {}, name); }
+export function endGroup(): void { issueCommand("endgroup", {}, ""); }
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,8 +114,96 @@ export type GateInputs = {
 };
 
 // ---------------------------------------------------------------------------
-// Pure helpers — exported for Jest
+// Python discovery helper
 // ---------------------------------------------------------------------------
+
+let _cachedPython: string | null | undefined = undefined;
+
+export function findPython(): string | null {
+  if (_cachedPython !== undefined) return _cachedPython;
+  const candidates = ["python3", "python"];
+  for (const cmd of candidates) {
+    try {
+      const res = spawnSync(cmd, ["--version"], {
+        encoding: "utf-8",
+        timeout: 2000,
+        windowsHide: true,
+      });
+      if (res.status === 0) {
+        _cachedPython = cmd;
+        return cmd;
+      }
+    } catch {
+      // ignore spawn failure
+    }
+  }
+  _cachedPython = null;
+  return null;
+}
+
+export function resetPythonCache(): void {
+  _cachedPython = undefined;
+}
+
+// ---------------------------------------------------------------------------
+// LILWAL02 Frame Format & Pure helpers — exported for Jest
+// ---------------------------------------------------------------------------
+
+export const WAL_FRAME_PREFIX = "LILWAL02:";
+
+export function computeCrc32(data: Buffer | string): number {
+  const buf = Buffer.isBuffer(data) ? data : Buffer.from(data, "utf-8");
+  return (zlib.crc32(buf) >>> 0);
+}
+
+export function encodeWalFrame(event: unknown): string {
+  const payload = typeof event === "string" ? event : JSON.stringify(event);
+  const payloadBytes = Buffer.from(payload, "utf-8");
+  const lenHex = payloadBytes.length.toString(16);
+  const crcHex = (zlib.crc32(payloadBytes) >>> 0).toString(16);
+  return `${WAL_FRAME_PREFIX}${lenHex}:${crcHex}:${payload}`;
+}
+
+export function decodeWalLine(lineClean: string): unknown {
+  if (lineClean.startsWith(WAL_FRAME_PREFIX)) {
+    const firstColon = lineClean.indexOf(":");
+    const secondColon = lineClean.indexOf(":", firstColon + 1);
+    const thirdColon = lineClean.indexOf(":", secondColon + 1);
+
+    if (firstColon === -1 || secondColon === -1 || thirdColon === -1) {
+      throw new Error("malformed frame header: missing delimiter colons");
+    }
+
+    const lengthHex = lineClean.slice(firstColon + 1, secondColon);
+    const crcHex = lineClean.slice(secondColon + 1, thirdColon);
+    const payload = lineClean.slice(thirdColon + 1);
+
+    const length = parseInt(lengthHex, 16);
+    const crc = parseInt(crcHex, 16);
+    if (Number.isNaN(length) || Number.isNaN(crc)) {
+      throw new Error("malformed frame header: non-hex length or crc");
+    }
+
+    const payloadBytes = Buffer.from(payload, "utf-8");
+    if (payloadBytes.length !== length) {
+      throw new Error(`frame length mismatch: expected ${length}, got ${payloadBytes.length}`);
+    }
+
+    const actualCrc = (zlib.crc32(payloadBytes) >>> 0);
+    if (actualCrc !== (crc >>> 0)) {
+      throw new Error(`frame CRC mismatch: expected ${crcHex} (${crc >>> 0}), got ${actualCrc.toString(16)} (${actualCrc})`);
+    }
+
+    try {
+      return JSON.parse(payload);
+    } catch (e) {
+      throw new Error(`frame payload not JSON: ${(e as Error)?.message ?? e}`);
+    }
+  }
+
+  // Legacy JSON line fallback
+  return JSON.parse(lineClean);
+}
 
 export function parseInputs(): GateInputs {
   const mode = (getInput("mode") || "gate").toLowerCase();
@@ -168,8 +286,9 @@ export function verifyWalJs(walDir: string): WalVerdict {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
         files++;
         const content = fs.readFileSync(full, "utf-8");
         const lines = content.split("\n");
@@ -177,13 +296,12 @@ export function verifyWalJs(walDir: string): WalVerdict {
           const line = lines[i].trim();
           if (!line) continue;
           frames++;
-          // LILWAL02 frames are JSON with crc or wal fields; best-effort CRC is Python-side;
-          // JS fast-path: ensure JSON parses; Python delegate does full CRC. We fail-closed on JSON errors here.
           try {
-            JSON.parse(line);
+            decodeWalLine(line);
           } catch (e) {
             corrupted++;
-            details.push(`${path.relative(process.cwd(), full)}:${i + 1}: json_parse_failed`);
+            const relPath = path.relative(process.cwd(), full);
+            details.push(`${relPath}:${i + 1}: ${(e as Error)?.message ?? e}`);
           }
         }
       }
@@ -192,15 +310,24 @@ export function verifyWalJs(walDir: string): WalVerdict {
 
   walk(absDir);
   const duration_ms = Date.now() - t0;
-  // Fail-closed if walDir expected but missing and we are in gate mode with no wal? Let caller decide pass logic;
-  // Here pass means no corrupted frames.
-  return { pass: corrupted === 0, files_scanned: files, frames, corrupted, duration_ms, details: details.join("; ") || undefined };
+  return {
+    pass: corrupted === 0,
+    files_scanned: files,
+    frames,
+    corrupted,
+    duration_ms,
+    details: details.join("; ") || undefined,
+  };
 }
 
 // Full CRC verification via Python delegate (authoritative). Returns WalVerdict, falls back to JS on python miss.
 export function verifyWal(walDir: string): WalVerdict {
   const t0 = Date.now();
-  // Try python delegate first for real LILWAL02 CRC chain verification
+  const pyCmd = findPython();
+  if (!pyCmd) {
+    return verifyWalJs(walDir);
+  }
+
   const pyScript = `
 import sys, pathlib, json
 try:
@@ -228,10 +355,11 @@ print(json.dumps({"files":files,"frames":frames,"corrupted":corrupted,"details":
 sys.exit(0 if corrupted==0 else 1)
 `;
   try {
-    const res = spawnSync(process.execPath.includes("python") ? process.execPath : "python", ["-c", pyScript, walDir], {
+    const res = spawnSync(pyCmd, ["-c", pyScript, walDir], {
       encoding: "utf-8",
       timeout: 3000,
       cwd: process.cwd(),
+      windowsHide: true,
     });
     if (res.status === 2 || (res.stderr && res.stderr.includes("SKIP:no_orchestrator"))) {
       // Fallback to JS
@@ -252,7 +380,6 @@ sys.exit(0 if corrupted==0 else 1)
       } catch { /* fallback */ }
     }
     if (res.status === 0) {
-      // No stdout but success
       const duration_ms = Date.now() - t0;
       return { pass: true, files_scanned: 0, frames: 0, corrupted: 0, duration_ms };
     }
@@ -292,11 +419,13 @@ export function verifyAst(workspace: string): AstVerdict {
     return verifyAstFallback(workspace);
   }
 
+  const pyCmd = findPython() || "python";
   try {
-    const res = spawnSync("python", [scriptPath, "--workspace", workspace, "--json"], {
+    const res = spawnSync(pyCmd, [scriptPath, "--workspace", workspace, "--json"], {
       encoding: "utf-8",
       timeout: 4000,
       cwd: process.cwd(),
+      windowsHide: true,
     });
     if (res.stdout) {
       try {
@@ -477,23 +606,27 @@ export async function run(): Promise<void> {
   setOutput("ast-verdict", `${verdict}:AST ${ast.pass ? "PASS" : "FAIL"} ${ast.files_scanned}/${ast.files_failed}`);
   setOutput("wal-verdict", `${verdict}:WAL ${wal.pass ? "PASS" : "FAIL"} ${wal.files_scanned}/${wal.frames}/${wal.corrupted}`);
 
+  const commentBody = renderComment({
+    proofId,
+    baseSha,
+    headSha,
+    ast,
+    wal,
+    elapsedMs,
+    repoOwner: ctx.owner,
+    repoName: ctx.repo,
+    runId: ctx.runId,
+  });
+
+  // Always write step summary if GITHUB_STEP_SUMMARY exists
+  setSummary(commentBody);
+
   // PR comment (deterministic body)
   if (inputs.comment && inputs.token && ctx.owner && ctx.repo) {
     const issueNumber = getPullRequestNumber(ctx.eventPath);
     if (issueNumber) {
-      const body = renderComment({
-        proofId,
-        baseSha,
-        headSha,
-        ast,
-        wal,
-        elapsedMs,
-        repoOwner: ctx.owner,
-        repoName: ctx.repo,
-        runId: ctx.runId,
-      });
       try {
-        await postComment(inputs.token, ctx.owner, ctx.repo, issueNumber, body);
+        await postComment(inputs.token, ctx.owner, ctx.repo, issueNumber, commentBody);
         info(`Commented PR #${issueNumber}`);
       } catch (e) {
         warning(`PR comment failed (non-fatal): ${String(e).slice(0, 500)}`);

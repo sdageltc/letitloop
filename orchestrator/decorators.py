@@ -155,7 +155,14 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
     Yields True if this execution is the first to claim the marker (should execute mutation).
     Yields False if the marker already exists on disk (was already executed prior to crash).
     """
-    active_dir = run_dir or (_get_active_context().run_dir if _get_active_context() else ".durable_wal")
+    ctx = _get_active_context()
+    if ctx is None and run_dir is None:
+        if os.environ.get("LETITLOOP_LENIENT") != "1":
+            raise RuntimeError(
+                f"atomic_marker('{marker_id}') called outside a @durable context without run_dir. "
+                "Wrap your function with @durable or pass run_dir explicitly. Set LETITLOOP_LENIENT=1 to allow non-durable fallback."
+            )
+    active_dir = run_dir or (ctx.run_dir if ctx else ".durable_wal")
     markers_dir = os.path.join(active_dir, "markers")
     os.makedirs(markers_dir, exist_ok=True)
     marker_file = os.path.join(markers_dir, f"{marker_id}.marker")
@@ -175,12 +182,16 @@ def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
     if ctx is None:
         # Silent degradation is a durability hole: warn loudly so a scoping
         # mistake never disables the guarantee unnoticed.
-        print(
-            f"[durable] WARNING: step '{step_id}' called outside a @durable context — "
-            "executing NON-durably (result will NOT be recovered after a crash)",
-            file=sys.stderr,
+        if os.environ.get("LETITLOOP_LENIENT") == "1":
+            print(
+                f"[durable] WARNING: step '{step_id}' called outside a @durable context — "
+                "executing NON-durably (result will NOT be recovered after a crash)",
+                file=sys.stderr,
+            )
+            return fn(*args, **kwargs)
+        raise RuntimeError(
+            f"step('{step_id}') called outside a @durable context. Wrap your function with @durable to enable crash-resilient execution. Set LETITLOOP_LENIENT=1 to allow non-durable fallback."
         )
-        return fn(*args, **kwargs)
     # 1. Skip on resume if step was already completed in WAL
     if step_id in ctx.completed_steps:
         return ctx.completed_steps[step_id]
@@ -197,7 +208,6 @@ def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
     ctx.state.patch_data(
         {
             "step_outputs": current_outputs,
-            f"step_output_{step_id}": serialized_result,
         }
     )
     save_state(ctx.state, ctx.state_file)
@@ -237,12 +247,16 @@ async def async_step(step_id: str, async_fn: Callable, *args: Any, **kwargs: Any
     """
     ctx = _get_async_context()
     if ctx is None:
-        print(
-            f"[durable_async] WARNING: async_step '{step_id}' called outside a @durable_async context — "
-            "executing NON-durably (result will NOT be recovered after a crash)",
-            file=sys.stderr,
+        if os.environ.get("LETITLOOP_LENIENT") == "1":
+            print(
+                f"[durable_async] WARNING: async_step '{step_id}' called outside a @durable_async context — "
+                "executing NON-durably (result will NOT be recovered after a crash)",
+                file=sys.stderr,
+            )
+            return await async_fn(*args, **kwargs)
+        raise RuntimeError(
+            f"async_step('{step_id}') called outside a @durable_async context. Wrap your function with @durable_async to enable crash-resilient execution. Set LETITLOOP_LENIENT=1 to allow non-durable fallback."
         )
-        return await async_fn(*args, **kwargs)
     # Fast path: already completed -> return without invoking or locking
     if step_id in ctx.completed_steps:
         return ctx.completed_steps[step_id]
@@ -258,7 +272,6 @@ async def async_step(step_id: str, async_fn: Callable, *args: Any, **kwargs: Any
         ctx.state.patch_data(
             {
                 "step_outputs": current_outputs,
-                f"step_output_{step_id}": serialized,
             }
         )
         save_state(ctx.state, ctx.state_file)

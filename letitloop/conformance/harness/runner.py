@@ -11,13 +11,19 @@ from typing import Any, Dict, List, Optional
 from letitloop.conformance.adapters.atomic_wal_adapter import AtomicWalAdapter
 from letitloop.conformance.adapters.base import FrameworkAdapter
 from letitloop.conformance.adapters.in_memory_adapter import InMemoryAdapter
+from letitloop.conformance.adapters.json_checkpoint_adapter import JsonCheckpointAdapter
 from letitloop.conformance.adapters.llamaindex_adapter import LlamaIndexAdapter
+from letitloop.conformance.adapters.raw_python_adapter import RawPythonAdapter
 from letitloop.conformance.adapters.snapshot_graph_adapter import SnapshotGraphAdapter
+from letitloop.conformance.adapters.sqlite_wal_adapter import SqliteWalAdapter
 from letitloop.conformance.adapters.swarm_adapter import SwarmAdapter
 from letitloop.conformance.adapters.unmanaged_script_adapter import UnmanagedScriptAdapter
 from letitloop.conformance.harness.schema import DurabilityScore, SyntheticStep, SyntheticTaskSpec
 
 ADAPTERS: Dict[str, type] = {
+    "raw_python": RawPythonAdapter,
+    "json_checkpoint": JsonCheckpointAdapter,
+    "sqlite_wal": SqliteWalAdapter,
     "atomic_wal": AtomicWalAdapter,
     "snapshot_graph": SnapshotGraphAdapter,
     "in_memory_loop": InMemoryAdapter,
@@ -29,21 +35,22 @@ ADAPTERS: Dict[str, type] = {
     "langgraph": SnapshotGraphAdapter,
     "autogen": InMemoryAdapter,
     "crewai": InMemoryAdapter,
-    "raw_python": UnmanagedScriptAdapter,
 }
 
 ARCHETYPE_LABELS: Dict[str, str] = {
-    "atomic_wal": "Atomic WAL Engine (LetItLoop / Temporal)",
-    "llamaindex": "LlamaIndex Workflow (Event-Driven DAG)",
-    "swarm": "OpenAI Swarm (Multi-Agent Handoff)",
+    "raw_python": "Raw Python Script (0% Durability — Unhandled Crash)",
+    "json_checkpoint": "Naive JSON Checkpoint (40% Durability — Partial Write Corruption)",
+    "sqlite_wal": "SQLite WAL Baseline (80% Durability — Lock Contention / Partial Sync)",
+    "atomic_wal": "Atomic WAL Engine (LetItLoop LILWAL02 / 100% Durability)",
     "snapshot_graph": "Periodic Snapshot Graph (LangGraph / Pregel)",
     "in_memory_loop": "In-Memory Event Loop (AutoGen / CrewAI)",
     "unmanaged_script": "Unmanaged Script Execution (Raw Python CLI)",
-    "letitloop": "Atomic WAL Engine (LetItLoop / Temporal)",
+    "llamaindex": "LlamaIndex Workflow (Event-Driven DAG)",
+    "swarm": "OpenAI Swarm (Multi-Agent Handoff)",
+    "letitloop": "Atomic WAL Engine (LetItLoop LILWAL02 / 100% Durability)",
     "langgraph": "Periodic Snapshot Graph (LangGraph / Pregel)",
     "autogen": "In-Memory Event Loop (AutoGen / CrewAI)",
     "crewai": "In-Memory Event Loop (AutoGen / CrewAI)",
-    "raw_python": "Unmanaged Script Execution (Raw Python CLI)",
 }
 
 PRIMARY_ARCHETYPES = ["atomic_wal", "snapshot_graph", "in_memory_loop", "unmanaged_script", "llamaindex", "swarm"]

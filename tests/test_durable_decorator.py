@@ -113,3 +113,46 @@ def test_atomic_marker_prevents_duplicate_side_effect(tmp_path):
     # Second run: marker already exists on disk, mutation skipped!
     run_payment()
     assert side_effect_count == 1
+
+
+def test_step_outside_durable_context_raises_by_default(monkeypatch):
+    monkeypatch.delenv("LETITLOOP_LENIENT", raising=False)
+
+    def simple_fn(x):
+        return x + 1
+
+    with pytest.raises(RuntimeError) as exc_info:
+        step("orphan_step", simple_fn, 5)
+
+    assert "step('orphan_step') called outside a @durable context" in str(exc_info.value)
+    assert "LETITLOOP_LENIENT=1" in str(exc_info.value)
+
+
+def test_step_outside_durable_context_lenient(monkeypatch):
+    monkeypatch.setenv("LETITLOOP_LENIENT", "1")
+
+    def simple_fn(x):
+        return x * 3
+
+    res = step("lenient_step", simple_fn, 4)
+    assert res == 12
+
+
+def test_step_outputs_no_duplicate_keys(tmp_path):
+    wal_dir = str(tmp_path / "wal_no_dup")
+
+    @durable(goal_id="workflow_clean_data", wal_dir=wal_dir)
+    def run_clean():
+        step("s1", lambda: "val1")
+        step("s2", lambda: "val2")
+
+    run_clean()
+
+    from orchestrator.state import load_state
+
+    state = load_state(str(tmp_path / "wal_no_dup" / "state.json"))
+    # step_outputs dict exists with both keys
+    assert state.data.get("step_outputs") == {"s1": "val1", "s2": "val2"}
+    # duplicate step_output_s1 / step_output_s2 are not created
+    assert "step_output_s1" not in state.data
+    assert "step_output_s2" not in state.data

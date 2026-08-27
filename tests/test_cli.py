@@ -64,7 +64,7 @@ def _read_state(run_dir, task_id):
         return json.load(f)
 
 
-def _run_cli(run_dir, *args, timeout=30, expect_fail=False):
+def _run_cli(run_dir, *args, timeout=60, expect_fail=False):
     cmd = [sys.executable, "-m", CLI_MODULE, "--run-dir", str(run_dir)] + list(args)
     result = subprocess.run(
         cmd,

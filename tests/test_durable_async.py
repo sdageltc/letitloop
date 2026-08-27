@@ -140,13 +140,21 @@ async def test_async_steps_concurrent_within_workflow(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_async_step_outside_context_warns_and_executes(tmp_path, capsys):
+async def test_async_step_outside_context_warns_and_executes(tmp_path, capsys, monkeypatch):
     async def _fn(x):
         return x * 3
 
-    # outside any @durable_async -> should warn but still execute
+    # outside any @durable_async -> fail-closed by default
+    with pytest.raises(RuntimeError, match="called outside a @durable_async context"):
+        await async_step("outside", _fn, 7)
+
+    # under lenient mode -> warn and execute
+    monkeypatch.setenv("LETITLOOP_LENIENT", "1")
     v = await async_step("outside", _fn, 7)
     assert v == 21
+    captured = capsys.readouterr()
+    combined = (captured.out + captured.err).lower()
+    assert "non-durably" in combined or "outside" in combined
 
 
 @pytest.mark.asyncio

@@ -489,7 +489,8 @@ class TestStatePersistenceAndRecovery:
                 replay_wal(state_path, state=s)
 
             s.data["migrated_from_snapshot_v1"] = True
-            assert replay_wal(state_path, state=s).task_id == "t_wal"
+            with pytest.raises(StateError, match="WAL does not start with INIT"):
+                replay_wal(state_path, state=s)
 
             bad_init = {
                 "seq": 1,

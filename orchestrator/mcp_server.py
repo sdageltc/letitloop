@@ -31,12 +31,68 @@ except ImportError:
     HAS_MCP = False
     FastMCP = None  # type: ignore
 
-# ---------------------------------------------------------------------------
-# Workspace jailing + idempotency (stdlib)
-# ---------------------------------------------------------------------------
-
 WORKSPACE_ROOT = pathlib.Path(os.environ.get("LETITLOOP_WORKSPACE_ROOT", pathlib.Path.cwd())).resolve()
-_IDEMPOTENCY: dict[str, Any] = {}
+
+
+class IdempotencyCache:
+    """Bounded, TTL-based idempotency cache (TTL 300s, max 1000 items)."""
+
+    def __init__(self, ttl: float = 300.0, max_size: int = 1000) -> None:
+        self.ttl = ttl
+        self.max_size = max_size
+        self._store: dict[str, tuple[float, Any]] = {}
+
+    def _evict_expired(self) -> None:
+        now = time.monotonic()
+        expired = [k for k, (ts, _) in self._store.items() if now - ts > self.ttl]
+        for k in expired:
+            del self._store[k]
+        if len(self._store) > self.max_size:
+            sorted_keys = sorted(self._store.keys(), key=lambda k: self._store[k][0])
+            for k in sorted_keys[: len(self._store) - self.max_size]:
+                del self._store[k]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        self._evict_expired()
+        item = self._store.get(key)
+        if item is None:
+            return default
+        ts, val = item
+        if time.monotonic() - ts > self.ttl:
+            del self._store[key]
+            return default
+        return val
+
+    def set(self, key: str, value: Any) -> None:
+        self._evict_expired()
+        if len(self._store) >= self.max_size:
+            oldest_key = min(self._store.keys(), key=lambda k: self._store[k][0])
+            del self._store[oldest_key]
+        self._store[key] = (time.monotonic(), value)
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):
+            return False
+        return self.get(key) is not None
+
+    def __getitem__(self, key: str) -> Any:
+        val = self.get(key)
+        if val is None:
+            raise KeyError(key)
+        return val
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.set(key, value)
+
+    def __len__(self) -> int:
+        self._evict_expired()
+        return len(self._store)
+
+    def clear(self) -> None:
+        self._store.clear()
+
+
+_IDEMPOTENCY = IdempotencyCache(ttl=300.0, max_size=1000)
 
 
 class SecurityError(PermissionError):
@@ -271,10 +327,11 @@ if HAS_MCP and FastMCP is not None:
         wal_path = _assert_jailed(wal_dir)
         from orchestrator.receipts import load_or_create_run_key, seal_artifact
 
-        run_dir = str(wal_path / goal_id)
+        run_dir = (wal_path / goal_id).resolve()
+        _assert_jailed(run_dir)
         os.makedirs(run_dir, exist_ok=True)
-        receipt_path = os.path.join(run_dir, f"proof_{goal_id}.json")
-        key = load_or_create_run_key(run_dir)
+        receipt_path = os.path.join(str(run_dir), f"proof_{goal_id}.json")
+        key = load_or_create_run_key(str(run_dir))
         payload = {"goal_id": goal_id, "wal_dir": str(wal_path), "ts": time.time()}
         with open(receipt_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
@@ -417,9 +474,11 @@ else:
         if requestId and requestId in _IDEMPOTENCY:
             return {**_IDEMPOTENCY[requestId], "cached": True, "idempotent": True}
         wal_path = _assert_jailed(wal_dir)
+        run_dir = (wal_path / goal_id).resolve()
+        _assert_jailed(run_dir)
         out = {
             "goal_id": goal_id,
-            "receipt_path": f"{wal_path}/{goal_id}/proof_{goal_id}.json",
+            "receipt_path": f"{run_dir}/proof_{goal_id}.json",
             "verified": True,
             "note": "shim",
         }

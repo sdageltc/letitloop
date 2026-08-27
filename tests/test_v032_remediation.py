@@ -34,11 +34,19 @@ class TestThreadLocalDurableContext:
 
 
 class TestOutsideContextWarning:
-    """VULN-005: step() outside a durable context must warn, not degrade silently."""
+    """VULN-005: step() outside a durable context raises RuntimeError by default, warns under lenient mode."""
 
-    def test_warns_and_executes(self, capsys):
+    def test_warns_and_executes(self, capsys, monkeypatch):
+        import pytest
+
         from orchestrator.decorators import step
 
+        # Fail-closed by default
+        with pytest.raises(RuntimeError, match="called outside a @durable context"):
+            step("ghost", lambda: "x")
+
+        # Lenient mode opt-in
+        monkeypatch.setenv("LETITLOOP_LENIENT", "1")
         out = step("ghost", lambda: "x")
         assert out == "x"
         captured = capsys.readouterr()

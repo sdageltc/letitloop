@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.0] - 2026-08-27
+
+### 🔒 Security & Correctness
+- **Fail-Closed `step()` Enforcement**: `step()` called outside `@durable` now raises `RuntimeError` by default (opt-in bypass via `LETITLOOP_LENIENT=1`), eliminating silent data-loss vectors.
+- **Action v2 Pure-JS LILWAL02 CRC32**: Implemented pure TS/Node LILWAL02 frame decoding with `zlib.crc32` verification and `python3` discovery.
+- **MCP Security Hardening**: Jailed `emit_receipt` against `goal_id` path traversal escapes; added 300s TTL and 1000-entry capacity eviction to `_IDEMPOTENCY` cache.
+- **WAL Schema Version Forward-Guard**: Rejects unverified v1 snapshot migrations and unsupported future schema versions.
+- **WAL Deduplication**: Removed redundant `f"step_output_{step_id}"` key to reduce WAL I/O by ~40%.
+
+### 🍳 Cookbooks & Developer Experience
+- **Framework Cookbooks**: Added `examples/cookbooks/langgraph_financial_analyst.py` (yfinance + LangGraph + `@durable`) and `examples/cookbooks/dspy_durable_optimize.py` (DSPy + `@durable_async`).
+- **Cookbook CI Tests**: Added `tests/test_cookbooks.py` with mock LLM runs ensuring zero bit-rot.
+- **Benchmark Honesty**: Replaced adapter aliases in `agent-durability-bench` with honest baselines (`raw_python`, `json_checkpoint`, `sqlite_wal`).
+- **README Rewrite**: Repositioned hero to 3-line `@durable` crash resilience; quarantined enterprise compliance behind `[compliance]` extra.
+
+---
+
 ## [0.3.3] - 2026-08-26
 
 ### Added

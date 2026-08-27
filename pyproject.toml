@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.4.0"
-description = "Deterministic verification harness and crash-safe execution gate for AI coding agents"
+version = "0.5.0"
+description = "Make any Python function crash-proof in 3 lines. Zero tokens wasted on SIGKILL."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -13,32 +13,14 @@ authors = [
     { name = "sdageltc", email = "sdageltc@users.noreply.github.com" }
 ]
 keywords = [
-    "autonomous-agents",
     "agent-loop",
+    "durable",
+    "wal",
+    "crash-recovery",
     "mcp",
-    "mcp-server",
-    "docker-sandbox",
-    "worktree",
-    "process-guard",
-    "tui",
-    "prometheus",
-    "webhooks",
-    "claude-code",
-    "cursor",
-    "antigravity",
-    "hermes-agent",
-    "opencode",
-    "cline",
-    "windsurf",
-    "codex",
-    "openai-codex",
-    "dag-planner",
-    "coding-agent",
-    "orchestration",
-    "zero-trust-verification",
-    "quality-plane",
-    "local-llm",
-    "ollama",
+    "langchain",
+    "crewai",
+    "github-action",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -68,6 +50,9 @@ Repository = "https://github.com/sdageltc/letitloop"
 Discussions = "https://github.com/sdageltc/letitloop/discussions"
 
 [project.optional-dependencies]
+compliance = [
+    "cryptography>=41.0.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",

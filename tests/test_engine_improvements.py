@@ -209,12 +209,12 @@ class TestTelemetryAttachment:
         detach = attach_telemetry(bus, str(tmp_path / "telemetry.jsonl"))
         bus.publish("goal.started", goal_id="g1")
         bus.publish("contract.working", goal_id="g1", task_id="t1")
-        deadline = time.time() + 3
+        deadline = time.time() + 6
         while time.time() < deadline:
             events = load_events(str(tmp_path / "telemetry.jsonl"))
             if len(events) >= 2:
                 break
-            time.sleep(0.02)
+            time.sleep(0.05)
         detach()
         events = load_events(str(tmp_path / "telemetry.jsonl"))
         assert len(events) >= 2

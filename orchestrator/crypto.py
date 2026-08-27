@@ -1,5 +1,7 @@
 """Asymmetric Ed25519 signing and verification + Sigstore OIDC keyless attestation shim.
 
+# EXPERIMENTAL: Enterprise compliance features — not for production use without [compliance] extra
+
 Sprint 5 — Proof-Carrying Remediate: upgrades ProofReceipt from symmetric HMAC to
 asymmetric Ed25519 and Sigstore / GitHub OIDC Keyless Attestations.
 
@@ -140,9 +142,7 @@ def verify_detached(payload: bytes, signature_hex: str, public_hex: str, private
     if private_hex_hint:
         expected = hmac.new(private_hex_hint.encode(), payload, hashlib.sha512).hexdigest()
         return hmac.compare_digest(expected, signature_hex)
-    # Without hint, we cannot verify shim — fail closed unless cryptography is present
-    # For backward compat, try to treat signature as valid if public matches derivation from private_hint not provided: fail
-    return False
+    raise NotImplementedError("Ed25519 verification requires: pip install letitloop[compliance]")
 
 
 def sign_payload(payload: bytes, key_dir: str) -> Tuple[str, str, str]:

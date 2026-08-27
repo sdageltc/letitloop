@@ -1,5 +1,7 @@
 """Lightweight CycloneDX / SPDX SBOM diff generator (Sprint 5).
 
+# EXPERIMENTAL: Enterprise compliance features — not for production use without [compliance] extra
+
 Zero heavy deps: stdlib only (dataclasses, hashlib, json, pathlib).
 Generates a minimal CycloneDX-like SBOM for a workspace and diffs it.
 
