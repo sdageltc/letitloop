@@ -231,10 +231,13 @@ class TestTelemetryAttachment:
         detach = attach_telemetry(bus, path)
         bus.publish("goal.started", goal_id="g1")
         deadline = _t.time() + 3
-        while _t.time() < deadline and not os.path.isfile(path):
+        while _t.time() < deadline:
+            if os.path.isfile(path) and os.path.getsize(path) > 0:
+                break
             _t.sleep(0.02)
         detach()
         before = os.path.getsize(path) if os.path.isfile(path) else 0
+        assert before > 0, "Initial event was not persisted before detach"
         bus.publish("goal.completed", goal_id="g1")
         _t.sleep(0.2)
         after = os.path.getsize(path) if os.path.isfile(path) else 0
