@@ -4,9 +4,9 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.goal import Goal, Plan
 from orchestrator.supervisor import Supervisor
+
 from tests.fault_injection import FaultInjector, corrupt_ledger, corrupt_state_file, empty_ledger, inject_fault
 
 

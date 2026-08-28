@@ -9,7 +9,6 @@ import os
 import subprocess
 
 import pytest
-
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal
 from orchestrator.supervisor import Supervisor

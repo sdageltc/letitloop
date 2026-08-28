@@ -4,7 +4,6 @@ import json
 import os
 
 import pytest
-
 from orchestrator.state import (
     StateError,
     create_initial_state,

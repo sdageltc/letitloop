@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator.contract import Contract, validate_contract
 from orchestrator.failure import (
     FAILURE_CLASS_SCOPE_VIOLATION,

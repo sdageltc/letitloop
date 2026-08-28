@@ -15,7 +15,6 @@ import sys
 import time
 
 import pytest
-
 from orchestrator import worker_adapters
 
 # ---------------------------------------------------------------------------

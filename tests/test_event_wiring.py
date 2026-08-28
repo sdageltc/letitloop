@@ -9,7 +9,6 @@ import time
 import urllib.request
 
 import pytest
-
 from orchestrator.events import get_bus
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal

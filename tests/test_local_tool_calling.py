@@ -5,7 +5,6 @@ import os
 import sys
 
 import pytest
-
 from orchestrator.local_tool_calling import (
     LocalToolRegistry,
     ToolCallingError,

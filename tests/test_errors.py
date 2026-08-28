@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator import errors as err_mod
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal

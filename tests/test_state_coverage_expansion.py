@@ -6,7 +6,6 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.exceptions import IllegalTransitionError, StateError
 from orchestrator.models import ModelRegistry
 from orchestrator.state import (

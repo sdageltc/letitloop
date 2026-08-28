@@ -5,10 +5,10 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.failure import FAILURE_CLASS_TASK_CRASHED
 from orchestrator.goal import Goal, Plan
 from orchestrator.supervisor import Supervisor
+
 from tests.fault_injection import inject_fault
 
 

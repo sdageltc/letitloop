@@ -8,7 +8,6 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-
 from orchestrator.events import EVENT_TYPES, EventBus
 from orchestrator.sse_server import SSEServer
 from orchestrator.webhooks import (

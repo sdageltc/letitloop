@@ -4,7 +4,6 @@ import json
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.worker import run_worker
 

@@ -6,7 +6,6 @@ import os
 import threading
 
 import pytest
-
 from orchestrator.qc_overrule import verify_overrule
 from orchestrator.supervisor import Supervisor
 

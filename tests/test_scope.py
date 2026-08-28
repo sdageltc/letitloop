@@ -4,7 +4,6 @@ import json
 import os
 
 import pytest
-
 from orchestrator import failure as fail_mod
 from orchestrator import scope as sc
 from orchestrator.contract import Contract

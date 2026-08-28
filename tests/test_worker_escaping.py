@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.scope import check_scope, snapshot_scope
 

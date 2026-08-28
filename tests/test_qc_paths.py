@@ -4,7 +4,6 @@ import json
 import os
 
 import pytest
-
 from orchestrator.exceptions import PlannerError
 from orchestrator.goal import Goal, Plan
 from orchestrator.state import load_state

@@ -4,7 +4,6 @@ import json
 import time
 
 import pytest
-
 from orchestrator.memory_bridge import MemoryBridge
 
 pytestmark = pytest.mark.fast

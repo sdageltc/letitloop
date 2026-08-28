@@ -1,7 +1,6 @@
 """Tests for orchestrator/budget.py — budget guard and loop detector."""
 
 import pytest
-
 from orchestrator.budget import (
     BudgetExhaustedError,
     BudgetGuard,

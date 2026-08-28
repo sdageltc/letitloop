@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator.goal import Goal, Plan
 from orchestrator.state import create_initial_state, save_state
 from orchestrator.supervisor import Supervisor

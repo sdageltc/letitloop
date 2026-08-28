@@ -4,7 +4,6 @@ import copy
 import os
 
 import pytest
-
 from orchestrator.contract import requires_semantic_qc, validate_contract
 from orchestrator.qc_review import QCVerdict
 from orchestrator.verifier import run_checks

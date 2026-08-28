@@ -111,7 +111,23 @@ markers = [
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = ["scratch", ".venv", "dist", "build", ".benchmarks", "htmlcov", ".github", "results", ".bench_wal"]
+src = ["orchestrator", "letitloop", "tests"]
+force-exclude = true
+exclude = [
+    "scratch",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".benchmarks",
+    "htmlcov",
+    ".github",
+    "results",
+    ".bench_wal",
+    "node_modules",
+    ".git",
+    "__pycache__",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

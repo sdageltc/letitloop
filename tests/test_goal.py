@@ -1,7 +1,6 @@
 """Tests for Goal, Plan, and ContractGraph data models."""
 
 import pytest
-
 from orchestrator.goal import ContractGraph, Goal, Plan
 
 

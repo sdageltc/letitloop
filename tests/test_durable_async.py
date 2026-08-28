@@ -4,7 +4,6 @@ import asyncio
 import time
 
 import pytest
-
 from orchestrator.decorators import async_step, durable_async
 
 pytestmark = pytest.mark.fast

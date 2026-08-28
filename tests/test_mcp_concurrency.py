@@ -3,7 +3,6 @@
 import concurrent.futures
 
 import pytest
-
 from orchestrator.memory_bridge import MemoryBridge
 from orchestrator.scope import FileBackedScopeRegistry
 

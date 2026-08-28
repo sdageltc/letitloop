@@ -4,7 +4,6 @@ import os
 from unittest.mock import MagicMock
 
 import pytest
-
 from orchestrator.checkpoint import (
     apply_checkpoint,
     save_checkpoint,

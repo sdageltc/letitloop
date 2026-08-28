@@ -6,7 +6,6 @@ import os
 import tempfile
 
 import pytest
-
 from orchestrator.contract import check_path_allowed, load_contract, validate_contract, validate_contract_against_plan
 
 pytestmark = pytest.mark.fast

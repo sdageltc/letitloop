@@ -4,7 +4,6 @@ import os
 import tempfile
 
 import pytest
-
 from orchestrator.state import (
     LEGAL_TRANSITIONS,
     STATES,

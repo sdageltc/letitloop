@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.dag_validator import (
     DUPLICATE_TASK_ID,
     DagIssue,

@@ -6,7 +6,6 @@ import sys
 import time
 
 import pytest
-
 from orchestrator.process_guard import (
     DEFAULT_GUARD,
     ProcessGuard,

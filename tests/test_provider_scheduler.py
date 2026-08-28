@@ -3,7 +3,6 @@
 import json
 
 import pytest
-
 from orchestrator.budget import BudgetGuard
 from orchestrator.models import (
     MODEL_TIERS,

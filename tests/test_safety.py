@@ -1,7 +1,6 @@
 """Tests for orchestrator safety module."""
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.goal import Plan
 from orchestrator.limits import ResourceLimits

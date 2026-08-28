@@ -5,7 +5,6 @@ import os
 import zlib
 
 import pytest
-
 from orchestrator.state import (
     StateError,
     _wal_frame_encode,

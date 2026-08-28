@@ -4,7 +4,6 @@ import dataclasses
 import threading
 
 import pytest
-
 from letitloop import (
     DurableSerializationError,
     atomic_marker,

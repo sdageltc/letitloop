@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.verifier import run_verification
 

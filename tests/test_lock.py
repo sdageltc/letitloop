@@ -4,7 +4,6 @@ import json
 import os
 
 import pytest
-
 from orchestrator import lock as lk
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal

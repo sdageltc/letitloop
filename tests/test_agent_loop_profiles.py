@@ -4,7 +4,6 @@ import json
 import os
 
 import pytest
-
 from orchestrator.contract import requires_semantic_qc
 from orchestrator.exceptions import PlannerError
 from orchestrator.generator import generate_contracts

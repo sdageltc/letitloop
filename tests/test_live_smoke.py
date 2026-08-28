@@ -15,7 +15,6 @@ import os
 import sys
 
 import pytest
-
 from orchestrator.goal import Goal, Plan
 from orchestrator.llm import configured_providers
 from orchestrator.models import ModelRegistry

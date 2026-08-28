@@ -5,7 +5,6 @@ import os
 import tempfile
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.verifier import VerifierResult, run_checks, run_verification
 

@@ -10,7 +10,6 @@ import subprocess
 import sys
 
 import pytest
-
 from orchestrator.llm import configured_providers
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

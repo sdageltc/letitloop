@@ -8,7 +8,6 @@ import shutil
 import tempfile
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.handoff import build_handoff
 from orchestrator.preflight import run_preflight

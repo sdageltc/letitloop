@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator.checkpoint import (
     clear_checkpoints,
     list_checkpoints,

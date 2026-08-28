@@ -14,7 +14,6 @@ import sys
 import time
 
 import pytest
-
 from orchestrator import scope as sc
 from orchestrator.checkpoint import apply_checkpoint, recover_from_checkpoint, save_checkpoint
 from orchestrator.contract import Contract, check_path_allowed
@@ -30,6 +29,7 @@ from orchestrator.goal import Goal, Plan
 from orchestrator.process_guard import ProcessGuard, pid_alive
 from orchestrator.state import StateError, create_initial_state, load_state, save_state
 from orchestrator.supervisor import Supervisor
+
 from tests.fault_injection import CORRUPTION_KINDS, corrupt_run_artifact, make_fake_dead_pid_proc
 
 ALLOWED_STATE_ERRORS = (StateError, json.JSONDecodeError, ValueError, OSError)

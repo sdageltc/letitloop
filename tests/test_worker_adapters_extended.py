@@ -10,7 +10,6 @@ import subprocess
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator import worker_adapters
 from orchestrator.worker_adapters import DockerWorkerAdapter
 

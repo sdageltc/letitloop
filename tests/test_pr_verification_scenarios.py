@@ -3,7 +3,6 @@ import pathlib
 import tempfile
 
 import pytest
-
 from orchestrator.ast_node_splicer import splice_ast_function
 from orchestrator.verifier import run_checks
 

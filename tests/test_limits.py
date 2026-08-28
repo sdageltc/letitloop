@@ -4,7 +4,6 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.goal import Goal, Plan
 from orchestrator.limits import DEFAULT_LIMITS, ResourceLimits, check_limits, format_violation
 from orchestrator.supervisor import Supervisor

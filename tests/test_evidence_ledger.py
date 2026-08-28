@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator import evidence as ev
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal

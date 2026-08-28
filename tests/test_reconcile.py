@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator import reconcile as rec
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal

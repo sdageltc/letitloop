@@ -3,9 +3,8 @@
 import importlib
 import time
 
-import pytest
-
 import orchestrator.mcp_server as mcp_mod
+import pytest
 
 pytestmark = pytest.mark.security
 

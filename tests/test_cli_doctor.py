@@ -1,7 +1,6 @@
 from unittest import mock
 
 import pytest
-
 from orchestrator.cli import main
 from orchestrator.env_doctor import _probe_endpoint, run_env_doctor
 

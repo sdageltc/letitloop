@@ -4,7 +4,6 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from orchestrator.exceptions import PlannerError
 from orchestrator.generator import generate_contracts
 from orchestrator.goal import Goal

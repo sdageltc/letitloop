@@ -1,7 +1,6 @@
 """Unit tests for orchestrator.token_gate."""
 
 import pytest
-
 from orchestrator.token_gate import (
     HARD_CAP_TOTAL,
     StreamGuard,

@@ -5,7 +5,6 @@ import os
 import tempfile
 
 import pytest
-
 from orchestrator.handoff import build_handoff
 from orchestrator.state import create_initial_state
 

@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from orchestrator.goal import Goal, Plan
 from orchestrator.supervisor import Supervisor
 

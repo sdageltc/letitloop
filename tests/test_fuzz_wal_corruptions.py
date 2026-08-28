@@ -25,7 +25,6 @@ import pytest
 pytest.importorskip("hypothesis")
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-
 from orchestrator.decorators import DurableSerializationError
 from orchestrator.exceptions import StateError
 from orchestrator.state import (

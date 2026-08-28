@@ -5,7 +5,6 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.llm import LLMError
 from orchestrator.models import ModelRegistry

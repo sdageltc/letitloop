@@ -38,7 +38,6 @@ class TestOutsideContextWarning:
 
     def test_warns_and_executes(self, capsys, monkeypatch):
         import pytest
-
         from orchestrator.decorators import step
 
         # Fail-closed by default

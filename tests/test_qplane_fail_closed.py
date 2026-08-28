@@ -10,7 +10,6 @@ budget/wall-clock limits are enforced.
 import types
 
 import pytest
-
 from orchestrator.component_slicer import ComponentSlice
 from orchestrator.quality_plan import (
     MODE_ARBITRATION_ONLY,

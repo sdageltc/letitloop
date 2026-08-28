@@ -5,7 +5,6 @@ import os
 import tempfile
 
 import pytest
-
 from orchestrator.contract import Contract
 from orchestrator.preflight import run_preflight
 

@@ -1,7 +1,6 @@
 """Tests verifying fail-closed execution boundaries for step, async_step, and atomic_marker."""
 
 import pytest
-
 from letitloop import (
     async_step,
     atomic_marker,

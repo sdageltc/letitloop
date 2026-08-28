@@ -5,7 +5,6 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from orchestrator.goal import ContractGraph, Goal, Plan
 from orchestrator.supervisor import Supervisor
 from orchestrator.worker_pool import WorkerPool, filter_independent_tasks, format_pool_status
