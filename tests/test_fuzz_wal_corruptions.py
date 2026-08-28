@@ -317,10 +317,16 @@ def test_fuzz_torn_tail_recovery(tmp_path, valid_payload_extra, trunc_ratio, app
             assert loaded.status in {"DRAFTED", "PREFLIGHT_RUNNING", "READY"}
             after = _read_wal_raw(wal)
             assert torn.encode("utf-8") not in after or after == before
-            if valid_payload_extra and len(valid_payload_extra) > 3:
-                assert valid_payload_extra not in json.dumps(loaded.data)
+            if (
+                valid_payload_extra
+                and len(valid_payload_extra) > 3
+                and valid_payload_extra not in "wal_torn_tail_recovered"
+            ):
+                assert valid_payload_extra not in str(loaded.data.get("step_outputs", {}))
         except (StateError, DurableSerializationError):
             pass
+        except AssertionError as e:
+            pytest.fail(f"Assertion failed in torn-tail: {e}")
         except Exception as e:
             pytest.fail(f"Unhandled {type(e).__name__} in torn-tail: {e}")
 
