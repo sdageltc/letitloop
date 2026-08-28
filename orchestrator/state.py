@@ -825,17 +825,19 @@ def load_state(path, journal_dir=None):
     Fail-closed: corrupt JSON, hash mismatch, sequence gap, or illegal
     transition all raise StateError/IllegalTransitionError.
     """
-    if not os.path.isfile(path):
-        raise StateError(f"state file not found: {path}")
     effective_journal_dir = journal_dir or os.path.dirname(os.path.abspath(path))
     wal_path = os.path.join(effective_journal_dir, WAL_FILENAME)
     raw = None
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        if not os.path.isfile(wal_path):
-            raise StateError(f"state file corrupt: {exc}") from exc
+
+    if os.path.isfile(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            if not os.path.isfile(wal_path):
+                raise StateError(f"state file corrupt: {exc}") from exc
+    elif not os.path.isfile(wal_path):
+        raise StateError(f"state file not found: {path}")
 
     if raw is not None:
         if not isinstance(raw, dict):
