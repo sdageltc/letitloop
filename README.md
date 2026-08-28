@@ -6,16 +6,17 @@
 
 # let it loop (LIL)
 
-**Make any Python function crash-proof in 3 lines. Zero tokens wasted on SIGKILL.**
+**Make any Python function or AI agent workflow crash-proof in 3 lines. Zero tokens wasted on SIGKILL.**
 
+[![Official Website](https://img.shields.io/badge/Website-LetItLoop-0284c7?logo=googlechrome&logoColor=white)](https://sdageltc.github.io/letitloop/)
 [![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)
 [![CI Matrix](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-LetItLoop_Action-blue?logo=github)](https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate)
-[![Benchmark](https://img.shields.io/badge/DCP--2.0-Durability_Bench-green)](https://sdageltc.github.io/agent-durability-bench/)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-LetItLoop_Action_v2-blue?logo=github)](https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate)
+[![Benchmark](https://img.shields.io/badge/DCP--2.0-100%25%20Durability-brightgreen)](https://sdageltc.github.io/agent-durability-bench/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Quickstart](#quickstart) • [How it Works](#how-it-works-in-30-seconds) • [Framework Cookbooks](#framework-recipes--cookbooks) • [GitHub Action](#github-action-ci-gate) • [Adapters](#supported-worker-adapters) • [Docs](https://sdageltc.github.io/letitloop/)
+**[Official Website & Demos](https://sdageltc.github.io/letitloop/)** • **[DCP-2.0 Leaderboard](https://sdageltc.github.io/agent-durability-bench/)** • **[GitHub Action v2](https://github.com/sdageltc/letitloop-action)** • **[Quickstart](#quickstart)** • **[Cookbooks](#framework-recipes--cookbooks)** • **[Architecture](#key-capabilities--architecture)**
 
 </div>
 
@@ -25,28 +26,60 @@
 
 ---
 
+## The LetItLoop Tripartite Ecosystem
+
+LetItLoop eliminates the central failure mode of autonomous AI coding agents and long-horizon Python scripts: **the lack of deterministic verification, uncatchable mid-task SIGKILL crashes, and destructive whole-file rewrites**.
+
+```mermaid
+graph TD
+    subgraph "The Tripartite Ecosystem"
+        LL["<b>letitloop</b> (Core Engine)<br/>Deterministic WAL plumbing, AST node splicer & FastSandbox"]
+        LLA["<b>letitloop-action</b> (Marketplace v2)<br/>Drop-in CI gate signing proof bundles on Pull Requests"]
+        ADB["<b>agent-durability-bench</b> (DCP-2.0)<br/>Open benchmark measuring agent recovery under SIGKILL faults"]
+    end
+
+    LL -.->|"bridges to"| ADB
+    LL -.->|"scaffolds"| LLA
+```
+
+1. **[`letitloop`](https://github.com/sdageltc/letitloop)** ([Official Website](https://sdageltc.github.io/letitloop/)): The core engine providing single-file Write-Ahead Logging (WAL) state journals, source-span AST node splicing (0% comment loss), in-memory Zero-Copy fast sandboxing, and deterministic verification gates.
+2. **[`letitloop-action`](https://github.com/sdageltc/letitloop-action)** ([Marketplace](https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate)): Zero-dependency GitHub Action for CI that validates AI pull requests, enforces strict AST signatures, and posts machine-verifiable proof bundles directly to PR comments.
+3. **[`agent-durability-bench`](https://github.com/sdageltc/agent-durability-bench)** ([Leaderboard](https://sdageltc.github.io/agent-durability-bench/)): An open benchmark suite implementing Durability Conformance Protocol 2.0 (DCP-2.0) with zero-API synthetic simulation to measure how well agents recover from uncatchable SIGKILL crashes.
+
+---
+
 ## Quickstart
 
-Make any Python function or agent workflow crash-proof in 3 lines:
+### 1. The `@durable` Python Decorator
+
+Make any Python function or AI agent workflow crash-proof in 3 lines:
 
 ```python
-from letitloop import durable, step
+from letitloop import durable, step, atomic_marker
 
 
 @durable(goal_id="customer_sync")
 def sync_workflow():
     # If this process crashes or gets SIGKILLed midway,
-    # completed steps are skipped on resume. Zero tokens wasted.
-    user = step("fetch", fetch_crm_record, user_id=123)
+    # completed steps are skipped on resume. Zero duplicate tokens wasted.
+    user = step("fetch_user", fetch_crm_record, user_id=123)
     summary = step("summarize", call_claude, user)
-    return step("notify", send_slack, summary)
+
+    # Protect external API mutations against duplicate execution
+    with atomic_marker("slack_notification") as should_execute:
+        if should_execute:
+            step("notify", send_slack, summary)
+
+    return summary
 
 
 if __name__ == "__main__":
     sync_workflow()
 ```
 
-### Installation
+> **⚡ Async Support**: For asynchronous pipelines, use `@durable_async` and `await async_step(...)` with full `asyncio.gather()` isolation.
+
+### 2. Installation
 
 ```bash
 # Install core durability kernel
@@ -56,23 +89,21 @@ pip install letitloop
 pip install "letitloop[dev]"
 ```
 
----
+### 3. Basic CLI Commands
 
-## How it Works in 30 Seconds
+```bash
+# Run a task under strict WAL supervisor containment
+lil run --task auth-refactor --strict
 
+# Run self-benchmarking crash injection and verify WAL recovery
+lil bench --self --script examples/workflow.py
+
+# Check supervisor status, active locks, and WAL journal entries
+lil status
+
+# Export CRA-compliant CycloneDX Software Bill of Materials (SBOM)
+lil sbom --format cyclonedx --output sbom.json
 ```
-[ Step 1: fetch ] ---> ( WAL Append: ~2ms ) ---> [ Step 2: summarize ] ---> ?? SIGKILL / OOM
-                                                                                    |
-[ Step 1: FAST-FORWARD <1ms ] <----------------------- ( Resume from WAL ) <--------+
-          |
-          +---> [ Step 2: summarize ] ---> [ Step 3: notify ] ---> ? Done
-```
-
-1. **WAL Append (<2ms)**: Each wrapped `step()` atomically commits its return value to a local Write-Ahead Log (`state.wal.jsonl`) with CRC32 framing.
-2. **Crash & Containment**: An uncatchable `SIGKILL`, spot instance eviction, API timeout, or out-of-memory fault kills the process.
-3. **Instant Zero-Token Resume**: When re-executed, finished steps are loaded directly from disk cache in <1ms?bypassing repeated LLM calls, duplicate external API requests, and wasted compute.
-
-> **⚡ Async Support**: For asynchronous workflows, use `@durable_async` and `await async_step(...)` with full `asyncio.gather()` isolation.
 
 ---
 
@@ -87,9 +118,26 @@ LetItLoop uses **Deterministic Simulation Testing (DST)** inspired by the distri
 
 ---
 
+## Key Capabilities & Architecture
+
+- **Source-Span AST Node Splicer**: Replaces targeted functions and class methods with surgical precision. **0% Comment Loss**: Guarantees module docstrings, file comments, licensing headers, and class indentation are never stripped or altered.
+- **In-Memory Fast Sandbox**: Zero-Copy `sys.modules` evaluation and Windows Job Object containment that verifies code hypotheses in-memory before writing anything to disk.
+- **Fault-Tolerant WAL Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic Win32/POSIX file locking, and bounded 3-strike retries with strategy mutation.
+- **Cognitive Feasibility Gate & Multi-Source Research**: Deliberates whether a refactor is safe to perform autonomously or requires background research across arXiv, GitHub, and DuckDuckGo.
+- **Human-in-the-Loop Proposal Ledger**: Automatically stages deferred, high-risk architectural proposals as structured markdown artifacts (`PROP-*.md`) for human review rather than executing unverified mutations.
+- **Zero-Trust Verification Engine**: Deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
+- **12 Pluggable Worker Adapters**: Native interfaces for Claude Code, OpenAI Codex, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Docker Sandboxes, Local LLMs (Ollama/vLLM), Omniroute gateways, local scripts, and direct LLMs.
+- **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, Cursor, Antigravity, and Hermes Agent:
+  ```bash
+  claude mcp add letitloop -- python -m orchestrator.mcp_server
+  ```
+- **Cross-Platform Process Orphan Guard**: Windows Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and POSIX session process-group containment ensuring complete cleanup of child/grandchild processes.
+
+---
+
 ## Framework Recipes & Cookbooks
 
-LetItLoop integrates natively with major AI agent frameworks. Explore runnable self-contained examples:
+LetItLoop integrates natively with major AI agent frameworks. Explore runnable self-contained examples in [`examples/cookbooks/`](examples/cookbooks/):
 
 | Framework | Cookbook | Description |
 |---|---|---|
@@ -99,7 +147,7 @@ LetItLoop integrates natively with major AI agent frameworks. Explore runnable s
 | **LlamaIndex** | [**Durable Workflows Example**](examples/llamaindex_durable_workflow.py) | Event-driven `@step` pipeline with crash durability and sub-millisecond fast-forward |
 | **OpenAI Swarm** | [**Durable Handoff Example**](examples/swarm_durable_handoff.py) | Multi-agent context handoff with WAL v2 serialization |
 
-Run any cookbook directly:
+Run any cookbook directly in demo/mock mode:
 ```bash
 python examples/cookbooks/langgraph_financial_analyst.py --demo
 python examples/cookbooks/dspy_durable_optimize.py --demo
@@ -107,9 +155,29 @@ python examples/cookbooks/dspy_durable_optimize.py --demo
 
 ---
 
-## GitHub Action CI Gate
+## Supported Worker Adapters & Gateways
 
-Drop LetItLoop into your CI/CD pipeline to block non-deterministic agent changes, enforce AST signatures, and verify proof bundles:
+| Worker Adapter | Identifier | Description | Tier |
+|---|---|---|---|
+| **Google Antigravity CLI** | `antigravity-cli` | Invokes the official `agy` agent runner safely | **Tier-1 (Core)** |
+| **Claude Code CLI** | `claude-code` | Autonomous task execution via Claude Code CLI | **Tier-1 (Core)** |
+| **OpenAI Codex CLI** | `codex` | Autonomous task execution via OpenAI Codex CLI | **Tier-1 (Core)** |
+| **Mock Worker** | `mock` | Deterministic simulation worker for CI and offline tests | **Tier-1 (Core)** |
+| **OpenCode CLI** | `opencode` | Autonomous execution via OpenCode agent CLI | Tier-2 (Contrib) |
+| **Hermes Agent CLI** | `hermes` | Autonomous execution via Nous Research Hermes agent CLI | Tier-2 (Contrib) |
+| **Cline CLI** | `cline` | Headless execution via Cline autonomous coding runner | Tier-2 (Contrib) |
+| **Aider Pair Programmer** | `aider` | Pair programming execution via Aider CLI | Tier-2 (Contrib) |
+| **Docker Sandbox Worker** | `docker` | Isolated execution inside container runtime with workspace scoping | Tier-2 (Contrib) |
+| **Local LLM Tool Caller** | `local-tool` | Local tool-calling model adapter for offline Ollama/vLLM loops | Tier-2 (Contrib) |
+| **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways | Tier-2 (Contrib) |
+| **Script Worker** | `script` | Executes local shell/Python automation scripts with env isolation | Tier-2 (Contrib) |
+| **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek, or Ollama | Tier-2 (Contrib) |
+
+---
+
+## GitHub Action CI Gate (v2)
+
+Drop `letitloop-action@v2` into your CI/CD pipeline to block non-deterministic agent changes, enforce AST signatures, and verify proof bundles:
 
 ```yaml
 name: LetItLoop Proof-Carrying CI Gate
@@ -119,60 +187,32 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install LetItLoop
-        run: pip install letitloop
-      - name: Verify PR Proof Bundle
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run LetItLoop Verification Gate
         uses: sdageltc/letitloop-action@v2
         with:
-          contract: .letitloop/contract.json
-          enforce-ast: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          strict-ast: 'true'
 ```
 
 ---
 
-## Supported Worker Adapters
+## Living Architecture Decision Records (ADRs)
 
-LetItLoop provides adapters for leading autonomous coding agents and execution environments:
+Following the Michael Nygard ADR convention, all core design invariants and architectural decisions are codified:
 
-| Worker Adapter | Identifier | Description | Tier |
-|---|---|---|---|
-| **Mock Worker** | `mock` | Deterministic simulation worker for offline testing & CI | **Tier-1 (Core)** |
-| **Claude Code CLI** | `claude-code` | Autonomous task execution via Claude Code CLI | **Tier-1 (Core)** |
-| **Google Antigravity CLI** | `antigravity-cli` | Invokes official `agy` agent runner with process containment | **Tier-1 (Core)** |
-| **OpenAI Codex CLI** | `codex` | Autonomous task execution via OpenAI Codex CLI | **Tier-1 (Core)** |
-| **OpenCode CLI** | `opencode` | Autonomous execution via OpenCode agent CLI | Tier-2 (Contrib) |
-| **Hermes Agent CLI** | `hermes` | Autonomous execution via Nous Research Hermes agent CLI | Tier-2 (Contrib) |
-| **Cline CLI** | `cline` | Headless execution via Cline autonomous coding runner | Tier-2 (Contrib) |
-| **Aider Pair Programmer** | `aider` | Pair programming execution via Aider CLI | Tier-2 (Contrib) |
-| **Docker Sandbox** | `docker` | Containerized worker with workspace directory scoping | Tier-2 (Contrib) |
-| **Local LLM Tool Caller** | `local-tool` | Offline Ollama / vLLM local model loop | Tier-2 (Contrib) |
-| **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways | Tier-2 (Contrib) |
-| **Script Worker** | `script` | Executes local shell/Python scripts with environment isolation | Tier-2 (Contrib) |
-| **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek | Tier-2 (Contrib) |
-
-> **Community Contributions**: Tier-2 adapters are maintained via community contributions. To add a custom adapter, implement the `WorkerAdapter` interface in `orchestrator/workers/`.
+| ADR | Focus | Status |
+|---|---|---|
+| [**ADR-0001**](docs/adr/0001-write-ahead-logging.md) | **Write-Ahead Logging (WAL) & Zero-State Recovery** | `accepted` |
+| [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md) | **Deterministic AST, Regex & Exit-Code Verification Gates** | `accepted` |
+| [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md) | **Zero-API-Key Headless Agent CLI Wrapper Failovers** | `accepted` |
+| [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md) | **Format-Aware Acceptance Check & Markdown Injection** | `accepted` |
 
 ---
 
-## Core Capabilities
-
-- **Source-Span AST Node Splicer**: Replaces targeted functions and class methods with surgical precision. **0% Comment Loss**: Guarantees module docstrings, file comments, licensing headers, and class indentation are never stripped or altered.
-- **In-Memory Fast Sandbox**: Zero-Copy `sys.modules` evaluation and Windows Job Object containment that verifies code hypotheses in-memory before writing anything to disk.
-- **Fault-Tolerant WAL Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic Win32/POSIX file locking, and bounded 3-strike retries with strategy mutation.
-- **Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, Cursor, Antigravity, and Hermes Agent:
-  ```bash
-  claude mcp add letitloop -- python -m orchestrator.mcp_server
-  ```
-- **Zero-Trust Verification Engine**: Deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
-
----
-
-## Enterprise Compliance, SBOM & CRA
+## Enterprise Compliance, CRA & SBOM
 
 <details>
 <summary><b>Click to expand Enterprise Compliance, CRA Invariants & Security Specifications</b></summary>
@@ -183,16 +223,10 @@ LetItLoop provides adapters for leading autonomous coding agents and execution e
 - **Zero-Trust Redaction**: Automatic masking of PATs, OAuth tokens, AWS credentials, and PEM private keys before logging.
 - **Process Orphan Containment**: Windows Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and POSIX session groups ensure orphan processes are reaped on exit.
 
-### Living Architecture Decision Records (ADRs)
-- [**ADR-0001**](docs/adr/0001-write-ahead-logging.md): Write-Ahead Logging (WAL) & Zero-State Recovery
-- [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md): Deterministic AST, Regex & Exit-Code Verification Gates
-- [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md): Zero-API-Key Headless Agent CLI Wrapper Failovers
-- [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md): Format-Aware Acceptance Check & Markdown Injection
-
 </details>
 
 ---
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+Distributed under the MIT License. Copyright (c) 2026 sdageltc. See [LICENSE](LICENSE) for details.
