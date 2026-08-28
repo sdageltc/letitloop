@@ -42,9 +42,11 @@ scratch/
 .bench_wal/
 .bench_wal*/
 results/
-docs/plans/.tmp/
+docs/plans/
 docs/bench/
 docs/badges/
+*.secret
+task.md
 node_modules/
 !letitloop-action/package-lock.json
 !letitloop-action/package.json
