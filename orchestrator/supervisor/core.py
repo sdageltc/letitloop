@@ -520,80 +520,83 @@ class Supervisor(RecoveryMixin, ReportingMixin, CleanupMixin):
 
         os.makedirs(task_dir, exist_ok=True)
 
-        with lk.FileLock(lock_path):
-            if not os.path.isfile(state_file):
-                return "FAILED"
+        try:
+            with lk.FileLock(lock_path):
+                if not os.path.isfile(state_file):
+                    return "FAILED"
 
-            state = load_state(state_file, journal_dir=task_dir)
-            if state.status not in (
-                "QC_REJECTED",
-                "QC_INSUFFICIENT_EVIDENCE",
-                "QC_CONDITIONAL_PASS",
-                "VERIFICATION_FAILED",
-            ):
-                return "FAILED"
+                state = load_state(state_file, journal_dir=task_dir)
+                if state.status not in (
+                    "QC_REJECTED",
+                    "QC_INSUFFICIENT_EVIDENCE",
+                    "QC_CONDITIONAL_PASS",
+                    "VERIFICATION_FAILED",
+                ):
+                    return "FAILED"
 
-            if state.data.get("overrule_consumed") or os.path.exists(marker_path):
-                return "FAILED"
+                if state.data.get("overrule_consumed") or os.path.exists(marker_path):
+                    return "FAILED"
 
-            try:
-                with open(evidence_path, "r", encoding="utf-8") as f:
-                    verification_evidence = json.load(f)
-            except (OSError, json.JSONDecodeError):
-                return "FAILED"
+                try:
+                    with open(evidence_path, "r", encoding="utf-8") as f:
+                        verification_evidence = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    return "FAILED"
 
-            from orchestrator.qc_overrule import verify_overrule
+                from orchestrator.qc_overrule import verify_overrule
 
-            valid, errors = verify_overrule(evidence, secret, verification_evidence)
-            if not valid:
-                return "FAILED"
+                valid, errors = verify_overrule(evidence, secret, verification_evidence)
+                if not valid:
+                    return "FAILED"
 
-            public_evidence = {key: value for key, value in evidence.items() if key != "secret"}
-            marker = {
-                "task_id": task_id,
-                "check_id": public_evidence["check_id"],
-                "stdout_hash": public_evidence["stdout_hash"],
-                "evidence_sha256": hashlib.sha256(
-                    json.dumps(
-                        public_evidence,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ).encode("utf-8")
-                ).hexdigest(),
-                "consumed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            }
+                public_evidence = {key: value for key, value in evidence.items() if key != "secret"}
+                marker = {
+                    "task_id": task_id,
+                    "check_id": public_evidence["check_id"],
+                    "stdout_hash": public_evidence["stdout_hash"],
+                    "evidence_sha256": hashlib.sha256(
+                        json.dumps(
+                            public_evidence,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                    "consumed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
 
-            try:
-                fd = os.open(
-                    marker_path,
-                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-                    0o600,
+                try:
+                    fd = os.open(
+                        marker_path,
+                        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                        0o600,
+                    )
+                except FileExistsError:
+                    return "FAILED"
+
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(marker, f, sort_keys=True)
+                    f.write("\n")
+                    f.flush()
+                    os.fsync(f.fileno())
+
+                patch_payload = {
+                    "overrule_consumed": marker,
+                    "overrule_evidence": public_evidence,
+                    "overrule_verified": True,
+                }
+                if hasattr(state, "patch_data"):
+                    state.patch_data(patch_payload)
+                elif hasattr(state, "data") and isinstance(state.data, dict):
+                    state.data.update(patch_payload)
+                state.transition(
+                    "FORCE_COMPLETE",
+                    reason=f"QC overruled: {public_evidence['assertions'][0]}",
                 )
-            except FileExistsError:
-                return "FAILED"
-
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(marker, f, sort_keys=True)
-                f.write("\n")
-                f.flush()
-                os.fsync(f.fileno())
-
-            patch_payload = {
-                "overrule_consumed": marker,
-                "overrule_evidence": public_evidence,
-                "overrule_verified": True,
-            }
-            if hasattr(state, "patch_data"):
-                state.patch_data(patch_payload)
-            elif hasattr(state, "data") and isinstance(state.data, dict):
-                state.data.update(patch_payload)
-            state.transition(
-                "FORCE_COMPLETE",
-                reason=f"QC overruled: {public_evidence['assertions'][0]}",
-            )
-            self._safe_save(state, state_file)
-            self.graph.mark_complete(task_id)
-            return "FORCE_COMPLETE"
+                self._safe_save(state, state_file)
+                self.graph.mark_complete(task_id)
+                return "FORCE_COMPLETE"
+        except lk.LockHeldError:
+            return "FAILED"
 
     def _store_qc_timing_artifact(self, task_id: str):
         """Write a qc_timing.json artifact with phase-level timing data."""
