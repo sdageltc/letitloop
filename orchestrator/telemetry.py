@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 
 def _log_path(run_dir: str) -> str:
+    if run_dir.endswith(".jsonl") or run_dir.endswith(".log"):
+        return run_dir
     return os.path.join(run_dir, "telemetry.jsonl")
 
 
@@ -26,8 +28,11 @@ def record_event(
         "goal_id": goal_id,
         "payload": payload or {},
     }
-    os.makedirs(run_dir, exist_ok=True)
-    with open(_log_path(run_dir), "a", encoding="utf-8") as f:
+    path = _log_path(run_dir)
+    parent_dir = os.path.dirname(os.path.abspath(path))
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
