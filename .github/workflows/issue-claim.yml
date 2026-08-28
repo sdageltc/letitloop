@@ -9,11 +9,7 @@ permissions:
 
 jobs:
   auto-assign:
-    if: |
-      !github.event.issue.pull_request &&
-      (startsWith(github.event.comment.body, '/claim') || 
-       startsWith(github.event.comment.body, '/take') ||
-       startsWith(github.event.comment.body, '/assign'))
+    if: ${{ !github.event.issue.pull_request && github.event.comment.user.type != 'Bot' }}
     runs-on: ubuntu-latest
     steps:
       - name: Process Issue Claim
@@ -21,11 +17,26 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const body = (context.payload.comment.body || '').trim().toLowerCase();
             const issue = context.payload.issue;
             const commenter = context.payload.comment.user.login;
-            const isLocked = issue.labels.some(l => l.name === 'agent-locked');
-            
-            // 1. Guard against claiming agent-locked issues
+
+            // 1. Detect Claim Intent (Slash Commands + Natural Language)
+            const isCommand = /^\/(claim|take|assign)|^\.(take|claim)/i.test(body);
+            const isNaturalClaim = (
+              /(i'd like to|i would like to|i want to|can i|could i|may i|i can|i'd love to|i would love to)\s+(work on|take|tackle|contribute to|implement|handle|help with|fix)/i.test(body) ||
+              /(please\s+)?assign\s+(this\s+to\s+me|me(\s+to\s+this)?)/i.test(body) ||
+              /(can i|may i|could i)\s+(take|claim|have)\s+(this|it)/i.test(body) ||
+              /happy to (take|work on) (this|it)/i.test(body) ||
+              (/first open-source contribution/i.test(body) && /(work on|take|contribute)/i.test(body))
+            );
+
+            if (!isCommand && !isNaturalClaim) {
+              return; // Not a claim request
+            }
+
+            // 2. Guard against claiming agent-locked issues
+            const isLocked = (issue.labels || []).some(l => l.name === 'agent-locked');
             if (isLocked) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -36,7 +47,7 @@ jobs:
               return;
             }
 
-            // 2. Guard against duplicate assignments
+            // 3. Guard against duplicate / existing assignments
             if (issue.assignees && issue.assignees.length > 0) {
               const currentAssignee = issue.assignees[0].login;
               if (currentAssignee === commenter) {
@@ -52,12 +63,12 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `@${commenter} this issue is already assigned to @${currentAssignee}.`
+                body: `@${commenter} this issue is already assigned to @${currentAssignee}. Feel free to check out other unassigned issues with the \`good first issue\` label!`
               });
               return;
             }
 
-            // 3. Assign the contributor
+            // 4. Assign the contributor
             await github.rest.issues.addAssignees({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -65,7 +76,7 @@ jobs:
               assignees: [commenter]
             });
 
-            // 4. React and welcome the contributor
+            // 5. React and welcome the contributor
             await github.rest.reactions.createForIssueComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -77,5 +88,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              body: `Assigned @${commenter} to this issue! 🚀\n\nThanks for contributing! Feel free to open a draft PR once you're ready to share your progress.`
+              body: `Welcome @${commenter}! 🎉 This issue is now assigned to you.\n\nFeel free to ask any questions in this thread if you need guidance on repo setup, decorators, or testing. Looking forward to your contribution!`
             });
