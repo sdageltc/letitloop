@@ -1,5 +1,5 @@
 # Dockerfile for LetItLoop Cloud CI Watchdog (Linux VM / Container Host)
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:69b1704ab9d7758bfd6db0f93792070d6a0cf5c47794157140a3224749f7b3c2
 
 WORKDIR /app
 

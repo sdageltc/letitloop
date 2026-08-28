@@ -1,5 +1,5 @@
 # Build stage: lightweight python base
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim@sha256:69b1704ab9d7758bfd6db0f93792070d6a0cf5c47794157140a3224749f7b3c2 AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
 
 # Runtime stage: secure non-root container
-FROM python:3.11-slim AS runtime
+FROM python:3.11-slim@sha256:69b1704ab9d7758bfd6db0f93792070d6a0cf5c47794157140a3224749f7b3c2 AS runtime
 
 WORKDIR /workspace
 

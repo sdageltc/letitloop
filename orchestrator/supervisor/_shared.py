@@ -86,7 +86,7 @@ def _retry_fingerprints(state, failure_class: str, attempt: int):
     normalized = re.sub(r"\bpid(?:=|\s+)\d+\b", "pid=<PID>", normalized, flags=re.I)
     normalized = re.sub(r"0x[0-9a-fA-F]{6,}", "0x<HEX>", normalized)
     normalized = re.sub(r"(?i)[a-z]:[\\/][^\s\"']+", "<PATH>", normalized)
-    normalized = re.sub(r"(?i)([a-z0-9_/\\-]+/)+[a-z0-9_\\-]+\.(?:py|js|ts|exe|cmd|bat)", "<F>", normalized)
+    normalized = re.sub(r"(?i)[\w\-./\\]+\.(?:py|js|ts|exe|cmd|bat)\b", "<F>", normalized)
     # POSIX paths are not stripped by the drive-letter regex above; normalize
     # them too so retry fingerprints are stable across platforms (QC 2026-08-01).
     normalized = re.sub(r"(?i)/(?:home|tmp|usr|var|opt|etc|root|mnt|run)/[^\s\"']*", "<POSIX>", normalized)
