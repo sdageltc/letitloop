@@ -8,7 +8,24 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
-from orchestrator.elasticity_governor import DynamicElasticityGovernor
+
+def calculate_complexity(source_code: str) -> float:
+    """Calculate AST complexity score based on LOC and cyclomatic complexity."""
+    try:
+        tree = ast.parse(source_code)
+    except Exception:
+        return 30.0
+
+    loc = len(source_code.splitlines())
+    cyclomatic = 1
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.If, ast.While, ast.For, ast.ExceptHandler, ast.With, ast.Assert)):
+            cyclomatic += 1
+        elif isinstance(node, ast.BoolOp):
+            cyclomatic += len(node.values) - 1
+
+    return (loc * 0.35) + (cyclomatic * 1.8)
 
 
 @dataclass
@@ -53,8 +70,8 @@ class AntiOuroborosGate:
             )
 
         # Calculate complexity delta
-        orig_c = DynamicElasticityGovernor.calculate_complexity(original_code)
-        mod_c = DynamicElasticityGovernor.calculate_complexity(modified_code)
+        orig_c = calculate_complexity(original_code)
+        mod_c = calculate_complexity(modified_code)
         c_delta = mod_c - orig_c
 
         orig_lines = original_code.splitlines()

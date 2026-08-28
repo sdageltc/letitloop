@@ -544,6 +544,7 @@ class TestFakeWorker:
 
     @pytest.mark.integration
     @pytest.mark.phase2
+    @pytest.mark.slow
     def test_phase2_two_step_goal(self, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_WORKER", "1")
         gid = "phase2-proof-two-step"
