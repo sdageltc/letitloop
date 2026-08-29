@@ -26,6 +26,10 @@
 
 ---
 
+<p align="center">
+  <img src="docs/assets/crash_recovery_demo.gif" alt="LetItLoop Process Crash & WAL Recovery Demo" width="100%">
+</p>
+
 ## ⚡ Quickstart
 
 ```python
