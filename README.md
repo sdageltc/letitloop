@@ -11,12 +11,12 @@
 [![Official Website](https://img.shields.io/badge/Website-LetItLoop-0284c7?logo=googlechrome&logoColor=white)](https://sdageltc.github.io/letitloop/)
 [![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)
 [![CI Matrix](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-LetItLoop_Action_v2-blue?logo=github)](https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate)
-[![Benchmark](https://img.shields.io/badge/DCP--2.0-100%25%20Durability-brightgreen)](https://sdageltc.github.io/agent-durability-bench/)
+[![GitHub Action v2](https://img.shields.io/badge/Action-LetItLoop_v2-blue?logo=github)](https://github.com/sdageltc/letitloop-action)
+[![Benchmark](https://img.shields.io/badge/Benchmark-DCP--2.0-blue)](https://sdageltc.github.io/agent-durability-bench/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[Official Website & Demos](https://sdageltc.github.io/letitloop/)** • **[DCP-2.0 Leaderboard](https://sdageltc.github.io/agent-durability-bench/)** • **[GitHub Action v2](https://github.com/sdageltc/letitloop-action)** • **[Quickstart](#quickstart)** • **[Cookbooks](#framework-recipes--cookbooks)** • **[Architecture](#key-capabilities--architecture)**
+**[Official Website](https://sdageltc.github.io/letitloop/)** • **[DCP-2.0 Benchmark](https://sdageltc.github.io/agent-durability-bench/)** • **[GitHub Action v2](https://github.com/sdageltc/letitloop-action)** • **[PyPI Package](https://pypi.org/project/letitloop/)** • **[Quickstart](#quickstart)**
 
 </div>
 

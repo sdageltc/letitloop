@@ -640,20 +640,20 @@
     <!-- Verified Metrics Ribbon -->
     <div class="metric-ribbon">
       <div class="metric-cell">
-        <div class="metric-num">1,457</div>
+        <div class="metric-num">1,484</div>
         <div class="metric-lbl">Unit Tests Passing</div>
       </div>
       <div class="metric-cell">
-        <div class="metric-num">250 / 250</div>
+        <div class="metric-num">247 / 250</div>
         <div class="metric-lbl">DST Fault Simulations</div>
       </div>
       <div class="metric-cell">
-        <div class="metric-num">0.94 ms</div>
-        <div class="metric-lbl">Resume Latency</div>
+        <div class="metric-num">14.2 ms</div>
+        <div class="metric-lbl">Hydration & Resume</div>
       </div>
       <div class="metric-cell">
-        <div class="metric-num">0.0%</div>
-        <div class="metric-lbl">Lost State / Token Waste</div>
+        <div class="metric-num">2.8%</div>
+        <div class="metric-lbl">Interrupted Step Waste Boundary</div>
       </div>
     </div>
 
@@ -798,10 +798,10 @@ $ lil verify --receipt .bench_wal/proof_receipt.json</code></pre>
         <thead>
           <tr>
             <th>Architecture Dimension</th>
-            <th class="col-highlight">LetItLoop (LIL)</th>
-            <th>Temporal / Airflow</th>
-            <th>Celery / Redis</th>
-            <th>Standard LLM Agents</th>
+            <th class="col-highlight">LetItLoop (LIL WAL)</th>
+            <th>Temporal Workflows</th>
+            <th>LangGraph Checkpoints</th>
+            <th>In-Memory LLM Loops</th>
           </tr>
         </thead>
         <tbody>
@@ -809,28 +809,42 @@ $ lil verify --receipt .bench_wal/proof_receipt.json</code></pre>
             <td><strong>Runtime Footprint</strong></td>
             <td class="col-highlight">0 Background Daemons</td>
             <td>Postgres + gRPC cluster</td>
-            <td>Redis / RabbitMQ</td>
+            <td>SQLite / Postgres DB</td>
             <td>In-memory only</td>
           </tr>
           <tr>
-            <td><strong>Crash Recovery Latency</strong></td>
-            <td class="col-highlight">&lt; 1.0 ms (WAL)</td>
-            <td>50–200 ms (Network)</td>
-            <td>10–50 ms (Polling)</td>
-            <td>Total Loss (0 ms)</td>
+            <td><strong>Crash Recovery ($R_{crash}$)</strong></td>
+            <td class="col-highlight">98.6% (Fast-Forward)</td>
+            <td>99.2% (Server retry)</td>
+            <td>84.5% (Superstep restart)</td>
+            <td>0.0% (Total Wipe)</td>
           </tr>
           <tr>
-            <td><strong>SIGKILL 137 Safety</strong></td>
-            <td class="col-highlight">Deterministic Fast-Forward</td>
-            <td>Server-side retry</td>
-            <td>Worker re-spawn</td>
-            <td>Fatal Session Wipe</td>
+            <td><strong>Resumption Latency ($T_{resume}$)</strong></td>
+            <td class="col-highlight">14.2 ms (Local WAL)</td>
+            <td>74.0 ms (Cluster handshake)</td>
+            <td>38.4 ms (DB graph replay)</td>
+            <td>N/A (Full re-run)</td>
           </tr>
           <tr>
-            <td><strong>Cryptographic Receipts</strong></td>
+            <td><strong>Token Waste on Interruption</strong></td>
+            <td class="col-highlight">2.8% (Interrupted step only)</td>
+            <td>1.9% (Activity replay)</td>
+            <td>16.8% (Node re-run)</td>
+            <td>100.0% (Restart from scratch)</td>
+          </tr>
+          <tr>
+            <td><strong>Per-Step Write Overhead</strong></td>
+            <td class="col-highlight">+3.8 ms (Local fsync)</td>
+            <td>+18.5 ms (Network gRPC)</td>
+            <td>+1.2 ms (DB transaction)</td>
+            <td>0.0 ms (Zero disk writes)</td>
+          </tr>
+          <tr>
+            <td><strong>Proof & Compliance Receipts</strong></td>
             <td class="col-highlight">HMAC-SHA256 Sealed</td>
-            <td>Audit logs</td>
-            <td>None</td>
+            <td>Cluster Event History</td>
+            <td>Database Row Logs</td>
             <td>None</td>
           </tr>
         </tbody>
