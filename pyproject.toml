@@ -65,6 +65,12 @@ dev = [
     "pre-commit>=3.0",
     "fastapi>=0.100.0",
     "httpx>=0.24.0",
+    "langgraph>=1.2,<2",
+]
+financial-agent = [
+    "certifi>=2024.0.0",
+    "langgraph>=1.2,<2",
+    "yfinance>=1.0,<2",
 ]
 openai = [
     "openai>=1.0.0",
