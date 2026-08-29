@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.1] - 2026-08-29
+
+### 🔄 Liveness & Auto-Supervision
+- **Programmatic `@supervise` & `supervise()`**: Embedded parent-child process supervisor that catches `SIGKILL (137)`, OOM, and abnormal subprocess crashes, automatically relaunching until completion.
+- **CLI Watcher (`lil watch`)**: Real-time terminal watcher with ASCII progress indicators, exponential backoff, and jitter (`lil watch script.py`).
+- **Signal Classification Matrix**: User/system clean shutdowns (`SIGINT 130` / `SIGTERM 143`) halt immediately without resurrection; abnormal faults trigger restart policy.
+- **Rapid-Failure Circuit Breaker**: Aborts execution on persistent deterministic syntax/logic bugs (<5s uptime x 3 attempts) to prevent runaway CPU spin.
+- **Dual-OS Subprocess Tree Encapsulation**: Win32 Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` on Windows; `start_new_session=True` / `os.killpg()` on POSIX.
+
+---
+
 ## [0.5.0] - 2026-08-27
 
 ### 🔒 Security & Correctness

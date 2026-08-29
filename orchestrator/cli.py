@@ -2151,6 +2151,36 @@ def cmd_gate(args):
         _sys.exit(1)
 
 
+def cmd_watch(a) -> None:
+    """Supervise a Python script or command, automatically restarting on SIGKILL/crash."""
+    from .supervisor.liveness import CircuitBreakerError, LivenessSupervisor
+
+    target = a.target
+    if not target:
+        print("Error: Target script or command required for 'lil watch'", file=sys.stderr)
+        sys.exit(1)
+
+    cmd = [sys.executable, target] if target.endswith(".py") else [target]
+    if a.script_args:
+        cmd.extend(a.script_args)
+
+    sup = LivenessSupervisor(
+        command=cmd,
+        max_restarts=a.max_restarts,
+        backoff=a.backoff,
+        max_backoff=a.max_backoff,
+        healthy_threshold_sec=a.healthy_threshold,
+        max_rapid_failures=a.max_rapid_failures,
+    )
+    try:
+        exit_code = sup.run()
+        if exit_code != 0:
+            sys.exit(exit_code)
+    except CircuitBreakerError as e:
+        print(f"[LetItLoop Watcher] FATAL: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     global DEFAULT_RUN_DIR
     parser = argparse.ArgumentParser(
@@ -2479,6 +2509,24 @@ def main():
     p_version = sub.add_parser("version", help="Print version information")
     p_version.set_defaults(func=None)
 
+    p_watch = sub.add_parser("watch", help="Supervise and auto-restart a Python script or command on crash/SIGKILL")
+    p_watch.add_argument("target", help="Path to python script or executable command to watch")
+    p_watch.add_argument("script_args", nargs="*", help="Arguments passed through to target script")
+    p_watch.add_argument("--max-restarts", type=int, default=10, help="Maximum restart count (default: 10)")
+    p_watch.add_argument("--backoff", type=float, default=1.0, help="Initial backoff delay in seconds (default: 1.0)")
+    p_watch.add_argument(
+        "--max-backoff", type=float, default=30.0, help="Maximum backoff ceiling in seconds (default: 30.0)"
+    )
+    p_watch.add_argument(
+        "--healthy-threshold", type=float, default=5.0, help="Uptime in seconds to consider run healthy (default: 5.0)"
+    )
+    p_watch.add_argument(
+        "--max-rapid-failures",
+        type=int,
+        default=3,
+        help="Max consecutive rapid crashes before tripping circuit breaker (default: 3)",
+    )
+
     p_gate = sub.add_parser("gate", help="Enterprise Deterministic Policy Gatekeeper (fail-closed, secret scrubber)")
     p_gate.add_argument(
         "--check", action="store_true", help="Evaluate current branch against security invariants (exit 0 PASS, 1 FAIL)"
@@ -2560,6 +2608,7 @@ def main():
         "pause": cmd_pause,
         "remediate": cmd_remediate,
         "gate": cmd_gate,
+        "watch": cmd_watch,
         "cancel": cmd_cancel,
         "inspect": cmd_inspect,
     }

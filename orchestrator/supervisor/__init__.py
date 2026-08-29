@@ -182,3 +182,32 @@ class _ForwardingModule(types.ModuleType):
 sys.modules[__name__].__class__ = _ForwardingModule
 
 __all__ = ["Supervisor"]
+
+
+from orchestrator.supervisor.liveness import (
+    EXIT_CLEAN as EXIT_CLEAN,
+)
+from orchestrator.supervisor.liveness import (
+    EXIT_SIGINT as EXIT_SIGINT,
+)
+from orchestrator.supervisor.liveness import (
+    EXIT_SIGKILL as EXIT_SIGKILL,
+)
+from orchestrator.supervisor.liveness import (
+    EXIT_SIGSEGV as EXIT_SIGSEGV,
+)
+from orchestrator.supervisor.liveness import (
+    EXIT_SIGTERM as EXIT_SIGTERM,
+)
+from orchestrator.supervisor.liveness import (
+    CircuitBreakerError as CircuitBreakerError,
+)
+from orchestrator.supervisor.liveness import (
+    LivenessSupervisor as LivenessSupervisor,
+)
+from orchestrator.supervisor.liveness import (
+    SupervisorError as SupervisorError,
+)
+from orchestrator.supervisor.liveness import (
+    supervise as supervise,
+)

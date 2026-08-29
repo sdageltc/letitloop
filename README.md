@@ -59,6 +59,37 @@ pip install letitloop
 
 ---
 
+## 🔄 Process Liveness: Auto-Supervision & CLI Watcher
+
+LetItLoop bridges the gap between **State Durability** (saving steps to disk) and **Process Liveness** (auto-restarting on `SIGKILL 137` / OOM) with zero external daemons:
+
+### 1. Terminal Watcher (`lil watch`)
+Run any existing Python script under supervisor control with rapid-failure circuit breaking and clean Ctrl+C handling:
+
+```bash
+# Auto-respawns on SIGKILL (137), resuming from last WAL checkpoint in ~14ms
+lil watch agent_pipeline.py --max-restarts 10 --backoff 1.0
+```
+
+### 2. In-Code Programmatic Supervisor (`@supervise`)
+```python
+from letitloop import durable, step, supervise
+
+
+@supervise(max_restarts=5, backoff=1.0)
+@durable(goal_id="equity_analyst")
+def run_pipeline():
+    user = step("fetch_data", fetch_financials)
+    report = step("generate_report", analyze, user)
+    return report
+
+
+if __name__ == "__main__":
+    run_pipeline()
+```
+
+---
+
 ## 💎 The 3 Architectural Moats
 
 ### 1. Zero-Daemon Local Durability (Zero Infrastructure)

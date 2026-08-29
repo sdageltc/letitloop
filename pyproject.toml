@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.5.0"
+version = "0.5.1"
 description = "Make any Python function crash-proof in 3 lines. Zero tokens wasted on SIGKILL."
 readme = "README.md"
 license = { text = "MIT" }
