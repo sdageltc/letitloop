@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="let it loop (LIL)" width="340" style="border-radius: 20px;">
+  <img src="assets/logo.png" alt="let it loop (LIL)" width="320" style="border-radius: 20px;">
 </p>
 
 <div align="center">
@@ -16,43 +16,17 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[Official Website](https://sdageltc.github.io/letitloop/)** • **[DCP-2.0 Benchmark](https://sdageltc.github.io/agent-durability-bench/)** • **[GitHub Action v2](https://github.com/sdageltc/letitloop-action)** • **[PyPI Package](https://pypi.org/project/letitloop/)** • **[Quickstart](#quickstart)**
+**[Official Website](https://sdageltc.github.io/letitloop/)** • **[DCP-2.0 Benchmark](https://sdageltc.github.io/agent-durability-bench/)** • **[GitHub Action v2](https://github.com/sdageltc/letitloop-action)** • **[PyPI Package](https://pypi.org/project/letitloop/)**
 
 </div>
 
-<p align="center">
-  <img src="docs/assets/crash_recovery_demo.gif" alt="LetItLoop Process Crash & WAL Recovery Demo" width="100%">
-</p>
+---
+
+> **Temporal is great if you have a DevOps team to manage a cluster. LetItLoop is for developers who want crash-proof Python functions and AI agent pipelines in 3 lines of code without running a single daemon.**
 
 ---
 
-## The LetItLoop Tripartite Ecosystem
-
-LetItLoop eliminates the central failure mode of autonomous AI coding agents and long-horizon Python scripts: **the lack of deterministic verification, uncatchable mid-task SIGKILL crashes, and destructive whole-file rewrites**.
-
-```mermaid
-graph TD
-    subgraph "The Tripartite Ecosystem"
-        LL["<b>letitloop</b> (Core Engine)<br/>Deterministic WAL plumbing, AST node splicer & FastSandbox"]
-        LLA["<b>letitloop-action</b> (Marketplace v2)<br/>Drop-in CI gate signing proof bundles on Pull Requests"]
-        ADB["<b>agent-durability-bench</b> (DCP-2.0)<br/>Open benchmark measuring agent recovery under SIGKILL faults"]
-    end
-
-    LL -.->|"bridges to"| ADB
-    LL -.->|"scaffolds"| LLA
-```
-
-1. **[`letitloop`](https://github.com/sdageltc/letitloop)** ([Official Website](https://sdageltc.github.io/letitloop/)): The core engine providing single-file Write-Ahead Logging (WAL) state journals, source-span AST node splicing (0% comment loss), in-memory Zero-Copy fast sandboxing, and deterministic verification gates.
-2. **[`letitloop-action`](https://github.com/sdageltc/letitloop-action)** ([Marketplace](https://github.com/marketplace/actions/letitloop-proof-carrying-pr-verification-gate)): Zero-dependency GitHub Action for CI that validates AI pull requests, enforces strict AST signatures, and posts machine-verifiable proof bundles directly to PR comments.
-3. **[`agent-durability-bench`](https://github.com/sdageltc/agent-durability-bench)** ([Leaderboard](https://sdageltc.github.io/agent-durability-bench/)): An open benchmark suite implementing Durability Conformance Protocol 2.0 (DCP-2.0) with zero-API synthetic simulation to measure how well agents recover from uncatchable SIGKILL crashes.
-
----
-
-## Quickstart
-
-### 1. The `@durable` Python Decorator
-
-Make any Python function or AI agent workflow crash-proof in 3 lines:
+## ⚡ Quickstart
 
 ```python
 from letitloop import durable, step, atomic_marker
@@ -61,7 +35,7 @@ from letitloop import durable, step, atomic_marker
 @durable(goal_id="customer_sync")
 def sync_workflow():
     # If this process crashes or gets SIGKILLed midway,
-    # completed steps are skipped on resume. Zero duplicate tokens wasted.
+    # completed steps are skipped on resume in <15ms. Zero duplicate tokens wasted.
     user = step("fetch_user", fetch_crm_record, user_id=123)
     summary = step("summarize", call_claude, user)
 
@@ -77,41 +51,34 @@ if __name__ == "__main__":
     sync_workflow()
 ```
 
-> **⚡ Async Support**: For asynchronous pipelines, use `@durable_async` and `await async_step(...)` with full `asyncio.gather()` isolation.
-
-### 2. Installation
-
 ```bash
-# Install core durability kernel
 pip install letitloop
-
-# Or install with dev & conformance tooling
-pip install "letitloop[dev]"
 ```
 
-### 3. Basic CLI Commands
-
-```bash
-# Run a task under strict WAL supervisor containment
-lil run --task auth-refactor --strict
-
-# Run self-benchmarking crash injection and verify WAL recovery
-lil bench --self --script examples/workflow.py
-
-# Check supervisor status, active locks, and WAL journal entries
-lil status
-
-# Export CRA-compliant CycloneDX Software Bill of Materials (SBOM)
-lil sbom --format cyclonedx --output sbom.json
-```
+> **⚡ Async Support**: For asynchronous pipelines, use `@durable_async` and `await async_step(...)` with full `asyncio.gather()` isolation.
 
 ---
 
-## 📊 DCP-2.0 Agent Durability Leaderboard & Conformance Baselines
+## 💎 The 3 Architectural Moats
+
+### 1. Zero-Daemon Local Durability (Zero Infrastructure)
+No background Go servers, no Redis queues, and no PostgreSQL cluster configuration. LetItLoop embeds a single-file Write-Ahead Log (`LILWAL02`) that logs step outputs atomically. If your script dies from `SIGKILL (137)`, OOM, or spot eviction, running the script again instantly fast-forwards to the exact interrupted step in **~14ms**.
+
+### 2. Source-Span AST Node Splicer (0% Comment Loss)
+Temporal and existing orchestrators only manage task state. LetItLoop includes a surgical Python concrete syntax tree (CST) engine built specifically for self-coding AI agents:
+- Replaces targeted functions and classes with surgical precision.
+- **0% Comment Loss**: Guarantees module docstrings, inline comments, licensing headers, and class indentation are never stripped or hallucinated away by LLM whole-file rewrites.
+
+### 3. Proof-Carrying CI Gate (`letitloop-action`)
+LetItLoop generates signed HMAC-SHA256 receipts recording execution invariants and test outputs. Drop [`letitloop-action@v2`](https://github.com/sdageltc/letitloop-action) into GitHub Actions to block AI pull requests from hallucinating passing test outputs or altering protected function signatures.
+
+---
+
+## 📊 DCP-2.0 Agent Durability Conformance Benchmark
 
 How does LetItLoop compare against heavyweight workflow engines and existing agent frameworks under physical host OS `SIGKILL (137)` fault injection?
 
-Empirical benchmark results from the open [DCP-2.0 Durability Benchmark](https://sdageltc.github.io/agent-durability-bench/):
+Empirical results from the open [DCP-2.0 Durability Benchmark](https://sdageltc.github.io/agent-durability-bench/):
 
 | Architecture & Runtime | Durability Mechanism | Crash Recovery ($R_{crash}$) | Resumption Latency ($T_{resume}$) | Duplicate Token Waste ($W_{token}$) | Per-Step Write Overhead | Proof / Audit Trail |
 |---|---|:---:|:---:|:---:|:---:|:---:|
@@ -129,37 +96,21 @@ Empirical benchmark results from the open [DCP-2.0 Durability Benchmark](https:/
 
 ---
 
-## 🧪 Battle-Tested: 250+ Deterministic Simulation Tests (DST)
+## 🔄 Durability vs. Liveness (Auto-Supervision)
 
-LetItLoop uses **Deterministic Simulation Testing (DST)** inspired by the distributed systems verification methodologies of **FoundationDB, TigerBeetle, Jepsen, and Antithesis**:
+- **Durability (LetItLoop Kernel)**: Guarantees that completed state is never lost when a process terminates.
+- **Liveness (Supervisor Runner)**: When a process gets killed by the OS (`SIGKILL`), it requires a supervisor to automatically respawn it. LetItLoop provides built-in supervision:
 
-- **OS SIGKILL Chaos Injection**: Tested against 500+ physical OS signal injections (`kill -9`, SIGKILL 137, spot-instance preemptions, and OOM aborts) across all execution boundaries.
-- **247 / 250 DST Fault Matrix Passed (98.8%)**: Systematic fault injection across the 4 durability sentinels (`SENTINEL_PROMPT`, `SENTINEL_EXEC`, `SENTINEL_WRITE`, `SENTINEL_VERIFY`). While raw agent loops lose 100% of state and naive in-memory graphs fail 87.6% of the time, LetItLoop's WAL guarantees step-level resumption.
-- **Torn WAL & Bitrot Fuzzing**: 5,000+ property-based fuzzing permutations (via Hypothesis) inject random mid-frame disk writes, torn tails, and single-bit CRC32 corruptions—verifying automatic fail-safe prefix repair without state loss.
-- **Multi-OS CI Matrix**: 1,484 unit tests + DST fault matrices running 100% green across Ubuntu (3.11/3.12), macOS (3.11/3.12), and Windows (3.11/3.12).
-
----
-
-## Key Capabilities & Architecture
-
-- **Source-Span AST Node Splicer**: Replaces targeted functions and class methods with surgical precision. **0% Comment Loss**: Guarantees module docstrings, file comments, licensing headers, and class indentation are never stripped or altered.
-- **In-Memory Fast Sandbox**: Zero-Copy `sys.modules` evaluation and Windows Job Object containment that verifies code hypotheses in-memory before writing anything to disk.
-- **Fault-Tolerant WAL Supervisor Loop**: State journal with WAL (Write-Ahead Logging), crash recovery, atomic Win32/POSIX file locking, and bounded 3-strike retries with strategy mutation.
-- **Cognitive Feasibility Gate & Multi-Source Research**: Deliberates whether a refactor is safe to perform autonomously or requires background research across arXiv, GitHub, and DuckDuckGo.
-- **Human-in-the-Loop Proposal Ledger**: Automatically stages deferred, high-risk architectural proposals as structured markdown artifacts (`PROP-*.md`) for human review rather than executing unverified mutations.
-- **Zero-Trust Verification Engine**: Deterministic acceptance check kinds (AST syntax parsers, command exit-code assertions, regex matchers, file validators, size bounds, and undeclared output detectors).
-- **12 Pluggable Worker Adapters**: Native interfaces for Claude Code, OpenAI Codex, Google Antigravity (`agy`), OpenCode, Hermes Agent, Cline, Aider, Docker Sandboxes, Local LLMs (Ollama/vLLM), Omniroute gateways, local scripts, and direct LLMs.
-- **Native Model Context Protocol (MCP) Server**: 8 stdio JSON-RPC tools connecting directly with Claude Code, Cursor, Antigravity, and Hermes Agent:
-  ```bash
-  claude mcp add letitloop -- python -m orchestrator.mcp_server
-  ```
-- **Cross-Platform Process Orphan Guard**: Windows Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and POSIX session process-group containment ensuring complete cleanup of child/grandchild processes.
+```bash
+# Supervise execution and auto-respawn process on unhandled SIGKILL/crash until completion
+lil run --task auth-refactor --supervise --strict
+```
 
 ---
 
-## Framework Recipes & Community Cookbooks
+## 🍳 Framework Recipes & Community Cookbooks
 
-LetItLoop integrates natively with major AI agent frameworks. Explore runnable self-contained examples in [`examples/`](examples/):
+Explore runnable self-contained examples in [`examples/`](examples/):
 
 | Framework | Recipe / Cookbook | Status | Description |
 |---|---|:---:|---|
@@ -173,29 +124,9 @@ LetItLoop integrates natively with major AI agent frameworks. Explore runnable s
 
 ---
 
-## Supported Worker Adapters & Gateways
+## 🛡️ GitHub Action CI Gate (v2)
 
-| Worker Adapter | Identifier | Description | Tier |
-|---|---|---|---|
-| **Google Antigravity CLI** | `antigravity-cli` | Invokes the official `agy` agent runner safely | **Tier-1 (Core)** |
-| **Claude Code CLI** | `claude-code` | Autonomous task execution via Claude Code CLI | **Tier-1 (Core)** |
-| **OpenAI Codex CLI** | `codex` | Autonomous task execution via OpenAI Codex CLI | **Tier-1 (Core)** |
-| **Mock Worker** | `mock` | Deterministic simulation worker for CI and offline tests | **Tier-1 (Core)** |
-| **OpenCode CLI** | `opencode` | Autonomous execution via OpenCode agent CLI | Tier-2 (Contrib) |
-| **Hermes Agent CLI** | `hermes` | Autonomous execution via Nous Research Hermes agent CLI | Tier-2 (Contrib) |
-| **Cline CLI** | `cline` | Headless execution via Cline autonomous coding runner | Tier-2 (Contrib) |
-| **Aider Pair Programmer** | `aider` | Pair programming execution via Aider CLI | Tier-2 (Contrib) |
-| **Docker Sandbox Worker** | `docker` | Isolated execution inside container runtime with workspace scoping | Tier-2 (Contrib) |
-| **Local LLM Tool Caller** | `local-tool` | Local tool-calling model adapter for offline Ollama/vLLM loops | Tier-2 (Contrib) |
-| **Omniroute Gateway** | `omniroute` | Multi-model fallback routing through local/remote gateways | Tier-2 (Contrib) |
-| **Script Worker** | `script` | Executes local shell/Python automation scripts with env isolation | Tier-2 (Contrib) |
-| **Direct LLM APIs** | `direct` | In-process calls to Gemini, OpenAI, Anthropic, DeepSeek, or Ollama | Tier-2 (Contrib) |
-
----
-
-## GitHub Action CI Gate (v2)
-
-Drop `letitloop-action@v2` into your CI/CD pipeline to block non-deterministic agent changes, enforce AST signatures, and verify proof bundles:
+Drop `letitloop-action@v2` into your CI pipeline to block non-deterministic AI agent regressions:
 
 ```yaml
 name: LetItLoop Proof-Carrying CI Gate
@@ -205,11 +136,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run LetItLoop Verification Gate
-        uses: sdageltc/letitloop-action@v2
+      - uses: actions/checkout@v4
+      - uses: sdageltc/letitloop-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           strict-ast: 'true'
@@ -217,31 +145,13 @@ jobs:
 
 ---
 
-## Living Architecture Decision Records (ADRs)
+## 📜 Architecture Decision Records (ADRs)
 
-Following the Michael Nygard ADR convention, all core design invariants and architectural decisions are codified:
-
-| ADR | Focus | Status |
-|---|---|---|
-| [**ADR-0001**](docs/adr/0001-write-ahead-logging.md) | **Write-Ahead Logging (WAL) & Zero-State Recovery** | `accepted` |
-| [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md) | **Deterministic AST, Regex & Exit-Code Verification Gates** | `accepted` |
-| [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md) | **Zero-API-Key Headless Agent CLI Wrapper Failovers** | `accepted` |
-| [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md) | **Format-Aware Acceptance Check & Markdown Injection** | `accepted` |
-
----
-
-## Enterprise Compliance, CRA & SBOM
-
-<details>
-<summary><b>Click to expand Enterprise Compliance, CRA Invariants & Security Specifications</b></summary>
-
-### EU Cyber Resilience Act (CRA) & SBOM
-- **Deterministic Verification**: All agent-generated patches require proof bundles signed with HMAC-SHA256.
-- **Software Bill of Materials (SBOM)**: CycloneDX and SPDX format export via `lil sbom --format cyclonedx`.
-- **Zero-Trust Redaction**: Automatic masking of PATs, OAuth tokens, AWS credentials, and PEM private keys before logging.
-- **Process Orphan Containment**: Windows Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and POSIX session groups ensure orphan processes are reaped on exit.
-
-</details>
+Core design invariants are documented under [`docs/adr/`](docs/adr/):
+- [**ADR-0001**](docs/adr/0001-write-ahead-logging.md): Write-Ahead Logging (WAL) & Zero-State Recovery
+- [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md): Deterministic AST & Exit-Code Verification Gates
+- [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md): Zero-API-Key Headless Agent CLI Failovers
+- [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md): Format-Aware Acceptance Checks & Markdown Invariants
 
 ---
 
