@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import shutil
+import time
 import zlib
 from datetime import datetime, timezone
 from typing import Any, Dict
@@ -1054,13 +1055,27 @@ def save_state(state, path, backup=True):
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
         backup_path = os.path.join(backup_dir, f"state.{ts}.bak.json")
         shutil.copy2(path, backup_path)
-    tmp = path + ".tmp"
+    unique_suffix = f"{os.getpid()}_{int(time.time() * 1000)}"
+    tmp = f"{path}.tmp.{unique_suffix}"
     try:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(state.to_dict(), f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, path)
+        # Windows NTFS retry loop with exponential backoff for atomic replace
+        for attempt in range(6):
+            try:
+                os.replace(tmp, path)
+                break
+            except OSError:
+                if attempt == 5:
+                    raise
+                time.sleep(0.01 * (2**attempt))
         _fsync_dir(path)
     except OSError as e:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
         raise StateError(f"failed to save state: {e}") from e
