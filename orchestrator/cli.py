@@ -1680,7 +1680,7 @@ def cmd_demo(args):
     spec = SyntheticTaskSpec(task_id="demo-5step", steps=steps, kill_at_step_index=2, kill_signal="SIGKILL")
     runner = SyntheticTaskRunner(spec, wal_dir=str(wal_dir))
 
-    print("\n[Demo] First run — executing steps 1-5 (kill injected at Step 3)...")
+    print("\n[Demo] First run - executing steps 1-5 (kill injected at Step 3)...")
     t0 = _time.time()
     # First run: will run until kill point and pause (simulated by kill_at logic sleeping 1s at step 3)
     runner.run_until_kill_or_complete()
