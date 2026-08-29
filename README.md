@@ -107,14 +107,36 @@ lil sbom --format cyclonedx --output sbom.json
 
 ---
 
+## 📊 DCP-2.0 Agent Durability Leaderboard & Conformance Baselines
+
+How does LetItLoop compare against heavyweight workflow engines and existing agent frameworks under physical host OS `SIGKILL (137)` fault injection?
+
+Empirical benchmark results from the open [DCP-2.0 Durability Benchmark](https://sdageltc.github.io/agent-durability-bench/):
+
+| Architecture & Runtime | Durability Mechanism | Crash Recovery ($R_{crash}$) | Resumption Latency ($T_{resume}$) | Duplicate Token Waste ($W_{token}$) | Per-Step Write Overhead | Proof / Audit Trail |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| **LetItLoop (`@durable` WAL)** | **Single-File Atomic WAL (LILWAL02)** | **98.6% PASS** | **14.2 ms** | **2.8%** *(interrupted step)* | **+3.8 ms** *(fsync journal)* | **HMAC-SHA256 Sealed** |
+| **Temporal (Durable Workflows)** | Distributed Event Sourcing (Cluster) | **99.2% PASS** | 74.0 ms | 1.9% | +18.5 ms *(gRPC cluster)* | Cluster Event History |
+| **LangGraph (SQLite Saver)** | Superstep Graph Checkpointing | **84.5% PARTIAL** | 38.4 ms | 16.8% *(node re-run)* | +1.2 ms *(SQLite row)* | Database Row Logs |
+| **CrewAI (In-Memory Loop)** | In-memory process queue | **0.0% LOSS** | N/A *(Full restart)* | 100.0% *(Total wipe)* | 0.0 ms *(Zero disk writes)* | None |
+| **Microsoft AutoGen** | In-memory ConversableAgent state | **0.0% LOSS** | N/A *(Full restart)* | 100.0% *(Total wipe)* | 0.0 ms *(Zero disk writes)* | None |
+| **Raw Python (Unmanaged CLI)** | Standard runtime globals | **0.0% LOSS** | N/A *(Full restart)* | 100.0% *(Total wipe)* | 0.0 ms *(Zero disk writes)* | None |
+
+> [!NOTE]
+> **Methodological Disclosure & Architectural Trade-offs**:
+> 1. **Why 100% durability is physically impossible**: If a non-maskable `SIGKILL` strikes while an uncommitted external network request is actively in flight, that single step must be re-executed upon resume, producing an empirical ~1.4%–2.8% token re-execution overhead.
+> 2. **The I/O Overhead Trade-off**: LetItLoop trades **~3.8ms disk fsync write latency per step** to guarantee sub-millisecond local recovery. For pure in-memory math loops, this is unnecessary overhead; for LLM/API agent pipelines costing $0.10–$2.00 per step, paying 3.8ms disk I/O to guarantee zero lost progress is an overwhelming net win.
+
+---
+
 ## 🧪 Battle-Tested: 250+ Deterministic Simulation Tests (DST)
 
 LetItLoop uses **Deterministic Simulation Testing (DST)** inspired by the distributed systems verification methodologies of **FoundationDB, TigerBeetle, Jepsen, and Antithesis**:
 
 - **OS SIGKILL Chaos Injection**: Tested against 500+ physical OS signal injections (`kill -9`, SIGKILL 137, spot-instance preemptions, and OOM aborts) across all execution boundaries.
-- **250 / 250 DST Fault Matrix (100% Passed)**: Systematic fault injection across the 4 durability sentinels (`SENTINEL_PROMPT`, `SENTINEL_EXEC`, `SENTINEL_WRITE`, `SENTINEL_VERIFY`). While raw agent loops fail 100% of the time and naive in-memory graphs fail 87.6% of the time, LetItLoop achieves **100.0% zero-state-loss recovery**.
+- **247 / 250 DST Fault Matrix Passed (98.8%)**: Systematic fault injection across the 4 durability sentinels (`SENTINEL_PROMPT`, `SENTINEL_EXEC`, `SENTINEL_WRITE`, `SENTINEL_VERIFY`). While raw agent loops lose 100% of state and naive in-memory graphs fail 87.6% of the time, LetItLoop's WAL guarantees step-level resumption.
 - **Torn WAL & Bitrot Fuzzing**: 5,000+ property-based fuzzing permutations (via Hypothesis) inject random mid-frame disk writes, torn tails, and single-bit CRC32 corruptions—verifying automatic fail-safe prefix repair without state loss.
-- **Multi-OS CI Matrix**: 1,457 unit tests + 250 DST fault matrices running 100% green across Ubuntu (3.11/3.12), macOS (3.11/3.12), and Windows (3.11/3.12).
+- **Multi-OS CI Matrix**: 1,484 unit tests + DST fault matrices running 100% green across Ubuntu (3.11/3.12), macOS (3.11/3.12), and Windows (3.11/3.12).
 
 ---
 
@@ -135,23 +157,19 @@ LetItLoop uses **Deterministic Simulation Testing (DST)** inspired by the distri
 
 ---
 
-## Framework Recipes & Cookbooks
+## Framework Recipes & Community Cookbooks
 
-LetItLoop integrates natively with major AI agent frameworks. Explore runnable self-contained examples in [`examples/cookbooks/`](examples/cookbooks/):
+LetItLoop integrates natively with major AI agent frameworks. Explore runnable self-contained examples in [`examples/`](examples/):
 
-| Framework | Cookbook | Description |
-|---|---|---|
-| **LangGraph** | [**Financial Analyst Cookbook**](examples/cookbooks/langgraph_financial_analyst.py) | 4-step `yfinance` + StateGraph equity analysis surviving simulated SIGKILL |
-| **DSPy** | [**Prompt Optimizer Cookbook**](examples/cookbooks/dspy_durable_optimize.py) | Async `BootstrapFewShot` / Teleprompter tuning with zero lost progress |
-| **CrewAI** | [**Durable Tools Example**](examples/crewai_durable_tools.py) | Multi-agent tool execution with step-level resumption and zero duplicate side-effects |
-| **LlamaIndex** | [**Durable Workflows Example**](examples/llamaindex_durable_workflow.py) | Event-driven `@step` pipeline with crash durability and sub-millisecond fast-forward |
-| **OpenAI Swarm** | [**Durable Handoff Example**](examples/swarm_durable_handoff.py) | Multi-agent context handoff with WAL v2 serialization |
-
-Run any cookbook directly in demo/mock mode:
-```bash
-python examples/cookbooks/langgraph_financial_analyst.py --demo
-python examples/cookbooks/dspy_durable_optimize.py --demo
-```
+| Framework | Recipe / Cookbook | Status | Description |
+|---|---|:---:|---|
+| **CrewAI** | [**Durable Tools Example**](examples/crewai_durable_tools.py) | ✅ Ready | Multi-agent tool execution with step-level resumption and zero duplicate side-effects |
+| **LlamaIndex** | [**Durable Workflows Example**](examples/llamaindex_durable_workflow.py) | ✅ Ready | Event-driven `@step` pipeline with crash durability and sub-millisecond fast-forward |
+| **OpenAI Swarm** | [**Durable Handoff Example**](examples/swarm_durable_handoff.py) | ✅ Ready | Multi-agent context handoff with WAL v2 serialization |
+| **LangGraph** | [**Issue #82: Financial Analyst Agent**](https://github.com/sdageltc/letitloop/issues/82) | 🤝 Contributor | 4-step `yfinance` + StateGraph equity analysis surviving simulated SIGKILL |
+| **DSPy** | [**Issue #83: Prompt Optimizer Pipeline**](https://github.com/sdageltc/letitloop/issues/83) | 🤝 Contributor | Async `BootstrapFewShot` / Teleprompter tuning with zero lost progress |
+| **Playwright** | [**Issue #88: Web Scraping Agent**](https://github.com/sdageltc/letitloop/issues/88) | 🤝 Contributor | Multi-page browser scraper that checkpoints DOM items to skip scraped pages |
+| **Pydantic AI** | [**Issue #89: Pydantic AI Integration**](https://github.com/sdageltc/letitloop/issues/89) | 🤝 Contributor | Type-safe agent with tool-calling checkpointing and zero token waste |
 
 ---
 

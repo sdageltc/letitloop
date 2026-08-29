@@ -813,14 +813,14 @@ $ lil verify --receipt .bench_wal/proof_receipt.json</code></pre>
             <td>In-memory only</td>
           </tr>
           <tr>
-            <td><strong>Crash Recovery ($R_{crash}$)</strong></td>
+            <td><strong>Crash Recovery (R<sub>crash</sub>)</strong></td>
             <td class="col-highlight">98.6% (Fast-Forward)</td>
             <td>99.2% (Server retry)</td>
             <td>84.5% (Superstep restart)</td>
             <td>0.0% (Total Wipe)</td>
           </tr>
           <tr>
-            <td><strong>Resumption Latency ($T_{resume}$)</strong></td>
+            <td><strong>Resumption Latency (T<sub>resume</sub>)</strong></td>
             <td class="col-highlight">14.2 ms (Local WAL)</td>
             <td>74.0 ms (Cluster handshake)</td>
             <td>38.4 ms (DB graph replay)</td>
