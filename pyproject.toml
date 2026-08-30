@@ -63,6 +63,8 @@ dev = [
     "ruff>=0.1.0",
     "bandit>=1.7.5",
     "pre-commit>=3.0",
+    "fastapi>=0.100.0",
+    "httpx>=0.24.0",
 ]
 openai = [
     "openai>=1.0.0",
@@ -72,6 +74,9 @@ anthropic = [
 ]
 google = [
     "google-generativeai>=0.4.0",
+]
+fastapi = [
+    "fastapi>=0.100.0",
 ]
 all-providers = [
     "openai>=1.0.0",
