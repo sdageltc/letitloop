@@ -1,6 +1,6 @@
 """LetItLoop — Deterministic durability kernel and crash-resilient execution gate."""
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 from orchestrator.decorators import (
     DurableSerializationError,
@@ -18,6 +18,8 @@ from orchestrator.supervisor import (
 )
 from orchestrator.token_gate import approx_tokens, preflight
 
+from . import adapters
+
 __all__ = [
     "durable",
     "durable_async",
@@ -31,5 +33,6 @@ __all__ = [
     "preflight",
     "approx_tokens",
     "ProcessGuard",
+    "adapters",
     "__version__",
 ]

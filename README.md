@@ -94,6 +94,35 @@ if __name__ == "__main__":
 
 ---
 
+
+---
+
+## 🔌 Multi-Framework Durability Adapter Suite
+
+Make any major AI multi-agent framework crash-resilient in **2 lines of code** with zero daemon overhead:
+
+```python
+# 1. CrewAI
+from letitloop.adapters.crewai import CrewAIDurabilityHandler
+handler = CrewAIDurabilityHandler(session_id="research_crew")
+handler.wrap_crew(my_crew)
+
+# 2. Hugging Face Smolagents
+from letitloop.adapters.smolagents import SmolagentsWALCallback
+agent = CodeAgent(tools=[...], model=model, step_callbacks=[SmolagentsWALCallback()])
+
+# 3. Microsoft AutoGen 0.4
+from letitloop.adapters.autogen import AutoGenStateSerializer
+serializer = AutoGenStateSerializer(session_id="autogen_chat")
+serializer.wrap_agent(assistant_agent)
+
+# 4. LangGraph
+from letitloop.adapters.langgraph import LetItLoopCheckpointSaver
+app = workflow.compile(checkpointer=LetItLoopCheckpointSaver())
+```
+
+See [docs/adapters.md](docs/adapters.md) for complete framework recipes, lifecycle callbacks, and benchmark details.
+
 ## 💎 The 3 Architectural Moats
 
 ### 1. Zero-Daemon Local Durability (Zero Infrastructure)

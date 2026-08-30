@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.2] - 2026-08-30
+
+### 🔌 Multi-Framework Durability Adapter Suite
+- **CrewAI (`CrewAIDurabilityHandler`)**: Task lifecycle callback integration (`on_task_start`, `on_task_end`, `on_tool_execute`, `on_task_error`) with automatic task skipping on resume.
+- **Hugging Face Smolagents (`SmolagentsWALCallback`)**: Step callback integration (`CodeAgent`, `ToolCallingAgent`) capturing thoughts, tool calls, and observations into atomic WAL.
+- **Microsoft AutoGen 0.4 / Magentic-One (`AutoGenStateSerializer`)**: State serialization, message history checkpointing, and tool execution persistence.
+- **LangGraph (`LetItLoopCheckpointSaver`)**: Native `BaseCheckpointSaver` implementation powered by embedded SQLite in atomic WAL mode (`PRAGMA journal_mode=WAL`) with sub-millisecond superstep reads/writes.
+- **Zero Mandatory Dependencies**: All 4 adapters utilize lazy optional loading and pure-Python duck-typed fallbacks when host packages are not installed.
+- **Comprehensive Adapter Test Suite**: 16 dedicated unit tests in `tests/adapters/` verifying lifecycle hooks, memory restoration, and crash recovery.
+
+---
+
 ## [0.5.1] - 2026-08-29
 
 ### 🔄 Liveness & Auto-Supervision
