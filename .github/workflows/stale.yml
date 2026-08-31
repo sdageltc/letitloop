@@ -1,0 +1,29 @@
+name: Community Stale Triage
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Daily at 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark and Close Stale Issues & PRs
+        uses: actions/stale@28ca1036281aeb5b56e5087179deef9b6e602224 # v9.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-issue-stale: 45
+          days-before-issue-close: 7
+          stale-issue-message: 'This issue has been automatically marked as stale because it has not had recent activity. It will be closed in 7 days if no further activity occurs. Thank you for your contributions!'
+          stale-issue-label: 'stale'
+          exempt-issue-labels: 'pinned,security,keep,in-progress,agent-locked'
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          stale-pr-message: 'This pull request has been automatically marked as stale due to inactivity. It will be closed in 7 days if no updates are made. Please rebase against main or comment to keep it open.'
+          stale-pr-label: 'stale'
+          exempt-pr-labels: 'pinned,security,keep'

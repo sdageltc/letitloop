@@ -1,4 +1,4 @@
-name: Automated Issue Claim
+name: Automated Issue Claim & Triage
 
 on:
   issue_comment:
@@ -8,20 +8,51 @@ permissions:
   issues: write
 
 jobs:
-  auto-assign:
+  auto-claim-triage:
     if: ${{ !github.event.issue.pull_request && github.event.comment.user.type != 'Bot' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Process Issue Claim
+      - name: Process Issue Claim or Unclaim
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const body = (context.payload.comment.body || '').trim().toLowerCase();
+            const rawBody = (context.payload.comment.body || '').trim();
+            const body = rawBody.toLowerCase();
             const issue = context.payload.issue;
             const commenter = context.payload.comment.user.login;
 
-            // 1. Detect Claim Intent (Slash Commands + Natural Language)
+            // 1. Detect Unclaim Intent
+            const isUnclaim = /^\/(unclaim|release|abandon)/i.test(body) ||
+              /(please\s+)?(unassign|remove)\s+me/i.test(body) ||
+              /(i\s+can(not|'t)\s+(work on|finish|do)\s+(this|it))/i.test(body);
+
+            if (isUnclaim) {
+              const currentAssignees = (issue.assignees || []).map(a => a.login);
+              if (currentAssignees.includes(commenter)) {
+                await github.rest.issues.removeAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  assignees: [commenter]
+                });
+                await github.rest.reactions.createForIssueComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: context.payload.comment.id,
+                  content: 'eyes'
+                });
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `@${commenter} has released this issue. It is now open for other contributors to claim with \`/claim\`! 🙌`
+                });
+              }
+              return;
+            }
+
+            // 2. Detect Claim Intent (Slash Commands + Natural Language)
             const isCommand = /^\/(claim|take|assign)|^\.(take|claim)/i.test(body);
             const isNaturalClaim = (
               /(i'd like to|i would like to|i want to|can i|could i|may i|i can|i'd love to|i would love to)\s+(work on|take|tackle|contribute to|implement|handle|help with|fix)/i.test(body) ||
@@ -35,19 +66,19 @@ jobs:
               return; // Not a claim request
             }
 
-            // 2. Guard against claiming agent-locked issues
+            // 3. Guard against claiming agent-locked issues
             const isLocked = (issue.labels || []).some(l => l.name === 'agent-locked');
             if (isLocked) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `@${commenter} this issue is currently reserved for autonomous agent development and cannot be claimed.`
+                body: `@${commenter} this issue is currently reserved for autonomous development and cannot be claimed.`
               });
               return;
             }
 
-            // 3. Guard against duplicate / existing assignments
+            // 4. Guard against duplicate / existing assignments
             if (issue.assignees && issue.assignees.length > 0) {
               const currentAssignee = issue.assignees[0].login;
               if (currentAssignee === commenter) {
@@ -63,12 +94,12 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `@${commenter} this issue is already assigned to @${currentAssignee}. Feel free to check out other unassigned issues with the \`good first issue\` label!`
+                body: `@${commenter} this issue is already assigned to @${currentAssignee}. Feel free to check out other unassigned issues with the \`good first issue\` or \`help wanted\` labels!`
               });
               return;
             }
 
-            // 4. Assign the contributor
+            // 5. Assign the contributor
             await github.rest.issues.addAssignees({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -76,7 +107,7 @@ jobs:
               assignees: [commenter]
             });
 
-            // 5. React and welcome the contributor
+            // 6. React and welcome the contributor
             await github.rest.reactions.createForIssueComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -88,5 +119,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              body: `Welcome @${commenter}! 🎉 This issue is now assigned to you.\n\nFeel free to ask any questions in this thread if you need guidance on repo setup, decorators, or testing. Looking forward to your contribution!`
+              body: `Welcome @${commenter}! 🎉 This issue is now assigned to you.\n\n### Getting Started\n1. Fork the repo and create your feature branch.\n2. Set up your local dev environment and run unit tests (\`pytest\` / \`npm test\`).\n3. Link your PR back to this issue (\`Closes #${issue.number}\`).\n\nIf you need to release this issue at any time, just comment \`/unclaim\`. Looking forward to your contribution!`
             });
