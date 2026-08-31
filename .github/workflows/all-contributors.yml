@@ -1,0 +1,23 @@
+name: All Contributors
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  add_contributor:
+    if: ${{ contains(github.event.comment.body, '@all-contributors') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Add Contributor
+        uses: all-contributors/add-contributors@6900f074a3f295b922a90418bc8827f8a84eb636 # v2.1.2
+        with:
+          pay-load: ${{ toJson(github.event) }}
+          ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}

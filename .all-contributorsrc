@@ -1,0 +1,36 @@
+{
+  "projectName": "letitloop",
+  "projectOwner": "sdageltc",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "sdageltc",
+      "name": "sdageltc",
+      "avatar_url": "https://avatars.githubusercontent.com/u/268154463?v=4",
+      "profile": "https://github.com/sdageltc",
+      "contributions": [
+        "code",
+        "doc",
+        "maintenance"
+      ]
+    },
+    {
+      "login": "h4syy",
+      "name": "Yash Paudel",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59239840?v=4",
+      "profile": "https://github.com/h4syy",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "linkToUsage": true
+}

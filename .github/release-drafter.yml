@@ -1,23 +1,45 @@
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 categories:
-  - title: '🚀 Core Engine & Splicer'
+  - title: '🚀 Features & Adapters'
     labels:
       - 'feature'
       - 'enhancement'
-  - title: '🛡️ Sandboxing & 5-Pillar Firewall'
+      - 'integrations'
+  - title: '🛡️ Sandboxing & Security'
     labels:
       - 'security'
   - title: '🐛 Bug Fixes & WAL Stability'
     labels:
       - 'bug'
       - 'fix'
-  - title: '📚 Documentation & Positioning'
+  - title: '📚 Documentation & Cookbooks'
     labels:
       - 'documentation'
+      - 'dx'
+  - title: '🧪 Testing & Conformance'
+    labels:
+      - 'testing'
+      - 'conformance'
 change-template: '- $TITLE by @$AUTHOR in #$NUMBER'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+      - 'enhancement'
+      - 'feature'
+  patch:
+    labels:
+      - 'patch'
+      - 'bug'
+      - 'fix'
+  default: patch
 template: |
   ## What's Changed
+
   $CHANGES
 
-  **Full Changelog**: https://github.com/sdageltc/letitloop/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
