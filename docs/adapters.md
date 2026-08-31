@@ -1,10 +1,11 @@
 # Multi-Framework Durability Adapter Suite
 
-LetItLoop provides native, drop-in durability adapters across the 4 major Python AI agent ecosystems:
+LetItLoop provides native, drop-in durability adapters across the major Python AI agent ecosystems and web stacks:
 1. **CrewAI** (`CrewAIDurabilityHandler`)
 2. **Hugging Face Smolagents** (`SmolagentsWALCallback`)
 3. **Microsoft AutoGen 0.4 / Magentic-One** (`AutoGenStateSerializer`)
 4. **LangGraph** (`LetItLoopCheckpointSaver`)
+5. **FastAPI / Starlette** (`DurableBackgroundTasks`)
 
 All adapters feature **zero mandatory runtime dependencies** (lazy-loaded optional imports), ensuring that `pip install letitloop` stays ultralight while providing full crash resilience.
 
@@ -124,3 +125,48 @@ app = builder.compile(checkpointer=checkpointer)
 config = {"configurable": {"thread_id": "session_001"}}
 result = app.invoke({"input": "query"}, config=config)
 ```
+
+---
+
+## 5. ⚡ FastAPI / Starlette: `DurableBackgroundTasks`
+
+FastAPI's built-in `BackgroundTasks` run inside the web-server process and are **lost** if the worker restarts, redeploys, or is killed mid-task. `DurableBackgroundTasks` is a drop-in dependency that records every task to a fsync'd Write-Ahead Log **before** it runs, so an interrupted task is transparently re-run on the next startup — no Redis, no Celery, no separate worker process.
+
+Two layers of durability:
+- **At-least-once (task level):** a `TASK_PENDING` record is written before the response is returned, and `TASK_COMPLETED` once the task finishes. On startup, any `PENDING`-without-`COMPLETED` task is resumed.
+- **Skip-completed-work (step level):** each task runs inside a per-task `@durable` context, so tasks that call `step()` / `async_step()` fast-forward already-completed steps when resumed.
+
+Because Python callables can't be serialized, a task is referenced by a stable key: the name from `@durable_task(...)`, or an auto-derived `"module:qualname"`. On resume the key is looked up in the registry first, then imported dynamically.
+
+### Quickstart
+```python
+from fastapi import FastAPI
+from letitloop.adapters.fastapi import (
+    DurableBackgroundTasks,
+    durable_task,
+    install_durable_background_tasks,
+)
+
+app = FastAPI()
+
+# 1. Attach the WAL-backed manager and wire resume-on-startup.
+install_durable_background_tasks(app)  # optional: wal_dir="..." / manager=...
+
+# 2. (Optional) give the task a stable key so resume survives renames.
+@durable_task()
+async def run_durable_report(report_id: str) -> None:
+    ...  # use step()/async_step() inside for step-level resume
+
+# 3. Use it exactly like FastAPI's BackgroundTasks — via dependency injection.
+@app.post("/generate-report/{report_id}")
+async def generate_report(report_id: str, background_tasks: DurableBackgroundTasks):
+    background_tasks.add_task(run_durable_report, report_id)
+    return {"status": "queued"}
+```
+
+If the process is killed after the response is sent but before `run_durable_report`
+finishes, the task is re-run automatically the next time the app starts.
+
+> **Custom lifespans:** `install_durable_background_tasks` wraps the app's existing
+> lifespan, so any `lifespan=` you pass to `FastAPI(...)` still runs. To wire resume
+> manually instead, call `await manager.resume_pending()` inside your own lifespan.
