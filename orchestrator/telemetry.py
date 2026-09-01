@@ -3,6 +3,8 @@
 import json
 import os
 import sys
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +15,9 @@ def _log_path(run_dir: str) -> str:
     return os.path.join(run_dir, "telemetry.jsonl")
 
 
+_TELEMETRY_LOCK = threading.Lock()
+
+
 def record_event(
     run_dir: str,
     event_type: str,
@@ -20,7 +25,7 @@ def record_event(
     goal_id: str = "",
     payload: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Append a telemetry event to the JSONL log."""
+    """Append a telemetry event to the JSONL log with thread safety and NTFS retries."""
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": event_type,
@@ -32,8 +37,19 @@ def record_event(
     parent_dir = os.path.dirname(os.path.abspath(path))
     if parent_dir:
         os.makedirs(parent_dir, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    line = json.dumps(entry, ensure_ascii=False) + "\n"
+    with _TELEMETRY_LOCK:
+        for attempt in range(5):
+            try:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(line)
+                    f.flush()
+                break
+            except (OSError, PermissionError):
+                if attempt == 4:
+                    raise
+                time.sleep(0.01 * (2**attempt))
 
 
 def load_events(run_dir: str) -> List[Dict[str, Any]]:
@@ -42,14 +58,18 @@ def load_events(run_dir: str) -> List[Dict[str, Any]]:
     if not os.path.isfile(path):
         return []
     events = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    events.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
+    with _TELEMETRY_LOCK:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            events.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+        except (OSError, PermissionError):
+            pass
     return events
 
 
