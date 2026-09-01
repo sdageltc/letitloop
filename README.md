@@ -253,6 +253,7 @@ Core design invariants are documented under [`docs/adr/`](docs/adr/):
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/sdageltc"><img src="https://avatars.githubusercontent.com/u/268154463?v=4" width="100px;" alt="sdageltc"/><br /><sub><b>sdageltc</b></sub></a><br /><a href="#code-sdageltc" title="Code">💻</a> <a href="#doc-sdageltc" title="Documentation">📖</a> <a href="#maintenance-sdageltc" title="Maintenance">🚧</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/h4syy"><img src="https://avatars.githubusercontent.com/u/59239840?v=4" width="100px;" alt="Yash Paudel"/><br /><sub><b>Yash Paudel</b></sub></a><br /><a href="#code-h4syy" title="Code">💻</a> <a href="#doc-h4syy" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/wangshen-tech"><img src="https://avatars.githubusercontent.com/u/190895315?v=4" width="100px;" alt="wangshen-tech"/><br /><sub><b>wangshen-tech</b></sub></a><br /><a href="#code-wangshen-tech" title="Code">💻</a> <a href="#doc-wangshen-tech" title="Documentation">📖</a> <a href="#example-wangshen-tech" title="Examples">💡</a></td>
     </tr>
   </tbody>
 </table>

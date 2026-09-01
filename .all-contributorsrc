@@ -29,6 +29,17 @@
         "code",
         "doc"
       ]
+    },
+    {
+      "login": "wangshen-tech",
+      "name": "wangshen-tech",
+      "avatar_url": "https://avatars.githubusercontent.com/u/190895315?v=4",
+      "profile": "https://github.com/wangshen-tech",
+      "contributions": [
+        "code",
+        "doc",
+        "example"
+      ]
     }
   ],
   "contributorsPerLine": 7,
