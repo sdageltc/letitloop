@@ -181,10 +181,32 @@ Explore runnable self-contained examples in [`examples/`](examples/):
 | **CrewAI** | [**Durable Tools Example**](examples/crewai_durable_tools.py) | ✅ Ready | Multi-agent tool execution with step-level resumption and zero duplicate side-effects |
 | **LlamaIndex** | [**Durable Workflows Example**](examples/llamaindex_durable_workflow.py) | ✅ Ready | Event-driven `@step` pipeline with crash durability and sub-millisecond fast-forward |
 | **OpenAI Swarm** | [**Durable Handoff Example**](examples/swarm_durable_handoff.py) | ✅ Ready | Multi-agent context handoff with WAL v2 serialization |
-| **LangGraph** | [**Issue #82: Financial Analyst Agent**](https://github.com/sdageltc/letitloop/issues/82) | 🤝 Contributor | 4-step `yfinance` + StateGraph equity analysis surviving simulated SIGKILL |
+| **LangGraph** | [**Financial Analyst Agent**](examples/cookbooks/langgraph_financial_analyst.py) | ✅ Ready | 4-step `yfinance` + DeepSeek StateGraph with independently audited SIGKILL recovery |
 | **DSPy** | [**Issue #83: Prompt Optimizer Pipeline**](https://github.com/sdageltc/letitloop/issues/83) | 🤝 Contributor | Async `BootstrapFewShot` / Teleprompter tuning with zero lost progress |
 | **Playwright** | [**Issue #88: Web Scraping Agent**](https://github.com/sdageltc/letitloop/issues/88) | 🤝 Contributor | Multi-page browser scraper that checkpoints DOM items to skip scraped pages |
 | **Pydantic AI** | [**Issue #89: Pydantic AI Integration**](https://github.com/sdageltc/letitloop/issues/89) | 🤝 Contributor | Type-safe agent with tool-calling checkpointing and zero token waste |
+
+Install and run the financial analyst without paid API calls:
+
+```bash
+python -m pip install -e ".[financial-agent]"
+python examples/cookbooks/langgraph_financial_analyst.py --ticker AAPL --offline
+python examples/cookbooks/langgraph_financial_analyst.py --ticker AAPL --offline --demo
+```
+
+For a live investment memo, configure DeepSeek only through the environment:
+
+```bash
+export DEEPSEEK_API_KEY="your-key"
+python examples/cookbooks/langgraph_financial_analyst.py --ticker AAPL --model deepseek:deepseek-v4-flash --live
+```
+
+If a local Python installation has no default CA bundle, set `SSL_CERT_FILE="$(python -m certifi)"`. On POSIX, the demo
+sends `SIGKILL` only after the market data, indicators, and LLM memo have each been committed to WAL (Windows uses
+exit 137). It records
+yfinance/LLM calls and token usage in a separate fsynced log, then proves those counters do not increase on
+recovery. Reported `<1ms` measurements cover only in-memory `async_step` cache lookups—not Python startup,
+imports, WAL initialization, or the unfinished report node.
 
 ---
 

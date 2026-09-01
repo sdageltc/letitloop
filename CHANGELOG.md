@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [0.5.1] - 2026-08-29
 
+### 🍳 Cookbooks
+- **LangGraph Financial Analyst**: Added a four-node yfinance + DeepSeek agent with durable WAL checkpoints, real post-memo SIGKILL recovery, independent external-call/token receipts, and scoped sub-millisecond fast-forward measurements.
+
 ### 🔄 Liveness & Auto-Supervision
 - **Programmatic `@supervise` & `supervise()`**: Embedded parent-child process supervisor that catches `SIGKILL (137)`, OOM, and abnormal subprocess crashes, automatically relaunching until completion.
 - **CLI Watcher (`lil watch`)**: Real-time terminal watcher with ASCII progress indicators, exponential backoff, and jitter (`lil watch script.py`).
