@@ -68,7 +68,7 @@ dev = [
     "langgraph>=1.2,<2",
 ]
 financial-agent = [
-    "certifi>=2024.0.0",
+    "certifi>=2026.7.22",
     "langgraph>=1.2,<2",
     "yfinance>=1.0,<2",
 ]
