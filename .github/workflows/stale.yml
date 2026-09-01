@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Mark and Close Stale Issues & PRs
-        uses: actions/stale@28ca1036281aeb5b56e5087179deef9b6e602224 # v9.0.0
+        uses: actions/stale@v9
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           days-before-issue-stale: 45
