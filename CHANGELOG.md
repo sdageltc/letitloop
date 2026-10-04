@@ -3,11 +3,13 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.6.0] - 2026-10-04
 
-### Added
-
-- A Browser Use read-only release-digest cookbook with durable JSON checkpoints, explicit demo/live modes, and a process-restart example. It does not restore browser state or guarantee exactly-once external actions.
+### 🌐 Ecosystem Cookbooks & Resilience Hardening
+- **Browser Use Durable Digest Cookbook (#106)**: Added read-only release digest cookbook (`examples/cookbooks/browser_use_durable.py`) contributed by @MagMueller. Demonstrates `@durable_async` step checkpointing, explicit demo/live modes, and real process `kill -9` restart tests skipping finished web page extractions.
+- **Fail-Closed Frame Integrity**: Enforced strict LILWAL02 CRC32 frame checksum verification on AutoGen adapters.
+- **Telemetry & NTFS Resilience**: Added thread locking and exponential backoff retry loops to eliminate file-lock race conditions during rapid test runs on Windows NTFS.
+- **Community Contributor Acknowledgements**: Integrated community contributions into release tracking and distribution.
 
 ---
 
