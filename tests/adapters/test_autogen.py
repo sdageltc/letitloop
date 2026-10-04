@@ -1,7 +1,6 @@
-"""Unit tests for Microsoft AutoGen durability adapter."""
-
 import os
 
+import pytest
 from letitloop.adapters.autogen import AutoGenStateSerializer
 
 
@@ -66,3 +65,23 @@ def test_autogen_wrap_agent(tmp_path):
     assert msg["sender"] == "UserProxy"
     assert msg["recipient"] == "Assistant"
     assert msg["message"] == "Hello assistant"
+
+
+def test_autogen_corrupt_wal_fails_closed(tmp_path):
+    wal_dir = tmp_path / "autogen_wal"
+    serializer = AutoGenStateSerializer(wal_dir=str(wal_dir), session_id="ag_corrupt")
+    serializer.save_agent_state("PlannerAgent", {"step": 1, "plan": "active"})
+
+    with open(serializer.wal_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "LILWAL02:" in content
+    # Tamper with the compact JSON payload while keeping frame header intact to cause CRC mismatch
+    tampered_content = content.replace('"step":1', '"step":999')
+    assert tampered_content != content
+    with open(serializer.wal_file, "w", encoding="utf-8") as f:
+        f.write(tampered_content)
+
+    # Replay must fail closed with ValueError
+    with pytest.raises(ValueError, match="Corrupt LILWAL02 frame CRC/length mismatch"):
+        AutoGenStateSerializer(wal_dir=str(wal_dir), session_id="ag_corrupt", auto_resume=True)

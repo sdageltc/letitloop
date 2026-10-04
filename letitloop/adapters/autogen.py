@@ -12,6 +12,7 @@ import json
 import os
 import threading
 import time
+import zlib
 from typing import Any, Dict, List, Optional
 
 
@@ -106,7 +107,7 @@ class AutoGenStateSerializer:
         return _is_autogen_available()
 
     def _append_event(self, event_type: str, data: Dict[str, Any]) -> None:
-        """Append an event atomically to the session WAL."""
+        """Append an event atomically to the session WAL using LILWAL02 framing."""
         with self._lock:
             self._seq += 1
             record = {
@@ -116,41 +117,61 @@ class AutoGenStateSerializer:
                 "timestamp": time.time(),
                 "data": _to_serializable(data),
             }
-            line = json.dumps(record, ensure_ascii=False) + "\n"
+            canonical_payload = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+            payload_bytes = canonical_payload.encode("utf-8")
+            crc = zlib.crc32(payload_bytes) & 0xFFFFFFFF
+            frame = f"\nLILWAL02:{len(payload_bytes):x}:{crc:x}:{canonical_payload}\n"
             with open(self.wal_file, "a", encoding="utf-8") as f:
-                f.write(line)
+                f.write(frame)
                 f.flush()
                 os.fsync(f.fileno())
 
     def _replay_wal(self) -> None:
-        """Replay existing WAL to recover agent states, message history, and tool records."""
+        """Replay existing WAL to recover agent states, message history, and tool records. Fails closed on corrupt frames."""
         if not os.path.isfile(self.wal_file):
             return
 
         with self._lock:
-            try:
-                with open(self.wal_file, "r", encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
+            with open(self.wal_file, "r", encoding="utf-8", errors="replace") as f:
+                for line_idx, line in enumerate(f, 1):
+                    line_clean = line.strip()
+                    if not line_clean:
+                        continue
+                    if line_clean.startswith("LILWAL02:"):
+                        parts = line_clean.split(":", 3)
+                        if len(parts) != 4:
+                            raise ValueError(f"Corrupt LILWAL02 frame header at line {line_idx}")
+                        _, length_hex, crc_hex, payload = parts
                         try:
-                            record = json.loads(line)
-                            self._seq = max(self._seq, record.get("seq", 0))
-                            event = record.get("event")
-                            data = record.get("data", {})
-                            if event == "AGENT_STATE_SAVED":
-                                agent_name = data.get("agent_name")
-                                if agent_name:
-                                    self._agent_states[agent_name] = data.get("state", {})
-                            elif event == "MESSAGE_SENT":
-                                self._message_history.append(data)
-                            elif event == "TOOL_CALLED":
-                                self._tool_calls.append(data)
-                        except json.JSONDecodeError:
-                            continue
-            except Exception:
-                pass
+                            length = int(length_hex, 16)
+                            crc = int(crc_hex, 16)
+                        except ValueError:
+                            raise ValueError(f"Malformed hex values in LILWAL02 frame at line {line_idx}") from None
+                        payload_bytes = payload.encode("utf-8")
+                        if len(payload_bytes) != length or (zlib.crc32(payload_bytes) & 0xFFFFFFFF) != crc:
+                            raise ValueError(f"Corrupt LILWAL02 frame CRC/length mismatch at line {line_idx}")
+                        try:
+                            record = json.loads(payload)
+                        except json.JSONDecodeError as exc:
+                            raise ValueError(f"Corrupt LILWAL02 JSON payload at line {line_idx}: {exc}") from exc
+                    else:
+                        # Legacy plain JSON line
+                        try:
+                            record = json.loads(line_clean)
+                        except json.JSONDecodeError as exc:
+                            raise ValueError(f"Corrupt WAL line at line {line_idx}: {exc}") from exc
+
+                    self._seq = max(self._seq, record.get("seq", 0))
+                    event = record.get("event")
+                    data = record.get("data", {})
+                    if event == "AGENT_STATE_SAVED":
+                        agent_name = data.get("agent_name")
+                        if agent_name:
+                            self._agent_states[agent_name] = data.get("state", {})
+                    elif event == "MESSAGE_SENT":
+                        self._message_history.append(data)
+                    elif event == "TOOL_CALLED":
+                        self._tool_calls.append(data)
 
     def save_agent_state(self, agent_name: str, state: Dict[str, Any]) -> str:
         """Atomically persist state for a named AutoGen agent."""
