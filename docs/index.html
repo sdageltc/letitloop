@@ -662,15 +662,27 @@
       <div class="terminal-window">
         <div class="terminal-topbar">
           <div class="window-dots">
-            <div class="dot"></div>
-            <div class="dot"></div>
-            <div class="dot"></div>
+            <div class="dot" style="background: #ef4444;"></div>
+            <div class="dot" style="background: #eab308;"></div>
+            <div class="dot" style="background: #22c55e;"></div>
           </div>
-          <div class="window-title">bash — lil run --task auth-refactor --strict (SIGKILL Recovery)</div>
+          <div class="window-title">bash — lil watch workflow.py (Process Auto-Supervision &amp; Instant Resume)</div>
           <div style="width: 32px;"></div>
         </div>
-        <div class="terminal-media-wrap">
-          <img src="assets/crash_recovery_demo.gif" alt="Animated Terminal SIGKILL Crash and 0.94ms WAL Recovery Demo" />
+        <div class="terminal-body" style="padding: 22px 24px; background: #060910; font-family: var(--mono); font-size: 0.84rem; line-height: 1.7; color: var(--text-88); overflow-x: auto;">
+          <div><span style="color: #38bdf8;">$</span> lil watch workflow.py</div>
+          <div style="color: #94a3b8;">[LIL WATCH] Supervising workflow.py (PID: 8412) with zero-daemon WAL...</div>
+          <div style="color: #34d399;">✓ [STEP 1/3] load_dataset</div>
+          <div style="color: #64748b; margin-left: 18px;">↳ Committed frame #1 to .bench_wal/workflow (0.32s)</div>
+          <div><span style="color: #facc15;">▶ [STEP 2/3] train_weights</span> <span style="color: #94a3b8;">(epoch 42/100)...</span></div>
+          <div style="color: #ef4444; font-weight: 600;">⚡ Process 8412 terminated by host SIGKILL (137) / Spot Eviction</div>
+          <div style="color: #38bdf8; font-weight: 600;">[LIL WATCH] Liveness supervisor caught SIGKILL. Restarting target in 10.8ms...</div>
+          <div style="color: #a855f7;">[LIL REPLAY] Validating LILWAL02 frame checksums... OK (valid-prefix intact)</div>
+          <div style="color: #34d399;">⚡ [FAST-FORWARD] Step 1 'load_dataset' skipped in 0.94ms (restored from WAL)</div>
+          <div><span style="color: #facc15;">▶ [STEP 2/3] train_weights</span> <span style="color: #94a3b8;">resuming from last committed checkpoint...</span></div>
+          <div style="color: #34d399;">✓ [STEP 2/3] train_weights completed (1.12s)</div>
+          <div style="color: #34d399;">✓ [STEP 3/3] evaluate_metrics completed (0.41s)</div>
+          <div style="color: #38bdf8; font-weight: 700; margin-top: 6px;">✨ [LIL COMPLETE] Pipeline finished successfully with ZERO lost state.</div>
         </div>
       </div>
     </section>
@@ -732,7 +744,7 @@
     <div class="quickstart-wrap pad">
       <div class="tab-header">
         <button class="tab-btn active" onclick="switchTab('python', this)">Python (@durable)</button>
-        <button class="tab-btn" onclick="switchTab('cli', this)">CLI (lil run)</button>
+        <button class="tab-btn" onclick="switchTab('cli', this)">CLI (lil watch &amp; demo)</button>
         <button class="tab-btn" onclick="switchTab('action', this)">GitHub Action</button>
       </div>
 
@@ -744,13 +756,13 @@
 
 <span style="color: #34d399;">@durable(task_id="scientific-pipeline")</span>
 <span style="color: #38bdf8;">def</span> <span style="color: #60a5fa;">run_pipeline</span>(dataset_path: str):
-    <span style="color: #94a3b8;"># Step 1: Cached to local WAL in 0.3s</span>
+    <span style="color: #94a3b8;"># Step 1: Cached to single-file WAL (LILWAL02) in 0.3s</span>
     data = step(<span style="color: #facc15;">"load_data"</span>, <span style="color: #38bdf8;">lambda</span>: parse_dataset(dataset_path))
 
     <span style="color: #94a3b8;"># Step 2: If SIGKILL strikes here, Step 1 is fast-forwarded in 0.94ms</span>
     model = step(<span style="color: #facc15;">"train_model"</span>, <span style="color: #38bdf8;">lambda</span>: train_weights(data))
 
-    <span style="color: #94a3b8;"># Step 3: Seals proof receipt to .bench_wal/proof_receipt.json</span>
+    <span style="color: #94a3b8;"># Step 3: Two-phase atomic marker commits output with zero duplicate side effects</span>
     results = step(<span style="color: #facc15;">"evaluate"</span>, <span style="color: #38bdf8;">lambda</span>: run_eval(model))
     <span style="color: #38bdf8;">return</span> results</code></pre>
       </div>
@@ -772,7 +784,7 @@ $ lil bench</code></pre>
 
       <div class="code-container" id="tab-action" style="display: none;">
         <button class="code-copy-btn" onclick="copyCode('code-action', this)">Copy Code</button>
-        <pre><code id="code-action"><span style="color: #94a3b8;"># .github/workflows/verify-proof.yml</span>
+        <pre><code id="code-action"><span style="color: #94a3b8;"># .github/workflows/verify-durability.yml</span>
 <span style="color: #38bdf8;">name</span>: Verify Durability Gate
 <span style="color: #38bdf8;">on</span>: [pull_request]
 
@@ -783,8 +795,8 @@ $ lil bench</code></pre>
       - <span style="color: #38bdf8;">uses</span>: actions/checkout@v4
       - <span style="color: #38bdf8;">uses</span>: sdageltc/letitloop-action@v2
         <span style="color: #38bdf8;">with</span>:
-          <span style="color: #34d399;">strict_ast</span>: <span style="color: #facc15;">true</span>
-          <span style="color: #34d399;">require_proof_receipt</span>: <span style="color: #facc15;">true</span></code></pre>
+          <span style="color: #34d399;">wal-dir</span>: <span style="color: #facc15;">'.bench_wal'</span>
+          <span style="color: #34d399;">mode</span>: <span style="color: #facc15;">'gate'</span></code></pre>
       </div>
     </div>
 
@@ -844,11 +856,11 @@ $ lil bench</code></pre>
             <td>0.0 ms (Zero disk writes)</td>
           </tr>
           <tr>
-            <td><strong>Proof & Compliance Receipts</strong></td>
-            <td class="col-highlight">HMAC-SHA256 Sealed</td>
-            <td>Cluster Event History</td>
+            <td><strong>Crash Integrity Invariant</strong></td>
+            <td class="col-highlight">CRC32 Frames + Torn-Tail Safe</td>
+            <td>Server Event Log</td>
             <td>Database Row Logs</td>
-            <td>None</td>
+            <td>None (Wipeout)</td>
           </tr>
         </tbody>
       </table>

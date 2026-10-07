@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import random
 import socket
 import sys
 import threading
@@ -80,6 +81,7 @@ class FileLock:
 
     def acquire(self) -> None:
         deadline = time.monotonic() + self.timeout_sec
+        retries = 0
         while True:
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -94,7 +96,7 @@ class FileLock:
                     )
                 self._acquired = True
                 return
-            except FileExistsError:
+            except (FileExistsError, PermissionError):
                 if self.stale_steal and self._lock_file_is_stale():
                     # Lock-v2 semantics: transparently auto-steal dead/stale locks
                     # instead of waiting out the full timeout.
@@ -108,15 +110,25 @@ class FileLock:
                     continue
                 if time.monotonic() >= deadline:
                     raise LockHeldError(f"File lock not acquired within {self.timeout_sec}s: {self.path}")
-                time.sleep(self.poll_sec)
+
+                retries += 1
+                # Adaptive backoff with randomized jitter to prevent thundering herd
+                base_sleep = min(self.poll_sec * (1.2 ** min(retries, 20)), 0.05)
+                jittered = base_sleep * random.uniform(0.75, 1.25)
+                time.sleep(jittered)
 
     def release(self) -> None:
         if not self._acquired:
             return
-        try:
-            os.remove(self.path)
-        except OSError:
-            pass
+        # On Windows NTFS, transient read handles from race checks can cause WinError 32; retry briefly
+        for _ in range(50):
+            try:
+                os.remove(self.path)
+                break
+            except FileNotFoundError:
+                break
+            except OSError:
+                time.sleep(0.002)
         self._acquired = False
 
     def __enter__(self) -> "FileLock":

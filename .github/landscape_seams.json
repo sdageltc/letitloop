@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project": "letitloop",
+  "version": "0.7.0",
+  "description": "Landscape Seam Ledger (LSL) registry defining automated multi-repo verification gates for LetItLoop.",
+  "seams": [
+    {
+      "id": "CORE_TESTS",
+      "scope": "letitloop",
+      "type": "unit_tests",
+      "command": "pytest tests/ -q",
+      "expected_exit_code": 0
+    },
+    {
+      "id": "CORE_DOCS",
+      "scope": "letitloop",
+      "type": "content_hygiene",
+      "target_file": "docs/index.html",
+      "forbidden_tokens": [
+        "lil run",
+        "proof_receipt.json",
+        "strict_ast",
+        "require_proof_receipt",
+        "Proof & Compliance Receipts"
+      ]
+    },
+    {
+      "id": "CORE_SCRIPTS",
+      "scope": "letitloop",
+      "type": "integration_script",
+      "command": "python scripts/run_durability_simulations.py 1",
+      "expected_exit_code": 0
+    },
+    {
+      "id": "SATELLITE_ACTION",
+      "scope": "letitloop-action",
+      "type": "satellite_repo",
+      "path": "../letitloop-action",
+      "command": "npm test",
+      "expected_exit_code": 0
+    },
+    {
+      "id": "SATELLITE_BENCH",
+      "scope": "agent-durability-bench",
+      "type": "satellite_repo",
+      "path": "../agent-durability-bench",
+      "command": "pytest tests/ -q",
+      "expected_exit_code": 0
+    }
+  ]
+}
