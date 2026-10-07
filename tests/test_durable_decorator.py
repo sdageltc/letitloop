@@ -186,7 +186,7 @@ def test_line0_torn_tail_wal_recovery(tmp_path):
     state_file = tmp_path / "state.json"
 
     # Write a torn line-0 frame (interrupted write at start of WAL)
-    wal_file.write_bytes(b"\nLILWAL02:150:99999999:{\"corrupt_partial")
+    wal_file.write_bytes(b'\nLILWAL02:150:99999999:{"corrupt_partial')
 
     from orchestrator.state import load_state
 
@@ -196,4 +196,3 @@ def test_line0_torn_tail_wal_recovery(tmp_path):
     # Corrupt partial content was truncated away
     wal_bytes = wal_file.read_bytes()
     assert b"corrupt_partial" not in wal_bytes
-

@@ -431,7 +431,9 @@ class State:
                 if "metadata" not in payload:
                     raise StateError("RETRY_METADATA_ADD payload missing 'metadata'")
                 self.data.setdefault("retry_metadata", [])
-                self.data["retry_metadata"].append(payload["metadata"] if replay else copy.deepcopy(payload["metadata"]))
+                self.data["retry_metadata"].append(
+                    payload["metadata"] if replay else copy.deepcopy(payload["metadata"])
+                )
             elif event_type == "DATA_PATCH":
                 patch = payload.get("patch", {})
                 if not isinstance(patch, dict):
@@ -952,17 +954,13 @@ def replay_wal(state_path, state=None):
             wal_events.append(parsed)
             good_end = line_end
         except _WalFrameError as exc:
-            is_tail = idx == len(lines_raw) - 1 or all(
-                not ln.strip() for ln in lines_raw[idx + 1 :]
-            )
+            is_tail = idx == len(lines_raw) - 1 or all(not ln.strip() for ln in lines_raw[idx + 1 :])
             if is_tail:
                 corrupt_tail = True
                 break
             raise StateError(f"WAL file corrupt: frame CRC mismatch: {exc}") from exc
         except (json.JSONDecodeError, ValueError) as exc:
-            is_tail = idx == len(lines_raw) - 1 or all(
-                not ln.strip() for ln in lines_raw[idx + 1 :]
-            )
+            is_tail = idx == len(lines_raw) - 1 or all(not ln.strip() for ln in lines_raw[idx + 1 :])
             if is_tail:
                 corrupt_tail = True
                 break

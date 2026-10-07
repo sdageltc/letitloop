@@ -107,12 +107,14 @@ def run_pydantic_ai_underwriter(
         # Atomic Marker: External side effect protection (Audit Trail)
         with atomic_marker("audit_event", run_dir=effective_wal) as should_emit:
             if should_emit:
-                audit_records.append({
-                    "event": "UNDERWRITING_FINALIZED",
-                    "customer_id": customer_id,
-                    "status": decision["status"],
-                    "timestamp": time.time(),
-                })
+                audit_records.append(
+                    {
+                        "event": "UNDERWRITING_FINALIZED",
+                        "customer_id": customer_id,
+                        "status": decision["status"],
+                        "timestamp": time.time(),
+                    }
+                )
 
         return {
             "customer_id": customer_id,

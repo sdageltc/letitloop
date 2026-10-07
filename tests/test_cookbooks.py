@@ -523,4 +523,3 @@ def test_pydantic_ai_underwriter_run_and_resume(tmp_path: pathlib.Path) -> None:
     assert result2["decision"]["status"] == "APPROVED"
     # Atomic marker prevented duplicate audit event
     assert len(audit_sink) == 1
-

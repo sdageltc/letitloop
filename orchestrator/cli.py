@@ -98,7 +98,9 @@ def cmd_inspect(a) -> None:
                             obj = json.loads(line_s)
                             valid_frames += 1
                             if a.verbose:
-                                print(f"  Event {valid_frames}: {obj.get('event', 'UNKNOWN')} (step={obj.get('step_id', 'N/A')})")
+                                print(
+                                    f"  Event {valid_frames}: {obj.get('event', 'UNKNOWN')} (step={obj.get('step_id', 'N/A')})"
+                                )
                         except Exception:
                             pass
             print(f"  Total lines: {line_count}, Valid frames/events: {valid_frames}")
@@ -295,9 +297,15 @@ def main():
     p_watch.add_argument("script_args", nargs="*", help="Arguments passed through to target script")
     p_watch.add_argument("--max-restarts", type=int, default=10, help="Maximum restart count (default: 10)")
     p_watch.add_argument("--backoff", type=float, default=1.0, help="Initial backoff delay in seconds (default: 1.0)")
-    p_watch.add_argument("--max-backoff", type=float, default=60.0, help="Maximum backoff cap in seconds (default: 60.0)")
-    p_watch.add_argument("--healthy-threshold", type=float, default=30.0, help="Runtime in seconds before failure reset (default: 30.0)")
-    p_watch.add_argument("--max-rapid-failures", type=int, default=5, help="Rapid crash count before circuit breaker trips (default: 5)")
+    p_watch.add_argument(
+        "--max-backoff", type=float, default=60.0, help="Maximum backoff cap in seconds (default: 60.0)"
+    )
+    p_watch.add_argument(
+        "--healthy-threshold", type=float, default=30.0, help="Runtime in seconds before failure reset (default: 30.0)"
+    )
+    p_watch.add_argument(
+        "--max-rapid-failures", type=int, default=5, help="Rapid crash count before circuit breaker trips (default: 5)"
+    )
 
     # lil inspect
     p_inspect = sub.add_parser("inspect", help="Inspect and dump WAL journal records from disk")
@@ -313,8 +321,16 @@ def main():
     p_bench.add_argument("--signal", default="SIGKILL", help="Fault signal to inject (default: SIGKILL)")
     p_bench.add_argument("--compare", default=None, help="Compare mode: 'all' runs DCP-2.0 matrix")
     p_bench.add_argument("--scenario", default=None, help="Run single DCP scenario by ID (e.g., DCP-001)")
-    p_bench.add_argument("--json", "--export-json", dest="export_json", default=None, help="Export results to JSON file path")
-    p_bench.add_argument("--markdown", "--export-markdown", dest="export_markdown", default=None, help="Export results to Markdown file path")
+    p_bench.add_argument(
+        "--json", "--export-json", dest="export_json", default=None, help="Export results to JSON file path"
+    )
+    p_bench.add_argument(
+        "--markdown",
+        "--export-markdown",
+        dest="export_markdown",
+        default=None,
+        help="Export results to Markdown file path",
+    )
 
     # lil version
     sub.add_parser("version", help="Print version")
