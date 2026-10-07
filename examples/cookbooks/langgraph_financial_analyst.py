@@ -48,7 +48,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from orchestrator.decorators import async_step, durable_async  # noqa: E402
-from orchestrator.llm import call_llm  # noqa: E402
+
+try:
+    from orchestrator.llm import call_llm  # noqa: E402
+except ImportError:
+    call_llm = None
 
 WAL_DIR_DEFAULT = str(ROOT / ".bench_wal" / "cookbooks" / "langgraph_financial_analyst")
 GOAL_ID = "langgraph-financial-analyst"
@@ -457,6 +461,8 @@ def _normalise_llm_usage(usage: Any) -> JsonDict:
 
 async def _live_llm_caller(market_data: JsonDict, indicators: JsonDict, model: str) -> JsonDict:
     """Call the repository's synchronous provider adapter without blocking the graph."""
+    if call_llm is None:
+        raise RuntimeError(f"Live LLM caller requires provider client or external LLM configuration for {model}")
     prompt = _build_investment_memo_prompt(market_data, indicators)
     try:
         response = await asyncio.to_thread(
