@@ -152,12 +152,13 @@ class DurableAsyncContext:
 
 @contextlib.contextmanager
 def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
-    """Context manager guarding non-idempotent external side effects via O_CREAT | O_EXCL.
+    """Context manager guarding non-idempotent external side effects with two-phase commit.
 
-    Yields True if this execution is the first to claim the marker (should execute mutation).
-    Yields False if the marker already exists on disk (was already executed prior to crash).
+    Phase 1 (enter): Check if '<marker_id>.committed' exists. If so, yield False (skip).
+                     Otherwise, write '<marker_id>.pending.<pid>'.
+    Phase 2 (exit): Atomically rename '<marker_id>.pending.<pid>' to '<marker_id>.committed'.
     """
-    ctx = _get_active_context()
+    ctx = _get_active_context() or _get_async_context()
     if ctx is None and run_dir is None:
         if os.environ.get("LETITLOOP_LENIENT") != "1":
             raise RuntimeError(
@@ -167,15 +168,40 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
     active_dir = run_dir or (ctx.run_dir if ctx else ".durable_wal")
     markers_dir = os.path.join(active_dir, "markers")
     os.makedirs(markers_dir, exist_ok=True)
-    marker_file = os.path.join(markers_dir, f"{marker_id}.marker")
-    try:
-        fd = os.open(marker_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(json.dumps({"marker_id": marker_id, "pid": os.getpid(), "ts": time.time()}))
-        yield True
-    except FileExistsError:
-        # Marker exists: side-effect was already executed prior to crash
+
+    committed_marker = os.path.join(markers_dir, f"{marker_id}.committed")
+    legacy_marker = os.path.join(markers_dir, f"{marker_id}.marker")
+
+    # If already successfully committed in prior execution, skip side-effect
+    if os.path.isfile(committed_marker) or os.path.isfile(legacy_marker):
         yield False
+        return
+
+    pid = os.getpid()
+    pending_marker = os.path.join(markers_dir, f"{marker_id}.pending.{pid}")
+
+    # Write pending marker
+    try:
+        fd = os.open(pending_marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"marker_id": marker_id, "pid": pid, "ts": time.time()}))
+    except FileExistsError:
+        pass
+
+    try:
+        yield True
+        # Phase 2: Block succeeded without exception -> commit marker atomically
+        try:
+            os.replace(pending_marker, committed_marker)
+        except OSError:
+            if os.path.exists(pending_marker):
+                os.rename(pending_marker, committed_marker)
+    except Exception:
+        # Block raised exception -> cleanup pending marker so it can be retried
+        if os.path.exists(pending_marker):
+            with contextlib.suppress(OSError):
+                os.remove(pending_marker)
+        raise
 
 
 def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -204,7 +230,7 @@ def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
     # 3. Verify and serialize return value (supports Pydantic, dataclasses, primitives)
     serialized_result = _serialize_step_output(step_id, result)
 
-    # 4. Record to state & WAL
+    # 4. Record to state & WAL (WAL append is atomic and fsync'd)
     current_outputs = dict(ctx.state.data.get("step_outputs", {}))
     current_outputs[step_id] = serialized_result
     ctx.state.patch_data(
@@ -212,7 +238,10 @@ def step(step_id: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
             "step_outputs": current_outputs,
         }
     )
-    save_state(ctx.state, ctx.state_file)
+    # Decouple expensive snapshotting from discrete step execution (save periodically or on exit)
+    ctx.step_count = getattr(ctx, "step_count", 0) + 1
+    if ctx.step_count % 50 == 0:
+        save_state(ctx.state, ctx.state_file)
 
     ctx.completed_steps[step_id] = serialized_result
     return serialized_result
@@ -276,7 +305,9 @@ async def async_step(step_id: str, async_fn: Callable, *args: Any, **kwargs: Any
                 "step_outputs": current_outputs,
             }
         )
-        save_state(ctx.state, ctx.state_file)
+        ctx.step_count = getattr(ctx, "step_count", 0) + 1
+        if ctx.step_count % 50 == 0:
+            save_state(ctx.state, ctx.state_file)
         ctx.completed_steps[step_id] = serialized
         return serialized
 

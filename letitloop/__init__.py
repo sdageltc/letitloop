@@ -1,6 +1,6 @@
 """LetItLoop — Deterministic durability kernel and crash-resilient execution gate."""
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 from orchestrator.decorators import (
     DurableSerializationError,

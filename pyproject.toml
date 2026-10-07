@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.6.0"
-description = "Make any Python function crash-proof in 3 lines. Zero tokens wasted on SIGKILL."
+version = "0.7.0"
+description = "The SQLite of Durable Execution — Zero-daemon in-process durability and process supervisor for Python functions & AI agents."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -13,14 +13,16 @@ authors = [
     { name = "sdageltc", email = "sdageltc@users.noreply.github.com" }
 ]
 keywords = [
-    "agent-loop",
-    "durable",
+    "durable-execution",
     "wal",
-    "crash-recovery",
-    "mcp",
-    "langchain",
-    "crewai",
-    "github-action",
+    "crash-resilience",
+    "agentic-ai",
+    "supervisor",
+    "langgraph",
+    "browser-use",
+    "pydantic-ai",
+    "dspy",
+    "zero-daemon",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -31,14 +33,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Build Tools",
-    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "pyyaml>=6.0",
-    "jsonschema>=4.0.0",
     "psutil>=5.9.0",
 ]
 
@@ -50,8 +49,9 @@ Repository = "https://github.com/sdageltc/letitloop"
 Discussions = "https://github.com/sdageltc/letitloop/discussions"
 
 [project.optional-dependencies]
-compliance = [
-    "cryptography>=41.0.0",
+adapters = [
+    "fastapi>=0.100.0",
+    "langgraph>=1.2,<2",
 ]
 dev = [
     "pytest>=7.0",
@@ -59,40 +59,7 @@ dev = [
     "pytest-asyncio>=0.21",
     "pytest-xdist>=3.0",
     "hypothesis>=6.100.0",
-    "jsonschema>=4.0.0",
     "ruff>=0.1.0",
-    "bandit>=1.7.5",
-    "pre-commit>=3.0",
-    "fastapi>=0.100.0",
-    "httpx>=0.24.0",
-    "langgraph>=1.2,<2",
-]
-financial-agent = [
-    "certifi>=2024.0.0",
-    "langgraph>=1.2,<2",
-    "yfinance>=1.0,<2",
-]
-openai = [
-    "openai>=1.0.0",
-]
-anthropic = [
-    "anthropic>=0.18.0",
-]
-google = [
-    "google-generativeai>=0.4.0",
-]
-fastapi = [
-    "fastapi>=0.100.0",
-]
-all-providers = [
-    "openai>=1.0.0",
-    "anthropic>=0.18.0",
-    "google-generativeai>=0.4.0",
-]
-telemetry = [
-    "opentelemetry-api>=1.20",
-    "opentelemetry-sdk>=1.20",
-    "prometheus-client>=0.19",
 ]
 
 [project.scripts]

@@ -480,3 +480,47 @@ def test_cookbook_module_builders() -> None:
         ("generate_investment_memo", "generate_report"),
         ("generate_report", "__end__"),
     }
+
+
+@pytest.mark.fast
+def test_pydantic_ai_underwriter_run_and_resume(tmp_path: pathlib.Path) -> None:
+    """Verify Pydantic AI underwriter runs, crashes at step 2, and fast-forwards on resume."""
+    from examples.cookbooks.pydantic_ai_durable import run_pydantic_ai_underwriter
+
+    wal_dir = str(tmp_path / "wal_pydantic_ai")
+    audit_sink: list = []
+
+    # 1. Run with crash simulated at step 2
+    with pytest.raises(RuntimeError, match="Simulated Crash"):
+        run_pydantic_ai_underwriter(
+            customer_id="TEST-1",
+            wal_dir=wal_dir,
+            kill_at_step=2,
+            audit_log_sink=audit_sink,
+        )
+
+    # Audit log was not emitted because step 2 failed before atomic marker
+    assert len(audit_sink) == 0
+
+    # 2. Resumed run completes successfully
+    result = run_pydantic_ai_underwriter(
+        customer_id="TEST-1",
+        wal_dir=wal_dir,
+        kill_at_step=None,
+        audit_log_sink=audit_sink,
+    )
+    assert result["decision"]["status"] == "APPROVED"
+    assert result["audit_emitted"] is True
+    assert len(audit_sink) == 1
+
+    # 3. Third run skips all steps and does NOT emit duplicate audit log
+    result2 = run_pydantic_ai_underwriter(
+        customer_id="TEST-1",
+        wal_dir=wal_dir,
+        kill_at_step=None,
+        audit_log_sink=audit_sink,
+    )
+    assert result2["decision"]["status"] == "APPROVED"
+    # Atomic marker prevented duplicate audit event
+    assert len(audit_sink) == 1
+

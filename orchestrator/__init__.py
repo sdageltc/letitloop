@@ -1,147 +1,47 @@
-"""orchestrator — durable macro-task control-loop package."""
+"""orchestrator — deterministic durability kernel and crash-resilient execution."""
 
-__version__ = "0.3.0"
+__version__ = "0.7.0"
 
-from . import (
-    audit,
-    config,
-    errors,
-    feedback,
-    limits,
-    lock,
-    metrics,
-    safety,
-    telemetry,
-    worker_pool,
+from .decorators import (
+    DurableSerializationError,
+    async_step,
+    atomic_marker,
+    durable,
+    durable_async,
+    step,
 )
-from .contract import (
-    Contract,
-    load_contract,
-    validate_contract,
-)
-from .exceptions import (
-    PlannerError,
-    PreflightError,
-    ValidationError,
-    VerifierError,
-    WorkerError,
-)
-from .failure import (
-    FAILURE_CLASS_SCOPE_VIOLATION,
-    MAX_SAME_CLASS_STRIKES,
-    classify_failure,
-    count_consecutive_same_class,
-    suggest_remediation,
-)
-from .generator import (
-    generate_contracts,
-)
-from .goal import (
-    ContractGraph,
-    Goal,
-    Plan,
-)
-from .handoff import (
-    build_handoff,
-)
-from .impossibility import (
-    build_artifact,
-    write_artifact,
-    write_impossibility,
-)
-from .plan_quality import (
-    PlanQualityWarning,
-    check_plan_quality,
-    format_warnings,
-    plan_is_safe,
-)
-from .planner import (
-    decompose_goal,
-)
-from .preflight import (
-    run_preflight,
-)
-from .reconcile import (
-    ReconciliationIssue,
-    ReconciliationReport,
-    format_report,
-    run_reconciliation,
-)
-from .replanner import (
-    InspectResults,
-    replan,
-    suggest_fix,
-)
+from .lock import acquire_lock, release_lock
 from .state import (
-    LEGAL_TRANSITIONS,
     IllegalTransitionError,
     State,
+    StateError,
     create_initial_state,
     load_state,
+    save_state,
 )
-from .supervisor import (
-    Supervisor,
-)
-from .verifier import (
-    VerifierResult,
-    run_verification,
-)
-from .worker import (
-    run_worker,
+from .supervisor.liveness import (
+    CircuitBreakerError,
+    LivenessSupervisor,
+    supervise,
 )
 
 __all__ = [
-    "audit",
-    "config",
-    "errors",
-    "feedback",
-    "limits",
-    "lock",
-    "metrics",
-    "safety",
-    "telemetry",
-    "worker_pool",
-    "ValidationError",
-    "run_reconciliation",
-    "format_report",
-    "ReconciliationReport",
-    "ReconciliationIssue",
-    "Contract",
-    "load_contract",
-    "validate_contract",
-    "LEGAL_TRANSITIONS",
+    "__version__",
+    "durable",
+    "durable_async",
+    "step",
+    "async_step",
+    "atomic_marker",
+    "supervise",
+    "LivenessSupervisor",
+    "CircuitBreakerError",
+    "DurableSerializationError",
     "State",
+    "StateError",
     "IllegalTransitionError",
-    "load_state",
     "create_initial_state",
-    "PreflightError",
-    "run_preflight",
-    "VerifierError",
-    "VerifierResult",
-    "run_verification",
-    "WorkerError",
-    "run_worker",
-    "build_handoff",
-    "Goal",
-    "Plan",
-    "ContractGraph",
-    "PlannerError",
-    "decompose_goal",
-    "generate_contracts",
-    "Supervisor",
-    "InspectResults",
-    "suggest_fix",
-    "replan",
-    "classify_failure",
-    "suggest_remediation",
-    "count_consecutive_same_class",
-    "MAX_SAME_CLASS_STRIKES",
-    "FAILURE_CLASS_SCOPE_VIOLATION",
-    "build_artifact",
-    "write_artifact",
-    "write_impossibility",
-    "check_plan_quality",
-    "plan_is_safe",
-    "format_warnings",
-    "PlanQualityWarning",
+    "load_state",
+    "save_state",
+    "acquire_lock",
+    "release_lock",
 ]

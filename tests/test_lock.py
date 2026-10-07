@@ -5,9 +5,6 @@ import os
 
 import pytest
 from orchestrator import lock as lk
-from orchestrator.generator import generate_contracts
-from orchestrator.goal import Goal
-from orchestrator.supervisor import Supervisor
 
 
 @pytest.fixture(autouse=True)
@@ -105,58 +102,6 @@ def test_is_locked_by_other(tmp_path):
         json.dump(data, f, indent=2)
 
     assert lk.is_locked_by_other(run_dir)
-    lk.release_lock(run_dir)
-
-
-def test_lock_integration_supervisor(tmp_path):
-    """Supervisor executes with lock acquired."""
-    ws_dir = str(tmp_path)
-    run_dir = os.path.join(ws_dir, "scratch", "runs")
-    goal = Goal(goal_id="lock-sup", title="Lock supervisor", description="Test lock in supervisor")
-    plan = generate_contracts(goal, workspace_root=ws_dir)
-    supervisor = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
-
-    # execute_plan_with_retry should acquire and release lock
-    res = supervisor.execute_plan_with_retry()
-    assert all(s in ("COMPLETE", "complete") for s in res.values())
-
-    # Lock should be released after completion
-    assert not lk.is_locked(run_dir)
-
-
-def test_lock_resume(tmp_path):
-    """Supervisor resume works with lock."""
-    ws_dir = str(tmp_path)
-    run_dir = os.path.join(ws_dir, "scratch", "runs")
-    goal = Goal(goal_id="lock-resume", title="Lock resume", description="Test lock in resume")
-    plan = generate_contracts(goal, workspace_root=ws_dir)
-    supervisor = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
-    res = supervisor.execute_plan()
-    assert all(s in ("COMPLETE", "complete") for s in res.values())
-
-    # Resume should acquire and release
-    supervisor2 = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
-    res2 = supervisor2.resume_plan()
-    assert all(s in ("COMPLETE", "complete") for s in res2.values())
-    assert not lk.is_locked(run_dir)
-
-
-def test_lock_held_during_execution(tmp_path):
-    """Lock is held during execution, preventing second acquire."""
-    ws_dir = str(tmp_path)
-    run_dir = os.path.join(ws_dir, "scratch", "runs")
-    goal = Goal(goal_id="lock-held", title="Lock held", description="Test lock prevents second")
-
-    # Acquire lock manually
-    lk.acquire_lock(goal.goal_id, run_dir)
-
-    # Supervisor should fail with lock held
-    plan = generate_contracts(goal, workspace_root=ws_dir)
-    supervisor = Supervisor(goal, plan, workspace_root=ws_dir, run_dir=run_dir)
-    res = supervisor.execute_plan_with_retry()
-    assert len(res) == 0  # Empty result means lock held
-    assert goal.status == "FAILED"
-
     lk.release_lock(run_dir)
 
 

@@ -6,7 +6,7 @@
 
 # let it loop (LIL)
 
-**Make any Python function or AI agent workflow crash-proof in 3 lines. Zero tokens wasted on SIGKILL.**
+**The SQLite of Durable Execution — Zero-daemon in-process durability and process supervisor for Python functions & AI agents.**
 
 [![Official Website](https://img.shields.io/badge/Website-LetItLoop-0284c7?logo=googlechrome&logoColor=white)](https://sdageltc.github.io/letitloop/)
 [![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)
@@ -128,10 +128,8 @@ See [docs/adapters.md](docs/adapters.md) for complete framework recipes, lifecyc
 ### 1. Zero-Daemon Local Durability (Zero Infrastructure)
 No background Go servers, no Redis queues, and no PostgreSQL cluster configuration. LetItLoop embeds a single-file Write-Ahead Log (`LILWAL02`) that logs step outputs atomically. If your script dies from `SIGKILL (137)`, OOM, or spot eviction, running the script again instantly fast-forwards to the exact interrupted step in **~14ms**.
 
-### 2. Source-Span AST Node Splicer (0% Comment Loss)
-Temporal and existing orchestrators only manage task state. LetItLoop includes a surgical Python concrete syntax tree (CST) engine built specifically for self-coding AI agents:
-- Replaces targeted functions and classes with surgical precision.
-- **0% Comment Loss**: Guarantees module docstrings, inline comments, licensing headers, and class indentation are never stripped or hallucinated away by LLM whole-file rewrites.
+### 2. Zero Write Amplification & Fast-Forward Replay
+Unlike naive state serialization engines that rewrite full megabyte JSON snapshots on every single step ($O(N^2 \cdot S)$ write amplification), LetItLoop appends compact CRC32-framed delta records to an in-process WAL. Hot steps execute at native CPU speed with decoupled periodic snapshotting, allowing resumed executions to replay hundreds of steps in under **15ms**.
 
 ### 3. Proof-Carrying CI Gate (`letitloop-action`)
 LetItLoop generates signed HMAC-SHA256 receipts recording execution invariants and test outputs. Drop [`letitloop-action@v2`](https://github.com/sdageltc/letitloop-action) into GitHub Actions to block AI pull requests from hallucinating passing test outputs or altering protected function signatures.
@@ -156,7 +154,7 @@ Empirical results from the open [DCP-2.0 Durability Benchmark](https://sdageltc.
 > [!NOTE]
 > **Methodological Disclosure & Architectural Trade-offs**:
 > 1. **Why 100% durability is physically impossible**: If a non-maskable `SIGKILL` strikes while an uncommitted external network request is actively in flight, that single step must be re-executed upon resume, producing an empirical ~1.4%–2.8% token re-execution overhead.
-> 2. **The I/O Overhead Trade-off**: LetItLoop trades **~3.8ms disk fsync write latency per step** to guarantee sub-millisecond local recovery. For pure in-memory math loops, this is unnecessary overhead; for LLM/API agent pipelines costing $0.10–$2.00 per step, paying 3.8ms disk I/O to guarantee zero lost progress is an overwhelming net win.
+> 2. **The I/O Overhead Trade-off**: LetItLoop trades **~3.8ms disk fsync write latency per step** to guarantee sub-millisecond local recovery. For pure in-memory math loops, this is unnecessary overhead; for LLM/API agent pipelines costing \$0.10–\$2.00 per step, paying 3.8ms disk I/O to guarantee zero lost progress is an overwhelming net win.
 
 ---
 
@@ -167,7 +165,7 @@ Empirical results from the open [DCP-2.0 Durability Benchmark](https://sdageltc.
 
 ```bash
 # Supervise execution and auto-respawn process on unhandled SIGKILL/crash until completion
-lil run --task auth-refactor --supervise --strict
+lil watch agent_script.py --max-restarts 10 --backoff 1.0
 ```
 
 ---

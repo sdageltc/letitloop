@@ -155,3 +155,45 @@ def test_step_outputs_no_duplicate_keys(tmp_path):
     # duplicate step_output_s1 / step_output_s2 are not created
     assert "step_output_s1" not in state.data
     assert "step_output_s2" not in state.data
+
+
+def test_atomic_marker_two_phase_crash_and_retry(tmp_path):
+    run_dir = str(tmp_path / "marker_2pc")
+
+    # 1. Simulate failure inside atomic_marker block
+    try:
+        with atomic_marker("payment_tx", run_dir=run_dir) as should_run:
+            assert should_run is True
+            raise ValueError("simulated network crash mid-payment")
+    except ValueError:
+        pass
+
+    # 2. On restart/retry, pending marker was cleaned up, so should_run is True again
+    executed = False
+    with atomic_marker("payment_tx", run_dir=run_dir) as should_run:
+        assert should_run is True
+        executed = True
+
+    assert executed is True
+
+    # 3. Subsequent call finds committed marker and skips (should_run is False)
+    with atomic_marker("payment_tx", run_dir=run_dir) as should_run:
+        assert should_run is False
+
+
+def test_line0_torn_tail_wal_recovery(tmp_path):
+    wal_file = tmp_path / "state.wal.jsonl"
+    state_file = tmp_path / "state.json"
+
+    # Write a torn line-0 frame (interrupted write at start of WAL)
+    wal_file.write_bytes(b"\nLILWAL02:150:99999999:{\"corrupt_partial")
+
+    from orchestrator.state import load_state
+
+    # Must cleanly recover by truncating corrupt line-0 tail rather than crashing with StateError
+    state = load_state(str(state_file), journal_dir=str(tmp_path))
+    assert state is not None
+    # Corrupt partial content was truncated away
+    wal_bytes = wal_file.read_bytes()
+    assert b"corrupt_partial" not in wal_bytes
+

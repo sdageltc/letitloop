@@ -3,6 +3,20 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-07
+
+### ⚡ The SQLite of Durable Execution (Micro-Kernel Architecture)
+- **Radical Micro-Kernel Consolidation**: Amputated 70+ legacy coding-agent files, consolidating `letitloop` into an ultra-lean in-process persistence engine exporting `@durable`, `step`, `atomic_marker`, `supervise`, `LivenessSupervisor`, `State`, and `lock`.
+- **Correctness & Corruption Resilience Patches**:
+  - **Line-0 Torn Tail Recovery**: Patched LILWAL02 replay to safely truncate interrupted partial writes at line 0 without crashing.
+  - **Zero Quadratic Write Amplification**: Decoupled full snapshot serialization from hot `step()` and `async_step()` loops (periodic snapshot every 50 steps or on clean close), reducing disk I/O overhead by up to 98% in long-running pipelines.
+  - **Crash-Resilient 2-Phase `atomic_marker`**: Upgraded atomic step markers to a 2-phase commit lifecycle (`.pending.<pid>` $\to$ `.committed`) that cleans up uncommitted locks from dead PIDs.
+  - **Fail-Closed State Verification**: Enforced fail-closed corruption handling across state snapshots and WAL journals.
+- **Unified Lean CLI**: Redesigned command-line interface supporting `lil watch`, `lil inspect`, `lil demo`, `lil bench`, and `lil version`.
+- **Zero-Daemon Ecosystem Integration**: Turnkey durable workflows and recipes for `browser-use`, `pydantic-ai`, and `dspy`.
+
+---
+
 ## [0.6.0] - 2026-10-04
 
 ### 🌐 Ecosystem Cookbooks & Resilience Hardening

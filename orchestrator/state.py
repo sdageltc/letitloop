@@ -148,8 +148,28 @@ def _wal_frame_encode(event: Any) -> str:
     return f"\n{_WAL_FRAME_PREFIX}{len(payload_bytes):x}:{crc:x}:{payload}\n"
 
 
-def _wal_decode_line(line_clean: str) -> Any:
+def _wal_decode_line(line_clean: str | bytes) -> Any:
     """Decode one WAL line: LILWAL02 frame (CRC-validated) or legacy JSON line."""
+    if isinstance(line_clean, bytes):
+        line_b = line_clean.strip()
+        if line_b.startswith(b"LILWAL02:"):
+            parts = line_b.split(b":", 3)
+            if len(parts) != 4:
+                raise _WalFrameError("malformed frame header")
+            _, length_hex, crc_hex, payload_b = parts
+            try:
+                length = int(length_hex, 16)
+                crc = int(crc_hex, 16)
+            except ValueError:
+                raise _WalFrameError("malformed frame header") from None
+            if len(payload_b) != length or (zlib.crc32(payload_b) & 0xFFFFFFFF) != crc:
+                raise _WalFrameError("frame CRC/length mismatch")
+            try:
+                return json.loads(payload_b)
+            except json.JSONDecodeError as exc:
+                raise _WalFrameError(f"frame payload not JSON: {exc}") from exc
+        return json.loads(line_b)
+
     if line_clean.startswith(_WAL_FRAME_PREFIX):
         parts = line_clean.split(":", 3)
         if len(parts) != 4:
@@ -406,12 +426,12 @@ class State:
             elif event_type == "WORKER_RESULT_ADD":
                 if "result" not in payload:
                     raise StateError("WORKER_RESULT_ADD payload missing 'result'")
-                self.worker_results.append(copy.deepcopy(payload["result"]))
+                self.worker_results.append(payload["result"] if replay else copy.deepcopy(payload["result"]))
             elif event_type == "RETRY_METADATA_ADD":
                 if "metadata" not in payload:
                     raise StateError("RETRY_METADATA_ADD payload missing 'metadata'")
                 self.data.setdefault("retry_metadata", [])
-                self.data["retry_metadata"].append(copy.deepcopy(payload["metadata"]))
+                self.data["retry_metadata"].append(payload["metadata"] if replay else copy.deepcopy(payload["metadata"]))
             elif event_type == "DATA_PATCH":
                 patch = payload.get("patch", {})
                 if not isinstance(patch, dict):
@@ -420,10 +440,10 @@ class State:
                     if v is _DELETE_SENTINEL:
                         self.data.pop(k, None)
                     else:
-                        self.data[k] = copy.deepcopy(v)
+                        self.data[k] = v if replay else copy.deepcopy(v)
             elif event_type == "FORCE_COMPLETE":
                 self.status = "FORCE_COMPLETE"
-                self.data["force_complete"] = copy.deepcopy(payload)
+                self.data["force_complete"] = payload if replay else copy.deepcopy(payload)
             elif event_type == "ESCALATE":
                 if self.status in ("COMPLETE", "FORCE_COMPLETE", "DEGRADED_PASS"):
                     raise IllegalTransitionError(f"cannot force-escalate a {self.status} task")
@@ -829,12 +849,14 @@ def load_state(path, journal_dir=None):
     effective_journal_dir = journal_dir or os.path.dirname(os.path.abspath(path))
     wal_path = os.path.join(effective_journal_dir, WAL_FILENAME)
     raw = None
+    state_corrupted = False
 
     if os.path.isfile(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
         except (OSError, json.JSONDecodeError, ValueError) as exc:
+            state_corrupted = True
             if not os.path.isfile(wal_path):
                 raise StateError(f"state file corrupt: {exc}") from exc
     elif not os.path.isfile(wal_path):
@@ -862,7 +884,10 @@ def load_state(path, journal_dir=None):
     # Replay WAL events ahead of the snapshot (verifies chain + seq + legality).
     state = replay_wal(path, state=state)
     if state is None:
-        raise StateError(f"state file corrupt: unable to load state or replay WAL from {path}")
+        if state_corrupted:
+            raise StateError("state file corrupt and WAL contains no recoverable events")
+        task_name = os.path.basename(effective_journal_dir) or "default_task"
+        state = create_initial_state(task_name, journal_dir=effective_journal_dir)
     state.recover_from_journal()
     return state
 
@@ -915,35 +940,36 @@ def replay_wal(state_path, state=None):
         pos = nl + 1
     # Empty file -> lines_raw == []
     current_offset = 0
+    good_end = 0
     for idx, raw_line in enumerate(lines_raw):
-        line_clean = raw_line.decode("utf-8", errors="replace").strip()
+        line_b = raw_line.strip()
         line_end = current_offset + len(raw_line)
-        if not line_clean:
+        if not line_b:
             current_offset = line_end
             continue
         try:
-            parsed = _wal_decode_line(line_clean)
+            parsed = _wal_decode_line(line_b)
             wal_events.append(parsed)
             good_end = line_end
         except _WalFrameError as exc:
             is_tail = idx == len(lines_raw) - 1 or all(
-                not ln.decode("utf-8", errors="replace").strip() for ln in lines_raw[idx + 1 :]
+                not ln.strip() for ln in lines_raw[idx + 1 :]
             )
-            if is_tail and wal_events:
+            if is_tail:
                 corrupt_tail = True
                 break
             raise StateError(f"WAL file corrupt: frame CRC mismatch: {exc}") from exc
         except (json.JSONDecodeError, ValueError) as exc:
             is_tail = idx == len(lines_raw) - 1 or all(
-                not ln.decode("utf-8", errors="replace").strip() for ln in lines_raw[idx + 1 :]
+                not ln.strip() for ln in lines_raw[idx + 1 :]
             )
-            if is_tail and wal_events:
+            if is_tail:
                 corrupt_tail = True
                 break
             raise StateError(f"WAL file corrupt: invalid event: {exc}") from exc
         current_offset = line_end
 
-    if corrupt_tail and wal_events:
+    if corrupt_tail:
         try:
             with open(wal_path, "r+b") as fb:
                 fb.truncate(good_end)

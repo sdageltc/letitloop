@@ -14,8 +14,6 @@ from orchestrator.process_guard import (
     pid_alive,
     uninstall_signal_handlers,
 )
-from orchestrator.subprocess_helper import run_bounded_subprocess
-from orchestrator.worker_adapters import ScriptWorkerAdapter
 
 SLEEPER = "import time; time.sleep(30)"
 
@@ -170,52 +168,3 @@ class TestSignalHandlers:
         handler(signal.SIGTERM, None)
         assert swept == [5.0]
         assert kills and kills[0][1] == signal.SIGTERM
-
-
-class TestSubprocessHelperIntegration:
-    @pytest.mark.integration
-    def test_timeout_result_and_tree_death(self, tmp_path):
-        gc_file = tmp_path / "gc.pid"
-        result = run_bounded_subprocess(
-            [sys.executable, "-c", _spawn_gc_script(gc_file)],
-            workspace_root=".",
-            timeout_sec=2,
-        )
-        assert result.timed_out is True
-        assert result.success is False
-        assert gc_file.exists(), "grandchild never spawned"
-        assert gc_file.read_text().strip().isdigit(), "pid file never finalized"
-        gc_pid = int(gc_file.read_text().strip())
-        assert _wait_dead(gc_pid), "grandchild orphaned after bounded timeout"
-
-    @pytest.mark.integration
-    def test_normal_execution_unchanged_contract(self):
-        cmd = [sys.executable, "-c", "print('ok')"]
-        result = run_bounded_subprocess(cmd, workspace_root=".")
-        assert result.success is True
-        assert "ok" in result.stdout
-        assert result.exit_code == 0
-
-
-class TestWorkerAdapterTimeout:
-    @pytest.mark.integration
-    def test_script_timeout_returns_124_and_kills_child(self, tmp_path, monkeypatch):
-        calls = []
-        real_kill = kill_process_tree
-        import orchestrator.process_guard as pg
-
-        def spy_kill(pid):
-            calls.append(pid)
-            real_kill(pid)
-
-        monkeypatch.setattr(pg, "kill_process_tree", spy_kill)
-        adapter = ScriptWorkerAdapter(f'"{sys.executable}" -c "{SLEEPER}"')
-        result = adapter.execute("do work", workspace_root=str(tmp_path), task_id="t1", timeout=1)
-        assert result["exit_code"] == 124
-        assert calls, "tree-kill never invoked on script timeout"
-
-    def test_script_success_mapping_preserved(self, tmp_path):
-        adapter = ScriptWorkerAdapter(f'"{sys.executable}" -c "print(\'hi\')"')
-        result = adapter.execute("p", workspace_root=str(tmp_path), task_id="t2", timeout=30)
-        assert result["exit_code"] == 0
-        assert "hi" in result["stdout"]
