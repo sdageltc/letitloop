@@ -13,6 +13,7 @@ import pytest
 @pytest.mark.fast
 def test_langgraph_financial_analyst_run_and_resume(tmp_path: pathlib.Path) -> None:
     """Verify LangGraph financial analyst runs first time and fast-forwards on resume."""
+    pytest.importorskip("langgraph")
     from examples.cookbooks.langgraph_financial_analyst import (
         DEFAULT_MODEL,
         _workflow_wal_dir,
@@ -44,6 +45,7 @@ def test_langgraph_financial_analyst_run_and_resume(tmp_path: pathlib.Path) -> N
 @pytest.mark.fast
 def test_langgraph_financial_analyst_async_dependency_injection(tmp_path: pathlib.Path) -> None:
     """The async workflow accepts fake external adapters and caches their JSON-safe outputs."""
+    pytest.importorskip("langgraph")
     from examples.cookbooks.langgraph_financial_analyst import (
         _summarise_call_log,
         _workflow_wal_dir,
@@ -351,6 +353,7 @@ def test_yfinance_fetch_reports_empty_history_and_network_errors(failure: str) -
 @pytest.mark.integration
 def test_langgraph_financial_analyst_sigkill_recovery(tmp_path: pathlib.Path) -> None:
     """A post-memo SIGKILL must not repeat market, LLM, or token consumption."""
+    pytest.importorskip("langgraph")
     from examples.cookbooks.langgraph_financial_analyst import demo_sigkill_recovery
 
     wal_dir = str(tmp_path / "wal_langgraph_demo")
@@ -383,6 +386,7 @@ def test_langgraph_financial_analyst_sigkill_recovery(tmp_path: pathlib.Path) ->
 @pytest.mark.fast
 def test_financial_agent_tickers_use_distinct_wal_caches(tmp_path: pathlib.Path) -> None:
     """AAPL checkpoints must never satisfy an NVDA workflow."""
+    pytest.importorskip("langgraph")
     from examples.cookbooks.langgraph_financial_analyst import (
         _workflow_wal_dir,
         run_financial_analyst_async,
@@ -461,6 +465,7 @@ def test_dspy_durable_optimize_mock_run(tmp_path: pathlib.Path) -> None:
 @pytest.mark.fast
 def test_cookbook_module_builders() -> None:
     """Verify the financial cookbook constructs the required graph topology."""
+    pytest.importorskip("langgraph")
     from examples.cookbooks.langgraph_financial_analyst import _build_langgraph_pipeline
 
     lg_pipeline = _build_langgraph_pipeline()
