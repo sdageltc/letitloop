@@ -72,7 +72,7 @@ $env:LLM_BASE_URL="https://api.openai.com/v1"
 
 ```bash
 # Run all tests (excluding integration tests)
-python -m pytest tests -q --ignore=tests/test_integration.py
+python -m pytest tests -q -m "not integration"
 
 # Run fast tests only
 python -m pytest tests -q -m fast

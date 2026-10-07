@@ -28,7 +28,7 @@ print("\n========================================================")
 print("RUNNING INTEGRATION TESTS (7 tests)")
 print("========================================================")
 
-code_int = pytest.main(["-v", "-p", "no:benchmark", os.path.join(repo_root, "tests", "test_integration.py")])
+code_int = pytest.main(["-v", "-p", "no:benchmark", "-m", "integration"])
 if code_int != 0:
     print(f"\n[ERROR] Integration tests failed with exit code: {code_int}")
     sys.exit(code_int)
