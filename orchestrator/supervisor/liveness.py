@@ -167,6 +167,7 @@ class LivenessSupervisor:
 
         self.restart_count = 0
         self.rapid_failure_count = 0
+        self.failure_history: List[float] = []
         self.current_process: Optional[subprocess.Popen] = None
         self._interrupted = False
         self._job_handle = _setup_win32_job() if sys.platform == "win32" else None
@@ -259,10 +260,16 @@ class LivenessSupervisor:
                     return exit_code
 
                 # 2. Check Rapid-Failure Circuit Breaker
+                now = time.monotonic()
                 if duration < self.healthy_threshold_sec:
-                    self.rapid_failure_count += 1
+                    self.failure_history.append(now)
                 else:
-                    self.rapid_failure_count = 0
+                    self.failure_history.clear()
+
+                # Prune failures outside the healthy sliding window
+                window_cutoff = now - (self.healthy_threshold_sec * 2)
+                self.failure_history = [t for t in self.failure_history if t >= window_cutoff]
+                self.rapid_failure_count = len(self.failure_history)
 
                 if self.rapid_failure_count >= self.max_rapid_failures:
                     self._log(

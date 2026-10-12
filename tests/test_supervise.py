@@ -109,6 +109,28 @@ def test_supervisor_rapid_failure_circuit_breaker(tmp_path):
 
     assert "Circuit breaker tripped" in str(exc_info.value)
     assert sup.rapid_failure_count >= 3
+    assert len(sup.failure_history) >= 3
+
+
+def test_supervisor_sliding_window_pruning(tmp_path):
+    """Supervisor failure history maintains active sliding window timestamps and syncs count."""
+    script = tmp_path / "instant_crash.py"
+    script.write_text("import sys; sys.exit(1)", encoding="utf-8")
+
+    sup = LivenessSupervisor(
+        command=[sys.executable, str(script)],
+        max_restarts=2,
+        backoff=0.01,
+        healthy_threshold_sec=0.5,
+        max_rapid_failures=2,
+        silent=True,
+    )
+
+    with pytest.raises(CircuitBreakerError):
+        sup.run()
+
+    assert len(sup.failure_history) == 2
+    assert sup.rapid_failure_count == 2
 
 
 def test_supervise_function_decorator(tmp_path):
