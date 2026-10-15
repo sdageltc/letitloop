@@ -61,6 +61,16 @@ pip install letitloop
 
 > **⚡ Async Support**: For asynchronous pipelines, use `@durable_async` and `await async_step(...)` with full `asyncio.gather()` isolation.
 
+### Interactive crash-recovery visualizer
+
+Install the optional UI dependency and run the local Streamlit demo:
+
+    python -m pip install -e .
+    python -m pip install -r examples/interactive_demo/requirements.txt
+    streamlit run examples/interactive_demo/app.py
+
+The demo lets you inject a real subprocess crash, resume the same five-step workflow from WAL, and inspect cached-step timings. It uses deterministic data only and makes no model/API calls.
+
 ---
 
 ## 🔄 Process Liveness: Auto-Supervision & CLI Watcher
