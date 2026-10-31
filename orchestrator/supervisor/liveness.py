@@ -167,6 +167,7 @@ class LivenessSupervisor:
 
         self.restart_count = 0
         self.rapid_failure_count = 0
+        self.failure_history: List[float] = []
         self.current_process: Optional[subprocess.Popen] = None
         self._interrupted = False
         self._job_handle = _setup_win32_job() if sys.platform == "win32" else None
@@ -205,6 +206,19 @@ class LivenessSupervisor:
                     proc.kill()
             except OSError:
                 pass
+
+    def _record_failure(self, duration: float, now: Optional[float] = None) -> None:
+        """Record process failure timestamp and prune entries outside the sliding window."""
+        current_time = time.monotonic() if now is None else now
+        if duration < self.healthy_threshold_sec:
+            self.failure_history.append(current_time)
+        else:
+            self.failure_history.clear()
+
+        # Prune failures older than 2x healthy threshold
+        window_cutoff = current_time - (self.healthy_threshold_sec * 2)
+        self.failure_history = [t for t in self.failure_history if t >= window_cutoff]
+        self.rapid_failure_count = len(self.failure_history)
 
     def run(self) -> int:
         """Run supervised execution loop until completion, graceful exit, or circuit break."""
@@ -259,14 +273,11 @@ class LivenessSupervisor:
                     return exit_code
 
                 # 2. Check Rapid-Failure Circuit Breaker
-                if duration < self.healthy_threshold_sec:
-                    self.rapid_failure_count += 1
-                else:
-                    self.rapid_failure_count = 0
+                self._record_failure(duration)
 
                 if self.rapid_failure_count >= self.max_rapid_failures:
                     self._log(
-                        f"CIRCUIT BREAKER TRIPPED: Child failed {self.rapid_failure_count} times in <{self.healthy_threshold_sec}s. "
+                        f"CIRCUIT BREAKER TRIPPED: Child failed {self.rapid_failure_count} times in <{self.healthy_threshold_sec}s within sliding window. "
                         "Halting to prevent runaway CPU spin on fatal syntax/logic error."
                     )
                     raise CircuitBreakerError(

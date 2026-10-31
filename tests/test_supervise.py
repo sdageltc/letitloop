@@ -109,6 +109,57 @@ def test_supervisor_rapid_failure_circuit_breaker(tmp_path):
 
     assert "Circuit breaker tripped" in str(exc_info.value)
     assert sup.rapid_failure_count >= 3
+    assert len(sup.failure_history) >= 3
+
+
+def test_supervisor_sliding_window_pruning(tmp_path):
+    """Supervisor failure history maintains active sliding window timestamps and syncs count."""
+    script = tmp_path / "instant_crash.py"
+    script.write_text("import sys; sys.exit(1)", encoding="utf-8")
+
+    sup = LivenessSupervisor(
+        command=[sys.executable, str(script)],
+        max_restarts=5,
+        backoff=0.01,
+        healthy_threshold_sec=3.0,
+        max_rapid_failures=2,
+        silent=True,
+    )
+
+    with pytest.raises(CircuitBreakerError):
+        sup.run()
+
+    assert len(sup.failure_history) == 2
+    assert sup.rapid_failure_count == 2
+
+
+def test_supervisor_sliding_window_pruning_direct():
+    """Directly verify timestamp sliding window pruning and clear on healthy run."""
+    sup = LivenessSupervisor(
+        command=["dummy"],
+        healthy_threshold_sec=2.0,
+        max_rapid_failures=3,
+    )
+
+    # 1. Simulate rapid failure at t = 100.0
+    sup._record_failure(duration=0.5, now=100.0)
+    assert sup.failure_history == [100.0]
+    assert sup.rapid_failure_count == 1
+
+    # 2. Simulate rapid failure at t = 102.0
+    sup._record_failure(duration=0.8, now=102.0)
+    assert sup.failure_history == [100.0, 102.0]
+    assert sup.rapid_failure_count == 2
+
+    # 3. Simulate rapid failure at t = 105.0 (cutoff is 105.0 - 4.0 = 101.0, so 100.0 is pruned)
+    sup._record_failure(duration=0.4, now=105.0)
+    assert sup.failure_history == [102.0, 105.0]
+    assert sup.rapid_failure_count == 2
+
+    # 4. Simulate healthy run (duration >= healthy_threshold_sec)
+    sup._record_failure(duration=2.5, now=110.0)
+    assert sup.failure_history == []
+    assert sup.rapid_failure_count == 0
 
 
 def test_supervise_function_decorator(tmp_path):
