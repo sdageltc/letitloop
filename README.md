@@ -196,8 +196,9 @@ Explore runnable self-contained examples in [`examples/`](examples/):
 | **LlamaIndex** | [**Durable Workflows Example**](examples/llamaindex_durable_workflow.py) | ✅ Ready | Event-driven `@step` pipeline with crash durability and sub-millisecond fast-forward |
 | **OpenAI Swarm** | [**Durable Handoff Example**](examples/swarm_durable_handoff.py) | ✅ Ready | Multi-agent context handoff with WAL v2 serialization |
 | **LangGraph** | [**Financial Analyst Agent**](examples/cookbooks/langgraph_financial_analyst.py) | ✅ Ready | 4-step `yfinance` + DeepSeek StateGraph with independently audited SIGKILL recovery |
+| **Playwright** | [**Crash-Resilient Web Scraper**](examples/cookbooks/playwright_scraper.md) | ✅ Ready | Multi-page browser scraper with `@durable_async` checkpointing that skips already-scraped pages (<1ms WAL lookup) |
+| **Streamlit / UI** | [**Interactive WAL Visualizer**](examples/interactive_demo/README.md) | ✅ Ready | Real-time crash injection & fast-forward WAL replay visualizer with token savings metrics |
 | **DSPy** | [**Issue #83: Prompt Optimizer Pipeline**](https://github.com/sdageltc/letitloop/issues/83) | 🤝 Contributor | Async `BootstrapFewShot` / Teleprompter tuning with zero lost progress |
-| **Playwright** | [**Issue #88: Web Scraping Agent**](https://github.com/sdageltc/letitloop/issues/88) | 🤝 Contributor | Multi-page browser scraper that checkpoints DOM items to skip scraped pages |
 | **Pydantic AI** | [**Issue #89: Pydantic AI Integration**](https://github.com/sdageltc/letitloop/issues/89) | 🤝 Contributor | Type-safe agent with tool-calling checkpointing and zero token waste |
 
 Install and run the financial analyst without paid API calls:
