@@ -24,10 +24,12 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import signal
 import sys
 import threading
 import time
+import urllib.request
 from collections.abc import Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -132,38 +134,59 @@ def _start_mock_server() -> tuple[ThreadingHTTPServer, threading.Thread, int]:
 
 
 async def _extract_stories_demo(url: str) -> dict[str, Any]:
-    """Extract story data from a demo page using Playwright async API."""
-    from playwright.async_api import async_playwright
-
+    """Extract story data from a demo page using Playwright async API with fallback."""
     print(f"  SCRAPE {url}", flush=True)
     t0 = time.perf_counter()
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        try:
-            page = await browser.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=15000)
-            stories = await page.evaluate(
-                """() => {
-                    const items = [];
-                    document.querySelectorAll('article.story').forEach(el => {
-                        const link = el.querySelector('h2 a');
-                        const score = el.querySelector('.score');
-                        items.push({
-                            title: link ? link.innerText.trim() : '',
-                            href: link ? link.href : '',
-                            score: score ? parseInt(score.innerText) || 0 : 0,
+    try:
+        from playwright.async_api import async_playwright
+
+        has_playwright = True
+    except ImportError:
+        has_playwright = False
+
+    if has_playwright:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            try:
+                page = await browser.new_page()
+                await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                stories = await page.evaluate(
+                    """() => {
+                        const items = [];
+                        document.querySelectorAll('article.story').forEach(el => {
+                            const link = el.querySelector('h2 a');
+                            const score = el.querySelector('.score');
+                            items.push({
+                                title: link ? link.innerText.trim() : '',
+                                href: link ? link.href : '',
+                                score: score ? parseInt(score.innerText) || 0 : 0,
+                            });
                         });
-                    });
-                    const title = document.querySelector('.page-title');
-                    return {
-                        page_title: title ? title.innerText.trim() : '',
-                        stories: items,
-                    };
-                }"""
-            )
-        finally:
-            await browser.close()
+                        const title = document.querySelector('.page-title');
+                        return {
+                            page_title: title ? title.innerText.trim() : '',
+                            stories: items,
+                        };
+                    }"""
+                )
+            finally:
+                await browser.close()
+    else:
+        # Standard library fallback for environments without Playwright browser binaries
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            html = resp.read().decode("utf-8")
+        title_match = re.search(r'<h1 class="page-title">([^<]+)</h1>', html)
+        page_title = title_match.group(1) if title_match else "Synthetic News Feed"
+        items = []
+        for m in re.finditer(
+            r'<article class="story">\s*<h2><a href="([^"]+)">([^<]+)</a></h2>\s*<span class="score">([^<]+)</span>',
+            html,
+        ):
+            href, title, score_str = m.groups()
+            score_num = int(re.search(r"\d+", score_str).group(0)) if re.search(r"\d+", score_str) else 0
+            items.append({"title": title, "href": href, "score": score_num})
+        stories = {"page_title": page_title, "stories": items}
 
     elapsed_ms = (time.perf_counter() - t0) * 1000
     return {
