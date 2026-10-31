@@ -126,24 +126,21 @@ def test_sigkill_resumes_real_worker_from_wal(tmp_path, monkeypatch, capsys):
             process.wait(timeout=5.0)
         reader.join(timeout=2.0)
 
-    first_attempt_steps = [
-        event for event in child_events if event.get("event") == "step_completed"
-    ]
+    first_attempt_steps = [event for event in child_events if event.get("event") == "step_completed"]
     assert [event["step_id"] for event in first_attempt_steps] == ["discover_sources"]
     capsys.readouterr()
 
     resumed_result = worker.run_workflow(tmp_path)
     resumed_events = _read_events(capsys.readouterr().out)
-    resumed_steps = [
-        event for event in resumed_events if event.get("event") == "step_completed"
-    ]
+    resumed_steps = [event for event in resumed_events if event.get("event") == "step_completed"]
 
     assert len(resumed_result) == 5
     assert len(resumed_steps) == 5
     assert resumed_steps[0]["cached"] is True
     assert all(event["cached"] is False for event in resumed_steps[1:])
-    assert [
-        event["step_id"]
-        for event in resumed_events
-        if event.get("event") == "step_work_finished"
-    ] == ["normalize_inputs", "draft_artifact", "validate_result", "publish_result"]
+    assert [event["step_id"] for event in resumed_events if event.get("event") == "step_work_finished"] == [
+        "normalize_inputs",
+        "draft_artifact",
+        "validate_result",
+        "publish_result",
+    ]

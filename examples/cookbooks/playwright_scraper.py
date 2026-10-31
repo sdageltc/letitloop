@@ -287,10 +287,10 @@ def main() -> None:
         print(f"Mock server started on port {port}", flush=True)
 
     try:
-        print(f"\n{'='*60}", flush=True)
+        print(f"\n{'=' * 60}", flush=True)
         print(" Playwright + LetItLoop Crash-Resilient Scraper", flush=True)
         print(f" Mode: {'live' if args.live else 'demo'}  |  Pages: {len(pages)}  |  Run: {args.run_id}", flush=True)
-        print(f"{'='*60}\n", flush=True)
+        print(f"{'=' * 60}\n", flush=True)
 
         t0 = time.perf_counter()
         results = asyncio.run(
@@ -305,9 +305,9 @@ def main() -> None:
         elapsed_ms = (time.perf_counter() - t0) * 1000
 
         total_stories = sum(r["story_count"] for r in results)
-        print(f"\n{'='*60}", flush=True)
+        print(f"\n{'=' * 60}", flush=True)
         print(f" COMPLETE — {len(results)} pages, {total_stories} stories in {elapsed_ms:.1f}ms", flush=True)
-        print(f"{'='*60}\n", flush=True)
+        print(f"{'=' * 60}\n", flush=True)
 
         for r in results:
             print(f"  {r['page_title']}: {r['story_count']} stories ({r['scrape_duration_ms']}ms)", flush=True)

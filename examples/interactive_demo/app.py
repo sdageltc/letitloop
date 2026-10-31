@@ -198,9 +198,7 @@ def _metrics() -> tuple[str, str, int, int]:
     cached_events = [
         event
         for event in events
-        if event.get("attempt") == current_attempt
-        and event.get("event") == "step_completed"
-        and event.get("cached")
+        if event.get("attempt") == current_attempt and event.get("event") == "step_completed" and event.get("cached")
     ]
     resume_latency = sum(float(event.get("duration_ms", 0.0)) for event in cached_events) if mode == "resume" else 0.0
 
@@ -341,7 +339,9 @@ _init_state()
 
 st.title("LetItLoop Crash & Fast-Forward Visualizer")
 st.caption("An interactive, deterministic demo of SIGKILL recovery using the real LetItLoop durable decorator and WAL.")
-st.warning("No model or network calls are made. Token costs are synthetic, so the UI is safe to run locally without API credentials.")
+st.warning(
+    "No model or network calls are made. Token costs are synthetic, so the UI is safe to run locally without API credentials."
+)
 
 active_phases = {"running", "waiting", "crash_requested"}
 selected_step = st.selectbox(
@@ -351,7 +351,11 @@ selected_step = st.selectbox(
     format_func=lambda number: f"Step {number}: {WORKFLOW_STEPS[number - 1]['label']}",
     disabled=st.session_state.phase in active_phases or st.session_state.phase == "crashed",
 )
-if st.button("Start Agent Workflow", type="primary", disabled=st.session_state.phase in active_phases or st.session_state.phase == "crashed"):
+if st.button(
+    "Start Agent Workflow",
+    type="primary",
+    disabled=st.session_state.phase in active_phases or st.session_state.phase == "crashed",
+):
     run_dir = tempfile.mkdtemp(prefix="letitloop_interactive_demo_")
     st.session_state.run_dir = run_dir
     st.session_state.events = []
@@ -368,8 +372,10 @@ if st.button("Start Agent Workflow", type="primary", disabled=st.session_state.p
 if st.session_state.run_dir:
     st.caption(f"WAL directory: {st.session_state.run_dir}")
 
+
 @st.fragment(run_every=0.5)
 def _live_monitor() -> None:
     _render_monitor()
+
 
 _live_monitor()

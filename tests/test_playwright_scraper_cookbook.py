@@ -62,9 +62,7 @@ def test_new_inputs_and_new_run_do_not_reuse_old_results(tmp_path):
         ("first", ["b"], "demo"),
         ("first", ["a"], "live"),
     ]:
-        asyncio.run(
-            run_scraper(wal_root=str(tmp_path), run_id=run_id, pages=pages, mode=mode, extract_fn=mock_extract)
-        )
+        asyncio.run(run_scraper(wal_root=str(tmp_path), run_id=run_id, pages=pages, mode=mode, extract_fn=mock_extract))
     assert calls == ["a", "a", "b", "a"]
     with pytest.raises(ValueError, match="run_id"):
         run_directory(str(tmp_path), "", ["a"], "demo")
