@@ -182,6 +182,9 @@ DEFAULT_CODEC_REGISTRY = DurableCodecRegistry()
 
 def encode_step_result(result: Any, registry: Optional[DurableCodecRegistry] = None) -> Any:
     """Encode result and verify valid JSON roundtrip."""
+    if type(result) in _PRIMITIVES:
+        return result
+
     reg = registry or DEFAULT_CODEC_REGISTRY
     encoded = reg.encode(result)
     # Validate strict JSON serializability
@@ -194,5 +197,8 @@ def encode_step_result(result: Any, registry: Optional[DurableCodecRegistry] = N
 
 def decode_step_result(payload: Any, registry: Optional[DurableCodecRegistry] = None) -> Any:
     """Hydrate encoded JSON structure back into Python types."""
+    if type(payload) in _PRIMITIVES:
+        return payload
+
     reg = registry or DEFAULT_CODEC_REGISTRY
     return reg.decode(payload)
