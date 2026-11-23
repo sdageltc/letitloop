@@ -6,7 +6,7 @@
 
 # let it loop (LIL)
 
-**Single-Process Local Write-Ahead Log (`LILWAL02`) & Process Supervisor for Python Scripts (`v0.7.2`)**
+**Single-Process Local Write-Ahead Log (`LILWAL02`) & Process Supervisor for Python Scripts (`v0.7.3`)**
 
 [![Official Website](https://img.shields.io/badge/Website-LetItLoop-0284c7?logo=googlechrome&logoColor=white)](https://sdageltc.github.io/letitloop/)
 [![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)

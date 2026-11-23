@@ -1,4 +1,4 @@
-# Architectural Design, Contract Boundaries & Trade-Offs (`v0.7.2`)
+# Architectural Design, Contract Boundaries & Trade-Offs (`v0.7.3`)
 
 This document specifies what `letitloop` guarantees, where its single-process local filesystem model stops, and when you should use an established database-backed workflow engine instead.
 

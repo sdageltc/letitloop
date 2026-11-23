@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "letitloop"
-version = "0.7.2"
-description = "The SQLite of Durable Execution — Zero-daemon in-process durability and process supervisor for Python functions & AI agents."
+version = "0.7.3"
+description = "Single-process local Write-Ahead Log (LILWAL02) and process supervisor for Python scripts."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"

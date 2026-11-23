@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "project": "letitloop",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Landscape Seam Ledger (LSL) registry defining automated multi-repo verification gates for LetItLoop.",
   "seams": [
     {

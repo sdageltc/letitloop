@@ -28,7 +28,7 @@ def _get_version() -> str:
 
             return __version__
         except Exception:
-            return "0.7.2"
+            return "0.7.3"
 
 
 def cmd_watch(a) -> None:
@@ -279,7 +279,7 @@ def cmd_bench(args) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="LetItLoop — The SQLite of Durable Execution",
+        description="LetItLoop — Single-process local WAL (LILWAL02) and process supervisor",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

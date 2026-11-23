@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-11-23
+
+### 🔧 CI Determinism, Metadata Alignment & Workflow Maintenance
+- **Deterministic Async Concurrency Test (`tests/test_durable_async.py`)**: Replaced the wall-clock `< 0.35s` timing assertion in `test_async_steps_gather_runs_truly_concurrently` with a deterministic 3-task `asyncio.Event` entry barrier (`max_in_flight == 3`), eliminating false CI flakes caused by Windows NTFS `fsync()` jitter.
+- **Package & CLI Description Alignment (`pyproject.toml`, `orchestrator/cli.py`)**: Aligned PyPI package summary and CLI help text to the single-process local `LILWAL02` WAL & process supervisor contract.
+- **CI Dependency & Action Upgrades**: Updated `actions/setup-python` (`v7.1.0`), `actions/github-script` (`v9.0.0`), `release-drafter` (`v7`), `ossf/scorecard-action` (`v2.6.0`), `coverage` (`>=7.17.3`), and `pytest-benchmark` (`>=5.3.1`).
+
+---
+
 ## [0.7.2] - 2026-11-23
 
 ### 🔒 Kernel Correctness Fixes, Async Parallelism & Protocol Hardening

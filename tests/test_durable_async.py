@@ -200,23 +200,33 @@ async def test_async_step_non_serializable_raises(tmp_path):
 @pytest.mark.asyncio
 async def test_async_steps_gather_runs_truly_concurrently(tmp_path):
     wal_dir = str(tmp_path / "wal_true_parallel")
+    in_flight = 0
+    max_in_flight = 0
+    all_entered = asyncio.Event()
 
-    async def _sleep_step(x: int) -> int:
-        await asyncio.sleep(0.15)
-        return x * 10
+    async def _barrier_step(x: int) -> int:
+        nonlocal in_flight, max_in_flight
+        in_flight += 1
+        max_in_flight = max(max_in_flight, in_flight)
+        if in_flight == 3:
+            all_entered.set()
+        try:
+            # If async_step serialized asyncio.gather() behind a lock, tasks 2 and 3
+            # could never enter while task 1 awaits here, triggering TimeoutError.
+            await asyncio.wait_for(all_entered.wait(), timeout=2.0)
+            return x * 10
+        finally:
+            in_flight -= 1
 
     @durable_async(goal_id="parallel_gather", wal_dir=wal_dir)
     async def wf():
         r1, r2, r3 = await asyncio.gather(
-            async_step("p1", _sleep_step, 1),
-            async_step("p2", _sleep_step, 2),
-            async_step("p3", _sleep_step, 3),
+            async_step("p1", _barrier_step, 1),
+            async_step("p2", _barrier_step, 2),
+            async_step("p3", _barrier_step, 3),
         )
         return r1 + r2 + r3
 
-    t0 = time.perf_counter()
     total = await wf()
-    elapsed = time.perf_counter() - t0
     assert total == 60
-    # 3 x 0.15s sequential would take >= 0.45s; parallel execution must finish well under 0.35s
-    assert elapsed < 0.35, f"async_step serialized asyncio.gather: took {elapsed:.3f}s"
+    assert max_in_flight == 3, f"async_step serialized asyncio.gather: max_in_flight={max_in_flight}"

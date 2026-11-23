@@ -1,4 +1,4 @@
-# Repository Guide for Coding Agents (`letitloop v0.7.2`)
+# Repository Guide for Coding Agents (`letitloop v0.7.3`)
 
 ## Architecture Overview
 - `orchestrator/`: Core runtime kernel (`state.py`, `decorators.py`, `codecs.py`, `lock.py`, `process_guard.py`, `cli.py`, `supervisor/liveness.py`).
