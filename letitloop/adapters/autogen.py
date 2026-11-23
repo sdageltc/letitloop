@@ -8,8 +8,10 @@ Flushes message histories, agent memories, and tool outputs atomically to LetItL
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import json
 import os
+import re
 import threading
 import time
 import zlib
@@ -17,18 +19,8 @@ from typing import Any, Dict, List, Optional
 
 
 def _is_autogen_available() -> bool:
-    """Check if AutoGen is installed in the current Python environment."""
-    try:
-        import autogen_core  # noqa: F401
-
-        return True
-    except ImportError:
-        try:
-            import autogen  # noqa: F401
-
-            return True
-        except ImportError:
-            return False
+    """Check if AutoGen is installed in the current Python environment without heavy import."""
+    return importlib.util.find_spec("autogen_core") is not None or importlib.util.find_spec("autogen") is not None
 
 
 def _to_serializable(val: Any) -> Any:
@@ -87,7 +79,8 @@ class AutoGenStateSerializer:
         )
         self.session_id = session_id
         self.auto_resume = auto_resume
-        self.wal_file = os.path.join(self.wal_dir, f"{session_id}.wal.jsonl")
+        safe_session = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", session_id).strip("._") or "default_autogen"
+        self.wal_file = os.path.join(self.wal_dir, f"{safe_session}.wal.jsonl")
 
         self._lock = threading.Lock()
         self._seq = 0

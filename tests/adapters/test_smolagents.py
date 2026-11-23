@@ -59,3 +59,24 @@ def test_smolagents_wrap_agent(tmp_path):
     agent = MockAgentWithLogs()
     cb.wrap_agent(agent)
     assert cb in agent.step_callbacks
+
+
+def test_smolagents_wrap_agent_callback_registry(tmp_path):
+    class FakeCallbackRegistry:
+        def __init__(self):
+            self.registered = []
+
+        def register(self, step_cls, callback):
+            self.registered.append((step_cls, callback))
+
+    class FakeAgentWithRegistry:
+        def __init__(self):
+            self.logs = []
+            self.step_callbacks = FakeCallbackRegistry()
+
+    wal_dir = tmp_path / "smol_wal_reg"
+    cb = SmolagentsWALCallback(wal_dir=str(wal_dir), session_id="smol_reg")
+    agent = FakeAgentWithRegistry()
+    cb.wrap_agent(agent)
+    assert isinstance(agent.step_callbacks, FakeCallbackRegistry)
+    assert len(agent.step_callbacks.registered) == 1

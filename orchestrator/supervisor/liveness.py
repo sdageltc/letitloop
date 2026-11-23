@@ -47,6 +47,8 @@ def _is_graceful_exit(exit_code: int) -> bool:
         EXIT_SIGTERM,
         -signal.SIGINT,
         -signal.SIGTERM if hasattr(signal, "SIGTERM") else -15,
+        -1073741510,  # Windows STATUS_CONTROL_C_EXIT (signed)
+        0xC000013A,  # Windows STATUS_CONTROL_C_EXIT (unsigned)
     )
 
 
@@ -133,7 +135,10 @@ def _assign_process_to_job(job_handle: Any, proc: subprocess.Popen) -> None:
         # PROCESS_ALL_ACCESS = 0x1F0FFF
         h_proc = OpenProcess(0x1F0FFF, False, proc.pid)
         if h_proc:
-            AssignProcessToJobObject(job_handle, h_proc)
+            try:
+                AssignProcessToJobObject(job_handle, h_proc)
+            finally:
+                kernel32.CloseHandle(h_proc)
     except Exception:
         pass
 
@@ -230,8 +235,14 @@ class LivenessSupervisor:
             self._terminate_child()
             sys.exit(EXIT_SIGINT if signum == signal.SIGINT else EXIT_SIGTERM)
 
-        prev_sigint = signal.signal(signal.SIGINT, _handle_signal)
-        prev_sigterm = signal.signal(signal.SIGTERM, _handle_signal) if hasattr(signal, "SIGTERM") else None
+        prev_sigint = None
+        prev_sigterm = None
+        try:
+            prev_sigint = signal.signal(signal.SIGINT, _handle_signal)
+            if hasattr(signal, "SIGTERM"):
+                prev_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
+        except (ValueError, OSError):
+            pass
 
         try:
             while True:
@@ -298,9 +309,13 @@ class LivenessSupervisor:
 
         finally:
             self._terminate_child()
-            signal.signal(signal.SIGINT, prev_sigint)
-            if prev_sigterm and hasattr(signal, "SIGTERM"):
-                signal.signal(signal.SIGTERM, prev_sigterm)
+            try:
+                if prev_sigint is not None:
+                    signal.signal(signal.SIGINT, prev_sigint)
+                if prev_sigterm is not None and hasattr(signal, "SIGTERM"):
+                    signal.signal(signal.SIGTERM, prev_sigterm)
+            except (ValueError, OSError):
+                pass
 
 
 def supervise(

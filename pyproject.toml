@@ -53,6 +53,10 @@ adapters = [
     "fastapi>=0.100.0",
     "langgraph>=1.2,<2",
 ]
+financial-agent = [
+    "langgraph>=1.2,<2",
+    "yfinance>=0.2.40",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -69,7 +73,7 @@ letitloop = "orchestrator.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["orchestrator*", "letitloop*", "conformance*"]
+include = ["orchestrator*", "letitloop*"]
 exclude = ["scratch*", "tests*", ".git*", "__pycache__*"]
 
 [tool.setuptools.package-data]

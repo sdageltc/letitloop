@@ -22,7 +22,7 @@ class InMemoryAdapter(FrameworkAdapter):
 
     @property
     def archetype_label(self) -> str:
-        return "In-Memory Event Loop (AutoGen / CrewAI)"
+        return "In-Memory Event Loop (Unpersisted Process State)"
 
     def start_task(self, spec: SyntheticTaskSpec) -> Tuple[int, Any]:
         child_code = f"""

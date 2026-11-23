@@ -8,21 +8,18 @@ atomic WAL journal to prevent re-execution of non-idempotent tools upon process 
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import json
 import os
+import re
 import threading
 import time
 from typing import Any, Dict, List, Optional
 
 
 def _is_smolagents_available() -> bool:
-    """Check if smolagents is installed in the current Python environment."""
-    try:
-        import smolagents  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    """Check if smolagents is installed in the current Python environment without heavy import."""
+    return importlib.util.find_spec("smolagents") is not None
 
 
 def _to_serializable(val: Any) -> Any:
@@ -82,7 +79,8 @@ class SmolagentsWALCallback:
         )
         self.session_id = session_id
         self.auto_resume = auto_resume
-        self.wal_file = os.path.join(self.wal_dir, f"{session_id}.wal.jsonl")
+        safe_session = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", session_id).strip("._") or "default_smolagent"
+        self.wal_file = os.path.join(self.wal_dir, f"{safe_session}.wal.jsonl")
 
         self._lock = threading.Lock()
         self._seq = 0
@@ -233,9 +231,17 @@ class SmolagentsWALCallback:
     def wrap_agent(self, agent: Any) -> Any:
         """Register callback into an initialized smolagents agent."""
         if hasattr(agent, "step_callbacks"):
-            if isinstance(agent.step_callbacks, list):
-                if self not in agent.step_callbacks:
-                    agent.step_callbacks.append(self)
+            cbs = agent.step_callbacks
+            if isinstance(cbs, list):
+                if self not in cbs:
+                    cbs.append(self)
+            elif hasattr(cbs, "register") and callable(cbs.register):
+                try:
+                    from smolagents.memory import ActionStep
+
+                    cbs.register(ActionStep, self)
+                except Exception:
+                    cbs.register(object, self)
             else:
                 agent.step_callbacks = [self]
         if self.auto_resume:

@@ -196,3 +196,85 @@ def test_line0_torn_tail_wal_recovery(tmp_path):
     # Corrupt partial content was truncated away
     wal_bytes = wal_file.read_bytes()
     assert b"corrupt_partial" not in wal_bytes
+
+
+def test_nested_durable_preserves_outer_context(tmp_path):
+    outer_wal = str(tmp_path / "outer_wal")
+    inner_wal = str(tmp_path / "inner_wal")
+
+    @durable(goal_id="inner_wf", wal_dir=inner_wal)
+    def inner():
+        return step("inner_step", lambda: 10)
+
+    @durable(goal_id="outer_wf", wal_dir=outer_wal)
+    def outer():
+        a = step("outer_1", lambda: 5)
+        b = inner()
+        c = step("outer_2", lambda: a + b)
+        return c
+
+    assert outer() == 15
+
+
+def test_failed_inner_initialize_does_not_corrupt_outer_context(tmp_path):
+    from orchestrator.lock import LockHeldError, acquire_lock, release_lock
+
+    outer_wal = str(tmp_path / "outer_init_fail")
+    locked_inner_wal = str(tmp_path / "inner_locked")
+
+    # Simulate another process holding locked_inner_wal
+    acquire_lock("conflict", locked_inner_wal)
+    lock_path = tmp_path / "inner_locked" / ".goal.lock"
+    import json
+
+    data = json.loads(lock_path.read_text(encoding="utf-8"))
+    data["pid"] = 99999998
+    data["hostname"] = "remote-lock-holder-host"
+    lock_path.write_text(json.dumps(data), encoding="utf-8")
+
+    @durable(goal_id="inner_fail", wal_dir=locked_inner_wal)
+    def inner():
+        return step("s_in", lambda: 1)
+
+    @durable(goal_id="outer_survives", wal_dir=outer_wal)
+    def outer():
+        v1 = step("outer_a", lambda: 7)
+        with pytest.raises(LockHeldError):
+            inner()
+        v2 = step("outer_b", lambda: v1 + 3)
+        return v2
+
+    try:
+        assert outer() == 10
+    finally:
+        release_lock(locked_inner_wal)
+
+
+def test_atomic_marker_reclaims_orphaned_dead_pid_pending_file(tmp_path):
+    import glob
+    import os
+
+    run_dir = str(tmp_path / "marker_reclaim")
+    markers_dir = os.path.join(run_dir, "markers")
+    os.makedirs(markers_dir, exist_ok=True)
+
+    # First enter and abort to learn the marker prefix, or place a dead-PID pending file
+    try:
+        with atomic_marker("reclaim_tx", run_dir=run_dir):
+            pending_files = glob.glob(os.path.join(markers_dir, "*.pending.*"))
+            assert len(pending_files) == 1
+            base_prefix = pending_files[0].rsplit(".pending.", 1)[0]
+            dead_pending = f"{base_prefix}.pending.99999999"
+            with open(dead_pending, "w", encoding="utf-8") as f:
+                f.write('{"marker_id": "reclaim_tx", "pid": 99999999}')
+            raise RuntimeError("abort before commit")
+    except RuntimeError:
+        pass
+
+    assert os.path.exists(dead_pending)
+
+    # Next entry must sweep the dead-PID pending file and commit cleanly
+    with atomic_marker("reclaim_tx", run_dir=run_dir) as should_run:
+        assert should_run is True
+
+    assert not os.path.exists(dead_pending)

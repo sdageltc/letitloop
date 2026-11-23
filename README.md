@@ -6,23 +6,23 @@
 
 # let it loop (LIL)
 
-**The SQLite of Durable Execution — Zero-daemon in-process durability and process supervisor for Python functions & AI agents.**
+**Single-Process Local Write-Ahead Log (`LILWAL02`) & Process Supervisor for Python Scripts (`v0.7.2`)**
 
 [![Official Website](https://img.shields.io/badge/Website-LetItLoop-0284c7?logo=googlechrome&logoColor=white)](https://sdageltc.github.io/letitloop/)
 [![PyPI version](https://img.shields.io/pypi/v/letitloop.svg?color=blue)](https://pypi.org/project/letitloop/)
 [![CI Matrix](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sdageltc/letitloop/actions/workflows/ci.yml)
 [![GitHub Action v2](https://img.shields.io/badge/Action-LetItLoop_v2-blue?logo=github)](https://github.com/sdageltc/letitloop-action)
-[![Benchmark](https://img.shields.io/badge/Benchmark-DCP--2.0-blue)](https://sdageltc.github.io/agent-durability-bench/)
+[![Benchmark](https://img.shields.io/badge/Harness-DCP--2.0-blue)](https://sdageltc.github.io/agent-durability-bench/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[Official Website](https://sdageltc.github.io/letitloop/)** • **[DCP-2.0 Benchmark](https://sdageltc.github.io/agent-durability-bench/)** • **[GitHub Action v2](https://github.com/sdageltc/letitloop-action)** • **[PyPI Package](https://pypi.org/project/letitloop/)**
+**[Official Website](https://sdageltc.github.io/letitloop/)** • **[Architecture & Trade-Offs](docs/ARCHITECTURE_AND_TRADE_OFFS.md)** • **[DCP-2.0 Simulation Harness](https://sdageltc.github.io/agent-durability-bench/)** • **[PyPI Package](https://pypi.org/project/letitloop/)**
 
 </div>
 
 ---
 
-> **Temporal is great if you have a DevOps team to manage a cluster. LetItLoop is for developers who want crash-proof Python functions and AI agent pipelines in 3 lines of code without running a single daemon.**
+> **Status & Scope**: `letitloop` is a single-maintainer, single-writer local filesystem Write-Ahead Log (`LILWAL02`) and process supervisor (`lil watch` / `@supervise`) for Python functions, scrapers, and batch scripts. It requires only `psutil>=5.9.0` and stores state in human-readable, CRC32-framed JSONL files.
 
 ---
 
@@ -33,17 +33,17 @@
 ## ⚡ Quickstart
 
 ```python
-from letitloop import durable, step, atomic_marker
+from letitloop import atomic_marker, durable, step
 
 
-@durable(goal_id="customer_sync")
+@durable(goal_id="customer_sync", wal_dir=".durable_wal")
 def sync_workflow():
-    # If this process crashes or gets SIGKILLed midway,
-    # completed steps are skipped on resume in <15ms. Zero duplicate tokens wasted.
+    # If this process crashes or receives SIGKILL midway,
+    # completed steps are skipped from the local WAL on restart.
     user = step("fetch_user", fetch_crm_record, user_id=123)
-    summary = step("summarize", call_claude, user)
+    summary = step("summarize", call_llm_model, user)
 
-    # Protect external API mutations against duplicate execution
+    # Guard local side effects with a 2-phase file marker
     with atomic_marker("slack_notification") as should_execute:
         if should_execute:
             step("notify", send_slack, summary)
@@ -59,39 +59,52 @@ if __name__ == "__main__":
 pip install letitloop
 ```
 
-> **⚡ Async Support**: For asynchronous pipelines, use `@durable_async` and `await async_step(...)` with full `asyncio.gather()` isolation.
+For asynchronous pipelines, use `@durable_async` and `await async_step(...)` with `ContextVar` isolation across `asyncio.gather()`.
 
-### Interactive crash-recovery visualizer
+### Interactive Crash-Recovery Visualizer
 
-Install the optional UI dependency and run the local Streamlit demo:
+Run the local Streamlit visualizer (uses deterministic local steps, zero external API calls):
 
-    python -m pip install -e .
-    python -m pip install -r examples/interactive_demo/requirements.txt
-    streamlit run examples/interactive_demo/app.py
+```bash
+python -m pip install -e .
+python -m pip install -r examples/interactive_demo/requirements.txt
+streamlit run examples/interactive_demo/app.py
+```
 
-The demo lets you inject a real subprocess crash, resume the same five-step workflow from WAL, and inspect cached-step timings. It uses deterministic data only and makes no model/API calls.
+---
+
+## 🧭 When to Use LetItLoop (and When Not To)
+
+| Workload / Requirement | Recommended Tool | Why |
+|---|---|---|
+| **Single-writer local Python script, scraper, or CLI job** | **LetItLoop (`@durable` + `lil watch`)** | Zero external daemon, human-readable JSONL WAL (`LILWAL02`) with CRC32 + SHA-256 hash chain, and built-in subprocess crash supervision (`lil watch`). |
+| **SQLite / PostgreSQL transactional workflows with durable `sleep` & queues** | **[DBOS (`dbos`)](https://github.com/dbos-inc/dbos-transact-py)** | Runs in-process on SQLite by default with a production PostgreSQL upgrade path and official PydanticAI / OpenAI Agents SDK integrations. |
+| **LangGraph graph or `@entrypoint` / `@task` pipelines** | **[LangGraph `SqliteSaver`](https://pypi.org/project/langgraph-checkpoint-sqlite/)** | Native checkpointer maintained by the LangGraph core team. |
+| **Data engineering DAGs & scheduled flows** | **[Prefect](https://github.com/PrefectHQ/prefect)** | Mature Python `@flow` / `@task` engine with ephemeral local SQLite mode and observability UI. |
+| **Multi-node distributed microservices & multi-day timers** | **[Temporal](https://github.com/temporalio/sdk-python)** or **[Restate](https://github.com/restatedev/sdk-python)** | Dedicated workflow server clusters with distributed event histories and multi-language workers. |
+
+See [docs/ARCHITECTURE_AND_TRADE_OFFS.md](docs/ARCHITECTURE_AND_TRADE_OFFS.md) for a detailed architectural analysis and contract boundaries.
 
 ---
 
 ## 🔄 Process Liveness: Auto-Supervision & CLI Watcher
 
-LetItLoop bridges the gap between **State Durability** (saving steps to disk) and **Process Liveness** (auto-restarting on `SIGKILL 137` / OOM) with zero external daemons:
+LetItLoop pairs **State Durability** (saving step outputs to disk) with **Process Liveness** (restarting a script after `SIGKILL 137` or an unhandled crash):
 
 ### 1. Terminal Watcher (`lil watch`)
-Run any existing Python script under supervisor control with rapid-failure circuit breaking and clean Ctrl+C handling:
+Supervise any Python script with sliding-window rapid-failure circuit breaking and clean signal forwarding:
 
 ```bash
-# Auto-respawns on SIGKILL (137), resuming from last WAL checkpoint in ~14ms
 lil watch agent_pipeline.py --max-restarts 10 --backoff 1.0
 ```
 
-### 2. In-Code Programmatic Supervisor (`@supervise`)
+### 2. Entrypoint Decorator (`@supervise`)
 ```python
 from letitloop import durable, step, supervise
 
 
 @supervise(max_restarts=5, backoff=1.0)
-@durable(goal_id="equity_analyst")
+@durable(goal_id="equity_analyst", wal_dir=".equity_wal")
 def run_pipeline():
     user = step("fetch_data", fetch_financials)
     report = step("generate_report", analyze, user)
@@ -104,104 +117,36 @@ if __name__ == "__main__":
 
 ---
 
+## 💎 Core Design Guarantees & Contract Boundaries
+
+1. **CRC32-Framed Append-Only WAL (`LILWAL02`)**:
+   Each step delta is framed as `\nLILWAL02:<byte_len_hex>:<crc32_hex>:<canonical_json>\n` and linked via a sequential SHA-256 hash chain (`prev_hash` -> `event_hash`). Torn tail writes from mid-append power loss or `SIGKILL` are truncated back to the last valid frame on replay, while mid-file corruption fails closed with `StateError`.
+2. **$O(1)$ Delta Patching & Atomic Snapshots**:
+   Step outputs append discrete delta patches under `step_outputs` and write periodic atomic snapshots (`state.json` via tempfile + `os.fsync` + 6-attempt Windows NTFS `os.replace` retry + POSIX directory fsync).
+3. **2-Tier Mutex (`atomic_marker`)**:
+   Combines a process-local `threading.Lock` and a cross-process `FileLock` (with PID start-time token verification to prevent PID-reuse lock false positives) and sweeps orphaned `.pending.<dead_pid>` markers on recovery.
+   > **External API Boundary**: No local filesystem marker can prevent duplicate execution if `SIGKILL` strikes after an HTTP request leaves the host NIC but before the response is committed to disk. For non-idempotent remote APIs (e.g. Stripe charges), pass an upstream `Idempotency-Key` header derived from `f"{goal_id}:{marker_id}"`.
+4. **Allowlist-Only Type Hydration (`DurableCodecRegistry`)**:
+   Preserves `datetime`, `uuid.UUID`, `pathlib.Path`, `tuple`, and custom types registered via `register_codec()` across initial execution and WAL replay without using `pickle` or dynamic code imports.
 
 ---
 
-## 🔌 Multi-Framework Durability Adapter Suite
+## 🍳 Runnable Examples & Cookbooks
 
-Make any major AI multi-agent framework crash-resilient in **2 lines of code** with zero daemon overhead:
+Self-contained examples in [`examples/`](examples/):
 
-```python
-# 1. CrewAI
-from letitloop.adapters.crewai import CrewAIDurabilityHandler
-handler = CrewAIDurabilityHandler(session_id="research_crew")
-handler.wrap_crew(my_crew)
+| Target | Example / Cookbook | Description |
+|---|---|---|
+| **Playwright** | [`examples/cookbooks/playwright_scraper.py`](examples/cookbooks/playwright_scraper.py) | Multi-page scraper with `@durable_async` checkpointing that skips already-scraped pages on resume |
+| **Streamlit UI** | [`examples/interactive_demo/app.py`](examples/interactive_demo/README.md) | Local crash injection and WAL replay visualizer |
+| **Browser-Use** | [`examples/cookbooks/browser_use_durable.py`](examples/cookbooks/browser_use_durable.py) | Release digest workflow with step-level crash recovery |
+| **LangGraph** | [`examples/cookbooks/langgraph_financial_analyst.py`](examples/cookbooks/langgraph_financial_analyst.py) | 4-step financial analyst pipeline with offline and live DeepSeek modes |
+| **DSPy** | [`examples/cookbooks/dspy_durable_optimize.py`](examples/cookbooks/dspy_durable_optimize.py) | Prompt optimizer pipeline with step-level checkpointing |
+| **Pydantic AI** | [`examples/cookbooks/pydantic_ai_durable.py`](examples/cookbooks/pydantic_ai_durable.py) | Type-safe agent workflow wrapped with LetItLoop step persistence |
+| **FastAPI** | [`examples/fastapi_durable_background.py`](examples/fastapi_durable_background.py) | Single-worker durable background task queue backed by local WAL |
+| **CrewAI / LlamaIndex** | [`examples/crewai_durable_tools.py`](examples/crewai_durable_tools.py) • [`examples/llamaindex_durable_workflow.py`](examples/llamaindex_durable_workflow.py) | Tool-call and step wrapper examples |
 
-# 2. Hugging Face Smolagents
-from letitloop.adapters.smolagents import SmolagentsWALCallback
-agent = CodeAgent(tools=[...], model=model, step_callbacks=[SmolagentsWALCallback()])
-
-# 3. Microsoft AutoGen 0.4
-from letitloop.adapters.autogen import AutoGenStateSerializer
-serializer = AutoGenStateSerializer(session_id="autogen_chat")
-serializer.wrap_agent(assistant_agent)
-
-# 4. LangGraph
-from letitloop.adapters.langgraph import LetItLoopCheckpointSaver
-app = workflow.compile(checkpointer=LetItLoopCheckpointSaver())
-```
-
-See [docs/adapters.md](docs/adapters.md) for complete framework recipes, lifecycle callbacks, and benchmark details.
-
-## 💎 The 4 Architectural Moats
-
-### 1. Zero-Daemon Local Durability (Zero Infrastructure)
-No background Go servers, no Redis queues, and no PostgreSQL cluster configuration. LetItLoop embeds a single-file Write-Ahead Log (`LILWAL02`) that logs step outputs atomically. If your script dies from `SIGKILL (137)`, OOM, or spot eviction, running the script again instantly fast-forwards to the exact interrupted step in **72 $\mu$s/step**.
-
-### 2. O(N) Discrete Delta Writes & 168x WAL Compaction
-Naive state serialization engines rewrite full JSON dictionaries on every step, leading to catastrophic $O(N^2)$ write amplification. LetItLoop v0.7.1 uses discrete delta subkey patching under `step_outputs`, slashing WAL disk usage by **168x** (from 83.2 MB down to 378 KB for 1,000 steps) and accelerating replay recovery by **17.6x**.
-
-### 3. Concurrency-Safe 2-Tier Mutex (`atomic_marker`)
-Guards external side-effects with a two-tier mutex combining process-local thread locks and cross-process `FileLock` with CAS ownership verification and bounded SHA-256 filenames (`m-{sha256[:32]}`). Commit publishing uses atomic tempfile replacement (`os.fsync` + atomic rename), completely preventing multi-worker race conditions.
-
-> [!IMPORTANT]
-> **Durability Contract Boundary**: `atomic_marker` guarantees **serialized execution and durable local completion records** across restarts. For external remote HTTP APIs (e.g. Stripe charges, webhooks), no client-side filesystem marker can prevent replay if a crash strikes between HTTP dispatch and marker publication. For non-idempotent remote calls, pass an upstream idempotency key derived from the task context: `idempotency_key=f"{run_id}:{marker_id}"`.
-
-### 4. Safe Type Preservation (`DurableCodecRegistry`)
-Preserves native Python types (`datetime`, `uuid.UUID`, `pathlib.Path`, `tuple`, dataclasses, and Pydantic models) across execution and recovery. Replay yields identical hydrated types without dynamic code execution risks or serialization demotion.
-
----
-
-## 📊 DCP-2.0 Agent Durability Conformance Benchmark
-
-How does LetItLoop compare against heavyweight workflow engines and existing agent frameworks under physical host OS `SIGKILL (137)` fault injection?
-
-Empirical results from the open [DCP-2.0 Durability Benchmark](https://sdageltc.github.io/agent-durability-bench/):
-
-| Architecture & Runtime | Durability Mechanism | Crash Recovery ($R_{crash}$) | Resumption Latency ($T_{resume}$) | Duplicate Token Waste ($W_{token}$) | Per-Step Write Overhead | Proof / Audit Trail |
-|---|---|:---:|:---:|:---:|:---:|:---:|
-| **LetItLoop (`@durable` WAL)** | **Single-File Atomic WAL (LILWAL02)** | **98.6% PASS** | **14.2 ms** | **2.8%** *(interrupted step)* | **+3.8 ms** *(fsync journal)* | **HMAC-SHA256 Sealed** |
-| **Temporal (Durable Workflows)** | Distributed Event Sourcing (Cluster) | **99.2% PASS** | 74.0 ms | 1.9% | +18.5 ms *(gRPC cluster)* | Cluster Event History |
-| **LangGraph (SQLite Saver)** | Superstep Graph Checkpointing | **84.5% PARTIAL** | 38.4 ms | 16.8% *(node re-run)* | +1.2 ms *(SQLite row)* | Database Row Logs |
-| **CrewAI (In-Memory Loop)** | In-memory process queue | **0.0% LOSS** | N/A *(Full restart)* | 100.0% *(Total wipe)* | 0.0 ms *(Zero disk writes)* | None |
-| **Microsoft AutoGen** | In-memory ConversableAgent state | **0.0% LOSS** | N/A *(Full restart)* | 100.0% *(Total wipe)* | 0.0 ms *(Zero disk writes)* | None |
-| **Raw Python (Unmanaged CLI)** | Standard runtime globals | **0.0% LOSS** | N/A *(Full restart)* | 100.0% *(Total wipe)* | 0.0 ms *(Zero disk writes)* | None |
-
-> [!NOTE]
-> **Methodological Disclosure & Architectural Trade-offs**:
-> 1. **Why 100% durability is physically impossible**: If a non-maskable `SIGKILL` strikes while an uncommitted external network request is actively in flight, that single step must be re-executed upon resume, producing an empirical ~1.4%–2.8% token re-execution overhead.
-> 2. **The I/O Overhead Trade-off**: LetItLoop trades **~3.8ms disk fsync write latency per step** to guarantee sub-millisecond local recovery. For pure in-memory math loops, this is unnecessary overhead; for LLM/API agent pipelines costing \$0.10–\$2.00 per step, paying 3.8ms disk I/O to guarantee zero lost progress is an overwhelming net win.
-
----
-
-## 🔄 Durability vs. Liveness (Auto-Supervision)
-
-- **Durability (LetItLoop Kernel)**: Guarantees that completed state is never lost when a process terminates.
-- **Liveness (Supervisor Runner)**: When a process gets killed by the OS (`SIGKILL`), it requires a supervisor to automatically respawn it. LetItLoop provides built-in supervision:
-
-```bash
-# Supervise execution and auto-respawn process on unhandled SIGKILL/crash until completion
-lil watch agent_script.py --max-restarts 10 --backoff 1.0
-```
-
----
-
-## 🍳 Framework Recipes & Community Cookbooks
-
-Explore runnable self-contained examples in [`examples/`](examples/):
-
-| Framework | Recipe / Cookbook | Status | Description |
-|---|---|:---:|---|
-| **CrewAI** | [**Durable Tools Example**](examples/crewai_durable_tools.py) | ✅ Ready | Multi-agent tool execution with step-level resumption and zero duplicate side-effects |
-| **LlamaIndex** | [**Durable Workflows Example**](examples/llamaindex_durable_workflow.py) | ✅ Ready | Event-driven `@step` pipeline with crash durability and sub-millisecond fast-forward |
-| **OpenAI Swarm** | [**Durable Handoff Example**](examples/swarm_durable_handoff.py) | ✅ Ready | Multi-agent context handoff with WAL v2 serialization |
-| **LangGraph** | [**Financial Analyst Agent**](examples/cookbooks/langgraph_financial_analyst.py) | ✅ Ready | 4-step `yfinance` + DeepSeek StateGraph with independently audited SIGKILL recovery |
-| **Playwright** | [**Crash-Resilient Web Scraper**](examples/cookbooks/playwright_scraper.md) | ✅ Ready | Multi-page browser scraper with `@durable_async` checkpointing that skips already-scraped pages (<1ms WAL lookup) |
-| **Streamlit / UI** | [**Interactive WAL Visualizer**](examples/interactive_demo/README.md) | ✅ Ready | Real-time crash injection & fast-forward WAL replay visualizer with token savings metrics |
-| **DSPy** | [**Issue #83: Prompt Optimizer Pipeline**](https://github.com/sdageltc/letitloop/issues/83) | 🤝 Contributor | Async `BootstrapFewShot` / Teleprompter tuning with zero lost progress |
-| **Pydantic AI** | [**Issue #89: Pydantic AI Integration**](https://github.com/sdageltc/letitloop/issues/89) | 🤝 Contributor | Type-safe agent with tool-calling checkpointing and zero token waste |
-
-Install and run the financial analyst without paid API calls:
+Run the financial analyst cookbook offline without API keys:
 
 ```bash
 python -m pip install -e ".[financial-agent]"
@@ -209,28 +154,14 @@ python examples/cookbooks/langgraph_financial_analyst.py --ticker AAPL --offline
 python examples/cookbooks/langgraph_financial_analyst.py --ticker AAPL --offline --demo
 ```
 
-For a live investment memo, configure DeepSeek only through the environment:
-
-```bash
-export DEEPSEEK_API_KEY="your-key"
-python examples/cookbooks/langgraph_financial_analyst.py --ticker AAPL --model deepseek:deepseek-v4-flash --live
-```
-
-If a local Python installation has no default CA bundle, set `SSL_CERT_FILE="$(python -m certifi)"`. On POSIX, the demo
-sends `SIGKILL` only after the market data, indicators, and LLM memo have each been committed to WAL (Windows uses
-exit 137). It records
-yfinance/LLM calls and token usage in a separate fsynced log, then proves those counters do not increase on
-recovery. Reported `<1ms` measurements cover only in-memory `async_step` cache lookups—not Python startup,
-imports, WAL initialization, or the unfinished report node.
-
 ---
 
-## 🛡️ GitHub Action CI Gate (v2)
+## 🛡️ GitHub Action CI Gate (`letitloop-action@v2`)
 
-Drop `letitloop-action@v2` into your CI pipeline to block non-deterministic AI agent regressions:
+Verify `LILWAL02` frame checksums and Python AST syntax in GitHub Actions:
 
 ```yaml
-name: LetItLoop Proof-Carrying CI Gate
+name: Verify WAL & Python AST
 on: [pull_request]
 
 jobs:
@@ -240,43 +171,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: sdageltc/letitloop-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          strict-ast: 'true'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          mode: 'gate'
+          wal-dir: '.bench_wal'
+          workspace: '.'
 ```
 
 ---
 
-## 📜 Architecture Decision Records (ADRs)
+## 📜 Architecture Documentation
 
-Core design invariants are documented under [`docs/adr/`](docs/adr/):
-- [**ADR-0001**](docs/adr/0001-write-ahead-logging.md): Write-Ahead Logging (WAL) & Zero-State Recovery
-- [**ADR-0002**](docs/adr/0002-deterministic-verifiers.md): Deterministic AST & Exit-Code Verification Gates
-- [**ADR-0003**](docs/adr/0003-headless-cli-adapters.md): Zero-API-Key Headless Agent CLI Failovers
-- [**ADR-0004**](docs/adr/0004-format-aware-acceptance-checks.md): Format-Aware Acceptance Checks & Markdown Invariants
+- [**Architecture & Trade-Offs**](docs/ARCHITECTURE_AND_TRADE_OFFS.md): Single-writer design contract, failure modes, and comparison with DBOS, LangGraph, and Temporal.
+- [**ADR-0001**](docs/adr/0001-write-ahead-logging.md): Write-Ahead Logging (`LILWAL02`) & Torn-Tail Recovery.
+- [**State Machine Specification**](docs/state_machine.md): Event-sourced state transitions and replay rules.
+- [**Adapter Reference**](docs/adapters.md): Optional adapter shims under `letitloop.adapters`.
 
 ---
 
-
-
 ## 👥 Contributors
 
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sdageltc"><img src="https://avatars.githubusercontent.com/u/268154463?v=4" width="100px;" alt="sdageltc"/><br /><sub><b>sdageltc</b></sub></a><br /><a href="#code-sdageltc" title="Code">💻</a> <a href="#doc-sdageltc" title="Documentation">📖</a> <a href="#maintenance-sdageltc" title="Maintenance">🚧</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/h4syy"><img src="https://avatars.githubusercontent.com/u/59239840?v=4" width="100px;" alt="Yash Paudel"/><br /><sub><b>Yash Paudel</b></sub></a><br /><a href="#code-h4syy" title="Code">💻</a> <a href="#doc-h4syy" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/wangshen-tech"><img src="https://avatars.githubusercontent.com/u/190895315?v=4" width="100px;" alt="wangshen-tech"/><br /><sub><b>wangshen-tech</b></sub></a><br /><a href="#code-wangshen-tech" title="Code">💻</a> <a href="#doc-wangshen-tech" title="Documentation">📖</a> <a href="#example-wangshen-tech" title="Examples">💡</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sdageltc"><img src="https://avatars.githubusercontent.com/u/268154463?v=4" width="100px;" alt="sdageltc"/><br /><sub><b>sdageltc</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/h4syy"><img src="https://avatars.githubusercontent.com/u/59239840?v=4" width="100px;" alt="Yash Paudel"/><br /><sub><b>Yash Paudel</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/wangshen-tech"><img src="https://avatars.githubusercontent.com/u/190895315?v=4" width="100px;" alt="wangshen-tech"/><br /><sub><b>wangshen-tech</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/MagMueller"><img src="https://github.com/MagMueller.png" width="100px;" alt="MagMueller"/><br /><sub><b>MagMueller</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/darkseidpaul"><img src="https://github.com/darkseidpaul.png" width="100px;" alt="darkseidpaul"/><br /><sub><b>darkseidpaul</b></sub></a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Aaqibhafeezkhan"><img src="https://github.com/Aaqibhafeezkhan.png" width="100px;" alt="Aaqibhafeezkhan"/><br /><sub><b>Aaqibhafeezkhan</b></sub></a></td>
     </tr>
   </tbody>
 </table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## License
 

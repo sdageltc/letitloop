@@ -13,18 +13,8 @@ All adapters support zero mandatory runtime dependencies with optional lazy load
 
 from __future__ import annotations
 
-from typing import Dict
-
-from .autogen import AutoGenStateSerializer
-from .crewai import CrewAIDurabilityHandler
-from .fastapi import (
-    DurableBackgroundTasks,
-    DurableTaskManager,
-    durable_task,
-    install_durable_background_tasks,
-)
-from .langgraph import LetItLoopCheckpointSaver
-from .smolagents import SmolagentsWALCallback
+import importlib.util
+from typing import Any, Dict
 
 __all__ = [
     "CrewAIDurabilityHandler",
@@ -40,11 +30,42 @@ __all__ = [
 
 
 def get_available_adapters() -> Dict[str, bool]:
-    """Return status of optional host framework installations."""
+    """Return status of optional host framework installations without eager heavy imports."""
     return {
-        "crewai": CrewAIDurabilityHandler.is_available(),
-        "smolagents": SmolagentsWALCallback.is_available(),
-        "autogen": AutoGenStateSerializer.is_available(),
-        "langgraph": LetItLoopCheckpointSaver.is_available(),
-        "fastapi": DurableTaskManager.is_available(),
+        "crewai": importlib.util.find_spec("crewai") is not None,
+        "smolagents": importlib.util.find_spec("smolagents") is not None,
+        "autogen": (
+            importlib.util.find_spec("autogen_core") is not None or importlib.util.find_spec("autogen") is not None
+        ),
+        "langgraph": importlib.util.find_spec("langgraph") is not None,
+        "fastapi": importlib.util.find_spec("fastapi") is not None,
     }
+
+
+def __getattr__(name: str) -> Any:
+    if name == "CrewAIDurabilityHandler":
+        from .crewai import CrewAIDurabilityHandler
+
+        return CrewAIDurabilityHandler
+    if name == "SmolagentsWALCallback":
+        from .smolagents import SmolagentsWALCallback
+
+        return SmolagentsWALCallback
+    if name == "AutoGenStateSerializer":
+        from .autogen import AutoGenStateSerializer
+
+        return AutoGenStateSerializer
+    if name == "LetItLoopCheckpointSaver":
+        from .langgraph import LetItLoopCheckpointSaver
+
+        return LetItLoopCheckpointSaver
+    if name in (
+        "DurableBackgroundTasks",
+        "DurableTaskManager",
+        "durable_task",
+        "install_durable_background_tasks",
+    ):
+        from . import fastapi as _fa
+
+        return getattr(_fa, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

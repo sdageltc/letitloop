@@ -3,9 +3,21 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.2] - 2026-10-12
+## [0.7.2] - 2026-11-23
 
-### 🔒 Protocol Boundary Hardening, Split-Brain Elimination & Codec Cycle Safety
+### 🔒 Kernel Correctness Fixes, Async Parallelism & Protocol Hardening
+- **True `asyncio.gather()` Concurrency (`orchestrator/decorators.py`)**: Scoped `DurableAsyncContext._lock` strictly to WAL commit and cache mutation rather than holding the lock across `await async_fn(...)`, allowing parallel `async_step()` calls in `asyncio.gather()` to execute concurrently.
+- **WAL Key Deletion Replay Fix (`orchestrator/state.py`)**: Fixed `_apply_event` sentinel comparison (`v == _DELETE_SENTINEL` instead of object identity `is`), preventing deleted state keys from resurrecting after JSON deserialization on WAL replay.
+- **$O(1)$ In-Memory Delta Rollback (`orchestrator/state.py`)**: Eliminated per-step `copy.deepcopy(self.data)` and `copy.deepcopy(self.events)` on `DATA_PATCH` events, preserving $O(1)$ per-step memory and CPU overhead for multi-hundred-step pipelines.
+- **Nested `@durable` Context Preservation (`orchestrator/decorators.py`)**: Restores prior active thread-local context on exit instead of unconditionally resetting to `None`.
+- **Live Process Lock Preservation (`orchestrator/lock.py`)**: Prevents `_lock_is_stale` and `FileLock._lock_file_is_stale` from stealing locks held by a demonstrably live local process with a matching OS process start token after 300 seconds.
+- **Orphaned `.pending.<pid>` Reclamation & NTFS Retry (`orchestrator/decorators.py`)**: `atomic_marker` now sweeps orphaned `.pending.<dead_pid>` files left by `SIGKILL` crashes and applies a 6-attempt exponential backoff around `os.replace` on Windows NTFS.
+- **Recursive Custom Codec Hydration (`orchestrator/codecs.py`)**: Custom codecs registered via `register_codec()` now recursively encode and hydrate nested built-in types (`datetime`, `uuid.UUID`, `pathlib.Path`, `tuple`) with full cycle detection.
+- **Adapter Hardening & Lazy Spec Detection (`letitloop/adapters/*`)**:
+  - Replaced eager package imports in `get_available_adapters()` with `importlib.util.find_spec()`, reducing availability detection overhead from ~40s to <1ms.
+  - Updated `LetItLoopCheckpointSaver` (`langgraph.py`) to use `DurableCodecRegistry` instead of `pickle`, yield an async iterator from `alist()`, support `task_path` in `put_writes()`/`aput_writes()`, and preserve `parent_checkpoint_id=None` on root checkpoints.
+  - Updated `SmolagentsWALCallback.wrap_agent()` (`smolagents.py`) to register with `smolagents 1.26+` `CallbackRegistry` objects without overwriting them with a raw list.
+  - Added `LILWAL02` CRC32 frame verification to `lil inspect` (`orchestrator/cli.py`).
 - **Bounded SHA-256 Markers (`SEC-PROTO-01` & `SEC-PROTO-02`)**: Replaced regex identifier sanitization with canonical SHA-256 digest filenames (`m-{sha256[:32]}`). Eliminates identifier collisions (`stripe/charge` vs `stripe_charge`), path traversal attempts (`../../`), and Windows NTFS `MAX_PATH` (>260 char) crashes.
 - **Strict Directory Jailing**: Legacy marker compatibility lookups now strictly verify containment within `markers_dir` via `os.path.commonpath`, preventing path hijacking.
 - **Split-Brain Elimination in `FileLock.release()` (`SEC-PROTO-03`)**: Added CAS-style lock ownership token (`process_start_token` + PID) verification before unlinking lock files. Prevents stolen or replaced locks from being blindly deleted by slow contender processes.

@@ -22,7 +22,7 @@ from .codecs import (
     decode_step_result,
     encode_step_result,
 )
-from .lock import FileLock, acquire_lock, release_lock
+from .lock import FileLock, _pid_alive, acquire_lock, release_lock
 from .state import State, create_initial_state, load_state, save_state
 
 
@@ -238,6 +238,16 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
                 return
 
             pid = os.getpid()
+            pending_prefix = f"{marker_key}.pending."
+            for entry in os.listdir(markers_dir):
+                if entry.startswith(pending_prefix):
+                    suffix = entry[len(pending_prefix) :]
+                    if suffix.isdigit():
+                        old_pid = int(suffix)
+                        if old_pid != pid and not _pid_alive(old_pid):
+                            with contextlib.suppress(OSError):
+                                os.remove(os.path.join(markers_dir, entry))
+
             pending_marker = os.path.join(markers_dir, f"{marker_key}.pending.{pid}")
 
             # Write pending marker (record active in-flight intent)
@@ -257,7 +267,14 @@ def atomic_marker(marker_id: str, run_dir: Optional[str] = None):
                         json.dump({"marker_id": marker_id, "pid": pid, "ts": time.time()}, f)
                         f.flush()
                         os.fsync(f.fileno())
-                    os.replace(tmp_path, committed_marker)
+                    for attempt in range(6):
+                        try:
+                            os.replace(tmp_path, committed_marker)
+                            break
+                        except OSError:
+                            if attempt == 5:
+                                raise
+                            time.sleep(0.01 * (2**attempt))
                 finally:
                     if os.path.exists(tmp_path):
                         with contextlib.suppress(OSError):
@@ -315,15 +332,18 @@ def durable(goal_id: Optional[str] = None, wal_dir: str = ".durable_wal"):
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             effective_goal_id = goal_id or fn.__name__
+            prev_ctx = _get_active_context()
             ctx = DurableContext(effective_goal_id, wal_dir)
-            _set_active_context(ctx)
             ctx.initialize()
+            _set_active_context(ctx)
             try:
                 result = fn(*args, **kwargs)
                 return result
             finally:
-                ctx.close()
-                _set_active_context(None)
+                try:
+                    ctx.close()
+                finally:
+                    _set_active_context(prev_ctx)
 
         return wrapper
 
@@ -352,13 +372,13 @@ async def async_step(step_id: str, async_fn: Callable, *args: Any, **kwargs: Any
     # Fast path: already completed -> return without invoking or locking
     if step_id in ctx.completed_steps:
         return ctx.completed_steps[step_id]
-    # Serialize concurrent async_steps within same workflow via per-context lock
+    # Execute async_fn outside lock so concurrent asyncio.gather() steps run in parallel;
+    # acquire per-context lock only when committing the step output to WAL and state cache.
+    result = await async_fn(*args, **kwargs)
+    serialized = _serialize_step_output(step_id, result)
     async with ctx._lock:
-        # Double-check after acquiring lock (another concurrent task may have completed it)
         if step_id in ctx.completed_steps:
             return ctx.completed_steps[step_id]
-        result = await async_fn(*args, **kwargs)
-        serialized = _serialize_step_output(step_id, result)
         ctx.state.patch_data({"step_outputs": {step_id: serialized}})
         ctx.step_count = getattr(ctx, "step_count", 0) + 1
         if ctx.step_count % 50 == 0:
@@ -384,14 +404,16 @@ def durable_async(goal_id: Optional[str] = None, wal_dir: str = ".durable_wal"):
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             effective_goal_id = goal_id or fn.__name__
             ctx = DurableAsyncContext(effective_goal_id, wal_dir)
-            token = _set_async_context(ctx)
             ctx.initialize()
+            token = _set_async_context(ctx)
             try:
                 result = await fn(*args, **kwargs)
                 return result
             finally:
-                ctx.close()
-                _ASYNC_CONTEXT_VAR.reset(token)
+                try:
+                    ctx.close()
+                finally:
+                    _ASYNC_CONTEXT_VAR.reset(token)
 
         return wrapper
 

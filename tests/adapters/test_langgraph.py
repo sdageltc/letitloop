@@ -66,8 +66,14 @@ async def test_langgraph_async_methods(tmp_path):
     wal_dir = tmp_path / "lg_async"
     saver = LetItLoopCheckpointSaver(wal_dir=str(wal_dir))
 
-    config = {"configurable": {"thread_id": "async_thread", "checkpoint_ns": "", "checkpoint_id": "a1"}}
-    await saver.aput(config, {"id": "a1", "val": 42}, {"meta": "test"})
+    config = {"configurable": {"thread_id": "async_thread", "checkpoint_ns": ""}}
+    saved_cfg = await saver.aput(config, {"id": "a1", "val": 42}, {"meta": "test"})
+    await saver.aput_writes(saved_cfg, [("messages", "async_val")], task_id="node_1", task_path="sub:1")
 
     chk = await saver.aget_tuple(config)
     assert chk is not None
+    parent_id = getattr(chk, "parent_config", None) if hasattr(chk, "checkpoint") else chk.get("parent_checkpoint_id")
+    assert parent_id is None
+
+    listed = [item async for item in saver.alist(config)]
+    assert len(listed) == 1

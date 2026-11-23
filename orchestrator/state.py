@@ -42,7 +42,7 @@ STATE_SCHEMA_VERSION = 2
 #    - DRAFTED: Task specification initialized; ready for execution.
 #    - WORKING: Active execution; actions and step mutations recorded to WAL.
 #    - VERIFIED: Local verification checks and tests passed cleanly.
-#    - COMPLETE: Terminal success state; HMAC-sealed proof receipt generated.
+#    - COMPLETE: Terminal success state; CRC32-framed & SHA-256 hash-chained WAL finalized.
 #
 # 2. Legacy / Conformance & Compliance Extended States:
 #    - PREFLIGHT_*: Environment and prerequisite validation.
@@ -458,13 +458,13 @@ class State:
                 if not isinstance(patch, dict):
                     raise StateError("DATA_PATCH patch must be dict")
                 for k, v in patch.items():
-                    if v is _DELETE_SENTINEL:
+                    if v == _DELETE_SENTINEL:
                         self.data.pop(k, None)
                     elif k == "step_outputs" and isinstance(v, dict):
                         target = self.data.setdefault("step_outputs", {})
                         if isinstance(target, dict):
                             for sub_k, sub_v in v.items():
-                                if sub_v is _DELETE_SENTINEL:
+                                if sub_v == _DELETE_SENTINEL:
                                     target.pop(sub_k, None)
                                 else:
                                     target[sub_k] = sub_v if replay else copy.deepcopy(sub_v)
@@ -580,11 +580,36 @@ class State:
         prev_hash = self._hash_head
         prev_status = self.status
         prev_attempt = self.attempt
-        prev_events = copy.deepcopy(self.events)
-        prev_evidence = copy.deepcopy(self.evidence)
-        prev_worker_results = copy.deepcopy(self.worker_results)
-        prev_data = copy.deepcopy(self.data)
-        prev_approaches = list(self.changed_approaches)
+        is_data_patch = (
+            event_type == "DATA_PATCH" and isinstance(payload, dict) and isinstance(payload.get("patch"), dict)
+        )
+        if is_data_patch:
+            patch_dict = payload["patch"]
+            had_step_outputs = "step_outputs" in self.data and isinstance(self.data.get("step_outputs"), dict)
+            is_step_outputs_merge = (
+                "step_outputs" in patch_dict
+                and isinstance(patch_dict["step_outputs"], dict)
+                and patch_dict["step_outputs"] != _DELETE_SENTINEL
+                and had_step_outputs
+            )
+            had_keys = {
+                k: (
+                    k in self.data,
+                    copy.deepcopy(self.data.get(k)) if not (k == "step_outputs" and is_step_outputs_merge) else None,
+                )
+                for k in patch_dict
+            }
+            prev_step_outputs = {}
+            if is_step_outputs_merge:
+                so_target = self.data["step_outputs"]
+                for sk in patch_dict["step_outputs"]:
+                    prev_step_outputs[sk] = (sk in so_target, copy.deepcopy(so_target.get(sk)))
+        else:
+            prev_events = copy.deepcopy(self.events)
+            prev_evidence = copy.deepcopy(self.evidence)
+            prev_worker_results = copy.deepcopy(self.worker_results)
+            prev_data = copy.deepcopy(self.data)
+            prev_approaches = list(self.changed_approaches)
 
         self._apply_event(event, replay=False)
         try:
@@ -595,11 +620,25 @@ class State:
             self._hash_head = prev_hash
             self.status = prev_status
             self.attempt = prev_attempt
-            self.events = prev_events
-            self.evidence = prev_evidence
-            self.worker_results = prev_worker_results
-            self.data = prev_data
-            self.changed_approaches = prev_approaches
+            if is_data_patch:
+                for k, (existed, old_val) in had_keys.items():
+                    if k == "step_outputs" and is_step_outputs_merge:
+                        so_target = self.data.setdefault("step_outputs", {})
+                        for sk, (sk_existed, sk_val) in prev_step_outputs.items():
+                            if sk_existed:
+                                so_target[sk] = sk_val
+                            else:
+                                so_target.pop(sk, None)
+                    elif existed:
+                        self.data[k] = old_val
+                    else:
+                        self.data.pop(k, None)
+            else:
+                self.events = prev_events
+                self.evidence = prev_evidence
+                self.worker_results = prev_worker_results
+                self.data = prev_data
+                self.changed_approaches = prev_approaches
             raise
         return event
 

@@ -9,21 +9,18 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import importlib.util
 import json
 import os
+import re
 import threading
 import time
 from typing import Any, Dict, List, Optional
 
 
 def _is_crewai_available() -> bool:
-    """Check if CrewAI is installed in the current Python environment."""
-    try:
-        import crewai  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    """Check if CrewAI is installed in the current Python environment without heavy import."""
+    return importlib.util.find_spec("crewai") is not None
 
 
 def _to_serializable(val: Any) -> Any:
@@ -81,7 +78,8 @@ class CrewAIDurabilityHandler:
         )
         self.session_id = session_id
         self.auto_resume = auto_resume
-        self.wal_file = os.path.join(self.wal_dir, f"{session_id}.wal.jsonl")
+        safe_session = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", session_id).strip("._") or "default_crew"
+        self.wal_file = os.path.join(self.wal_dir, f"{safe_session}.wal.jsonl")
 
         self._lock = threading.Lock()
         self._seq = 0

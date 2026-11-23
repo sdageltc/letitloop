@@ -1,7 +1,3 @@
-# Claude Code Guidelines for LetItLoop
+# Claude Code Guide (`letitloop v0.7.2`)
 
-## Fast Inner-Loop Testing
-- **Targeted test**: `pytest tests/test_<target>.py -q`
-- **Fast suite**: `pytest -m fast -q`
-- **Auto-healer**: `lil heal --target orchestrator/<file>.py`
-- **Full multi-core suite**: `pytest` (auto-parallelized via pytest-xdist)
+See [AGENTS.md](AGENTS.md) and [docs/ARCHITECTURE_AND_TRADE_OFFS.md](docs/ARCHITECTURE_AND_TRADE_OFFS.md) for package structure, contract boundaries, and test verification commands.

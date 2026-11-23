@@ -49,10 +49,58 @@ if str(ROOT) not in sys.path:
 
 from orchestrator.decorators import async_step, durable_async  # noqa: E402
 
-try:
-    from orchestrator.llm import call_llm  # noqa: E402
-except ImportError:
-    call_llm = None
+
+def _default_call_llm(
+    prompt: str,
+    model: str,
+    *,
+    system: str = "",
+    max_tokens: int = 1_000,
+    temperature: float = 0.2,
+) -> Dict[str, Any]:
+    """Minimal stdlib HTTP caller for DeepSeek/OpenAI-compatible chat completions."""
+    import urllib.request
+
+    provider, _, model_name = model.partition(":")
+    target_model = model_name or model
+    api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("DEEPSEEK_API_KEY or OPENAI_API_KEY environment variable is required for --live mode")
+    base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1/chat/completions")
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    body = json.dumps(
+        {
+            "model": target_model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        base_url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
+        payload = json.loads(resp.read().decode("utf-8"))
+    choices = payload.get("choices") or []
+    text = choices[0].get("message", {}).get("content", "") if choices else ""
+    return {
+        "text": text,
+        "model": payload.get("model") or model,
+        "provider": provider or "deepseek",
+        "usage": payload.get("usage") or {},
+    }
+
+
+call_llm: Optional[Callable[..., Any]] = _default_call_llm
 
 WAL_DIR_DEFAULT = str(ROOT / ".bench_wal" / "cookbooks" / "langgraph_financial_analyst")
 GOAL_ID = "langgraph-financial-analyst"

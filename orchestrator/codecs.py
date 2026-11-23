@@ -94,20 +94,23 @@ class DurableCodecRegistry:
                 f"Circular reference detected while serializing object of type '{type(val).__name__}'."
             )
 
-        # Registered custom codec (exact type or subclass)
-        for cls, codec in self._type_to_codec.items():
-            if isinstance(val, cls):
-                try:
-                    return {
-                        "__lil_type__": codec["tag"],
-                        "v": codec["encode"](val),
-                    }
-                except Exception as e:
-                    raise DurableCodecError(f"Failed to encode '{codec['tag']}': {e}") from e
-
         # Containers & complex objects require cycle tracking
         _visited.add(val_id)
         try:
+            # Registered custom codec (exact type or subclass)
+            for cls, codec in self._type_to_codec.items():
+                if isinstance(val, cls):
+                    try:
+                        raw_encoded = codec["encode"](val)
+                        return {
+                            "__lil_type__": codec["tag"],
+                            "v": self.encode(raw_encoded, _visited=_visited, _depth=_depth + 1),
+                        }
+                    except DurableCodecError:
+                        raise
+                    except Exception as e:
+                        raise DurableCodecError(f"Failed to encode '{codec['tag']}': {e}") from e
+
             # Pydantic v2 / v1 models (fallback if not explicitly registered with decode_fn)
             if hasattr(val, "model_dump") and callable(val.model_dump):
                 return self.encode(val.model_dump(), _visited=_visited, _depth=_depth + 1)
@@ -161,7 +164,10 @@ class DurableCodecRegistry:
                 if tag in self._tag_to_codec:
                     codec = self._tag_to_codec[tag]
                     try:
-                        return codec["decode"](raw_v)
+                        hydrated_inner = self.decode(raw_v, _depth=_depth + 1)
+                        return codec["decode"](hydrated_inner)
+                    except DurableCodecError:
+                        raise
                     except Exception as e:
                         raise DurableCodecError(f"Failed to hydrate tagged '{tag}' payload: {e}") from e
 

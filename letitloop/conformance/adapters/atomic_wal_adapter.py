@@ -24,7 +24,7 @@ class AtomicWalAdapter(FrameworkAdapter):
 
     @property
     def archetype_label(self) -> str:
-        return "Atomic WAL Engine (LetItLoop / Temporal)"
+        return "Atomic WAL Engine (Step-Level Checkpointing)"
 
     def start_task(self, spec: SyntheticTaskSpec) -> Tuple[int, Any]:
         wal_path = pathlib.Path(self.wal_dir)

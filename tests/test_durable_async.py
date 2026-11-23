@@ -195,3 +195,28 @@ async def test_async_step_non_serializable_raises(tmp_path):
 
     with pytest.raises(DurableSerializationError):
         await wf()
+
+
+@pytest.mark.asyncio
+async def test_async_steps_gather_runs_truly_concurrently(tmp_path):
+    wal_dir = str(tmp_path / "wal_true_parallel")
+
+    async def _sleep_step(x: int) -> int:
+        await asyncio.sleep(0.15)
+        return x * 10
+
+    @durable_async(goal_id="parallel_gather", wal_dir=wal_dir)
+    async def wf():
+        r1, r2, r3 = await asyncio.gather(
+            async_step("p1", _sleep_step, 1),
+            async_step("p2", _sleep_step, 2),
+            async_step("p3", _sleep_step, 3),
+        )
+        return r1 + r2 + r3
+
+    t0 = time.perf_counter()
+    total = await wf()
+    elapsed = time.perf_counter() - t0
+    assert total == 60
+    # 3 x 0.15s sequential would take >= 0.45s; parallel execution must finish well under 0.35s
+    assert elapsed < 0.35, f"async_step serialized asyncio.gather: took {elapsed:.3f}s"

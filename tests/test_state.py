@@ -331,3 +331,35 @@ class TestSchemaForwardCompatibility:
         replay_event["event_hash"] = _event_hash(replay_event)
         s._apply_event(replay_event, replay=True)
         assert s.data["k"] == "v"
+
+    def test_deleted_key_does_not_resurrect_on_wal_replay(self, tmp_path):
+        from orchestrator.state import _DELETE_SENTINEL
+
+        s = create_initial_state("delete-replay-task", journal_dir=str(tmp_path))
+        s.patch_data({"keep": 1, "drop": "bye", "step_outputs": {"s1": "v1", "s2": "v2"}})
+        s.patch_data({"drop": None, "step_outputs": {"s2": _DELETE_SENTINEL}})
+        assert "drop" not in s.data
+        assert "s2" not in s.data["step_outputs"]
+
+        replayed = load_state(str(tmp_path / "state.json"), journal_dir=str(tmp_path))
+        assert "drop" not in replayed.data
+        assert replayed.data["keep"] == 1
+        assert "s2" not in replayed.data["step_outputs"]
+        assert replayed.data["step_outputs"]["s1"] == "v1"
+
+    def test_data_patch_rollback_preserves_step_outputs_on_delete_or_overwrite(self, tmp_path, monkeypatch):
+        s = create_initial_state("rollback-step-outputs", journal_dir=str(tmp_path))
+        s.patch_data({"step_outputs": {"s1": "v1", "s2": "v2"}})
+
+        def fail_wal(_event):
+            raise StateError("simulated disk full")
+
+        monkeypatch.setattr(s, "_append_wal", fail_wal)
+
+        with pytest.raises(StateError, match="simulated disk full"):
+            s.delete_data_key("step_outputs")
+        assert s.data.get("step_outputs") == {"s1": "v1", "s2": "v2"}
+
+        with pytest.raises(StateError, match="simulated disk full"):
+            s.patch_data({"step_outputs": "invalid_non_dict"})
+        assert s.data.get("step_outputs") == {"s1": "v1", "s2": "v2"}

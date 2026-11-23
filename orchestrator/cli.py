@@ -28,7 +28,7 @@ def _get_version() -> str:
 
             return __version__
         except Exception:
-            return "0.7.0"
+            return "0.7.2"
 
 
 def cmd_watch(a) -> None:
@@ -78,32 +78,30 @@ def cmd_inspect(a) -> None:
         print(f"No WAL files found in '{target_path}'.", file=sys.stderr)
         sys.exit(0)
 
+    from .state import _wal_decode_line, _WalFrameError
+
     for wf in wal_files:
         print(f"\n--- WAL File: {wf.name} ---")
         try:
             line_count = 0
             valid_frames = 0
-            with open(wf, "r", encoding="utf-8", errors="replace") as f:
-                for line in f:
+            corrupt_frames = 0
+            with open(wf, "rb") as f:
+                for raw_line in f:
                     line_count += 1
-                    line_s = line.strip()
-                    if not line_s:
+                    line_b = raw_line.strip()
+                    if not line_b:
                         continue
-                    if line_s.startswith("LILWAL02:"):
+                    try:
+                        obj = _wal_decode_line(line_b)
                         valid_frames += 1
                         if a.verbose:
-                            print(f"  Frame {valid_frames}: {line_s[:120]}...")
-                    else:
-                        try:
-                            obj = json.loads(line_s)
-                            valid_frames += 1
-                            if a.verbose:
-                                print(
-                                    f"  Event {valid_frames}: {obj.get('event', 'UNKNOWN')} (step={obj.get('step_id', 'N/A')})"
-                                )
-                        except Exception:
-                            pass
-            print(f"  Total lines: {line_count}, Valid frames/events: {valid_frames}")
+                            ev_type = obj.get("event_type", obj.get("event", "UNKNOWN"))
+                            seq = obj.get("seq", "N/A")
+                            print(f"  Frame {valid_frames} (seq={seq}): {ev_type}")
+                    except (_WalFrameError, json.JSONDecodeError, ValueError):
+                        corrupt_frames += 1
+            print(f"  Total lines: {line_count}, Valid frames/events: {valid_frames}, Corrupt: {corrupt_frames}")
         except Exception as e:
             print(f"  Error reading {wf}: {e}", file=sys.stderr)
 

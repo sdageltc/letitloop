@@ -9,35 +9,26 @@ from __future__ import annotations
 
 import json
 import os
-import pickle
 import sqlite3
 import threading
 import time
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Sequence, Tuple
 
-# Try importing BaseCheckpointSaver from LangGraph if installed
-_HAS_LANGGRAPH = False
+from orchestrator.codecs import decode_step_result, encode_step_result
+
 try:
-    from langgraph.checkpoint.base import (
-        BaseCheckpointSaver,
-        ChannelVersions,
-        Checkpoint,
-        CheckpointMetadata,
-        CheckpointTuple,
-    )
+    from langgraph.checkpoint.base import BaseCheckpointSaver, CheckpointTuple
 
     _HAS_LANGGRAPH = True
+    _CheckpointTupleCls: Any = CheckpointTuple
 except ImportError:
-    # Standalone duck-typed fallback base class
+    _HAS_LANGGRAPH = False
+    _CheckpointTupleCls = None
+
     class BaseCheckpointSaver:  # type: ignore
         """Duck-typed fallback when langgraph is not installed."""
 
         pass
-
-    Checkpoint = Dict[str, Any]  # type: ignore
-    CheckpointMetadata = Dict[str, Any]  # type: ignore
-    CheckpointTuple = Any  # type: ignore
-    ChannelVersions = Dict[str, Any]  # type: ignore
 
 
 class LetItLoopCheckpointSaver(BaseCheckpointSaver):
@@ -130,20 +121,16 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
                 conn.close()
 
     def _dump_blob(self, obj: Any) -> bytes:
-        """Serialize checkpoint or metadata to bytes (JSON with pickle fallback)."""
-        try:
-            return json.dumps(obj, ensure_ascii=False).encode("utf-8")
-        except (TypeError, ValueError):
-            return pickle.dumps(obj)
+        """Serialize checkpoint or metadata to bytes using safe DurableCodecRegistry."""
+        encoded = encode_step_result(obj)
+        return json.dumps(encoded, ensure_ascii=False).encode("utf-8")
 
     def _load_blob(self, data: bytes) -> Any:
-        """Deserialize bytes to object."""
+        """Deserialize bytes to object using safe DurableCodecRegistry."""
         if not data:
             return None
-        try:
-            return json.loads(data.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            return pickle.loads(data)
+        raw = json.loads(data.decode("utf-8"))
+        return decode_step_result(raw)
 
     def get_tuple(self, config: Dict[str, Any]) -> Optional[Any]:
         """Fetch the latest checkpoint tuple matching config (thread_id, checkpoint_ns, checkpoint_id)."""
@@ -203,8 +190,8 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
                     }
                 }
 
-                if _HAS_LANGGRAPH:
-                    return CheckpointTuple(
+                if _HAS_LANGGRAPH and _CheckpointTupleCls is not None:
+                    return _CheckpointTupleCls(
                         config=cfg,
                         checkpoint=checkpoint_dict,
                         metadata=metadata_dict,
@@ -273,8 +260,8 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
                     }
                     c_dict = self._load_blob(c_blob)
                     m_dict = self._load_blob(m_blob) or {}
-                    if _HAS_LANGGRAPH:
-                        yield CheckpointTuple(
+                    if _HAS_LANGGRAPH and _CheckpointTupleCls is not None:
+                        yield _CheckpointTupleCls(
                             config=cfg,
                             checkpoint=c_dict,
                             metadata=m_dict,
@@ -306,9 +293,8 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
         thread_id = str(configurable.get("thread_id", ""))
         checkpoint_ns = str(configurable.get("checkpoint_ns", ""))
         checkpoint_id = str(checkpoint.get("id") or configurable.get("checkpoint_id") or time.time())
-        parent_id = (
-            str(configurable.get("checkpoint_id", "")) if configurable.get("checkpoint_id") != checkpoint_id else None
-        )
+        cfg_parent = configurable.get("checkpoint_id")
+        parent_id = str(cfg_parent) if cfg_parent and str(cfg_parent) != checkpoint_id else None
 
         c_blob = self._dump_blob(checkpoint)
         m_blob = self._dump_blob(metadata)
@@ -340,6 +326,7 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
         config: Dict[str, Any],
         writes: Sequence[Tuple[str, Any]],
         task_id: str,
+        task_path: str = "",
     ) -> None:
         """Store intermediate writes for an ongoing step."""
         configurable = config.get("configurable", config)
@@ -374,8 +361,9 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
         filter: Optional[Dict[str, Any]] = None,
         before: Optional[Dict[str, Any]] = None,
         limit: Optional[int] = None,
-    ) -> Iterator[Any]:
-        return self.list(config, filter=filter, before=before, limit=limit)
+    ) -> AsyncIterator[Any]:
+        for item in self.list(config, filter=filter, before=before, limit=limit):
+            yield item
 
     async def aput(
         self,
@@ -391,5 +379,6 @@ class LetItLoopCheckpointSaver(BaseCheckpointSaver):
         config: Dict[str, Any],
         writes: Sequence[Tuple[str, Any]],
         task_id: str,
+        task_path: str = "",
     ) -> None:
-        return self.put_writes(config, writes, task_id)
+        return self.put_writes(config, writes, task_id, task_path=task_path)

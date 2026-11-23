@@ -24,7 +24,7 @@ class SnapshotGraphAdapter(FrameworkAdapter):
 
     @property
     def archetype_label(self) -> str:
-        return "Periodic Snapshot Graph (LangGraph / Pregel)"
+        return "Periodic Snapshot Graph (Superstep Checkpointing)"
 
     def start_task(self, spec: SyntheticTaskSpec) -> Tuple[int, Any]:
         wal_path = pathlib.Path(self.wal_dir)

@@ -65,10 +65,9 @@ class FileLock:
         lock_host = lock.get("hostname")
         if lock_host == socket.gethostname() and isinstance(lock_pid, int) and lock_pid > 0:
             expected_token = lock.get("process_start_token")
-            if expected_token is not None and not _pid_alive(lock_pid, expected_token):
-                return True
-            if expected_token is None and not _pid_alive(lock_pid):
-                return True
+            if expected_token is not None:
+                return not _pid_alive(lock_pid, expected_token)
+            return not _pid_alive(lock_pid)
 
         reference = lock.get("heartbeat") or lock.get("created_at")
         if not isinstance(reference, str) or not reference:
@@ -353,13 +352,10 @@ def _lock_is_stale(run_dir: str) -> bool:
     if lock_host == socket.gethostname() and lock_pid:
         expected_token = lock.get("process_start_token")
         if expected_token is not None:
-            if not _pid_alive(lock_pid, expected_token):
-                return True
-        elif not _pid_alive(lock_pid):
-            return True
+            return not _pid_alive(lock_pid, expected_token)
+        return not _pid_alive(lock_pid)
 
-    # Heartbeat is the authoritative activity signal. created_at is used
-    # only for legacy locks that have no heartbeat.
+    # For remote/unknown hosts without direct PID inspection, fall back to heartbeat/created_at age.
     reference = lock.get("heartbeat") or lock.get("created_at")
     if not reference:
         return True

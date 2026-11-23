@@ -640,7 +640,7 @@
     <!-- Verified Metrics Ribbon -->
     <div class="metric-ribbon">
       <div class="metric-cell">
-        <div class="metric-num">173</div>
+        <div class="metric-num">190+</div>
         <div class="metric-lbl">Tests Passing (100% Green)</div>
       </div>
       <div class="metric-cell">
@@ -729,7 +729,7 @@
       <div class="bento-box">
         <div class="bento-tag">06 / CI/CD</div>
         <h3 class="bento-h">Multi-OS Matrix Suite</h3>
-        <p class="bento-p">165 automated unit and integration tests across Ubuntu, macOS, and Windows runners (Python 3.11 & 3.12) with 100% green status.</p>
+        <p class="bento-p">190+ automated unit and integration tests across Ubuntu, macOS, and Windows runners (Python 3.11 & 3.12) with 100% green status.</p>
       </div>
     </div>
 
@@ -754,7 +754,7 @@
 
 <span style="color: #38bdf8;">from</span> letitloop <span style="color: #38bdf8;">import</span> durable, step
 
-<span style="color: #34d399;">@durable(task_id="scientific-pipeline")</span>
+<span style="color: #34d399;">@durable(goal_id="scientific-pipeline")</span>
 <span style="color: #38bdf8;">def</span> <span style="color: #60a5fa;">run_pipeline</span>(dataset_path: str):
     <span style="color: #94a3b8;"># Step 1: Cached to single-file WAL (LILWAL02) in 0.3s</span>
     data = step(<span style="color: #facc15;">"load_data"</span>, <span style="color: #38bdf8;">lambda</span>: parse_dataset(dataset_path))
@@ -828,36 +828,36 @@ $ lil bench</code></pre>
             <td>In-memory only</td>
           </tr>
           <tr>
-            <td><strong>Crash Recovery (R<sub>crash</sub>)</strong></td>
-            <td class="col-highlight">98.6% (Fast-Forward)</td>
-            <td>99.2% (Server retry)</td>
-            <td>84.5% (Superstep restart)</td>
-            <td>0.0% (Total Wipe)</td>
+            <td><strong>Crash Recovery Mechanism</strong></td>
+            <td class="col-highlight">Step-Level WAL Fast-Forward</td>
+            <td>Cluster Event Replay</td>
+            <td>Superstep Checkpointing</td>
+            <td>0.0% (Full Restart)</td>
           </tr>
           <tr>
-            <td><strong>Resumption Latency (T<sub>resume</sub>)</strong></td>
-            <td class="col-highlight">10.8 ms (Local WAL)</td>
-            <td>74.0 ms (Cluster handshake)</td>
-            <td>38.4 ms (DB graph replay)</td>
-            <td>N/A (Full re-run)</td>
+            <td><strong>Local Storage Format</strong></td>
+            <td class="col-highlight">Human-Readable JSONL (LILWAL02)</td>
+            <td>Server Persistence Store</td>
+            <td>SQLite / PostgreSQL</td>
+            <td>None (Volatile RAM)</td>
           </tr>
           <tr>
-            <td><strong>Token Waste on Interruption</strong></td>
-            <td class="col-highlight">2.8% (Interrupted step only)</td>
-            <td>1.9% (Activity replay)</td>
-            <td>16.8% (Node re-run)</td>
-            <td>100.0% (Restart from scratch)</td>
+            <td><strong>Interrupted Step Behavior</strong></td>
+            <td class="col-highlight">Skips completed steps; re-runs interrupted step</td>
+            <td>Activity retry policy</td>
+            <td>Re-runs interrupted superstep</td>
+            <td>Restarts from step 1</td>
           </tr>
           <tr>
-            <td><strong>Per-Step Write Overhead</strong></td>
-            <td class="col-highlight">+3.8 ms (Local fsync)</td>
-            <td>+18.5 ms (Network gRPC)</td>
-            <td>+1.2 ms (DB transaction)</td>
+            <td><strong>Per-Step Write Path</strong></td>
+            <td class="col-highlight">Local append + os.fsync</td>
+            <td>Network gRPC roundtrip</td>
+            <td>Database transaction</td>
             <td>0.0 ms (Zero disk writes)</td>
           </tr>
           <tr>
             <td><strong>Crash Integrity Invariant</strong></td>
-            <td class="col-highlight">CRC32 Frames + Torn-Tail Safe</td>
+            <td class="col-highlight">CRC32 Frames + SHA-256 Chain + Torn-Tail Safe</td>
             <td>Server Event Log</td>
             <td>Database Row Logs</td>
             <td>None (Wipeout)</td>

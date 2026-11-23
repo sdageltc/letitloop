@@ -220,3 +220,22 @@ def test_filelock_release_does_not_unlink_stolen_lock(tmp_path):
     with open(lock_path, "r", encoding="utf-8") as f:
         current_data = json.load(f)
     assert current_data.get("pid") == 88888
+
+
+def test_live_process_lock_not_stolen_after_stale_timeout(tmp_path):
+    """A lock held by a live local PID with matching start token must NOT be marked stale after 300s."""
+    from datetime import datetime, timedelta, timezone
+
+    run_dir = str(tmp_path)
+    lk.acquire_lock("goal-live-long", run_dir)
+    lock_path = os.path.join(run_dir, lk.LOCK_FILENAME)
+    with open(lock_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    old = (datetime.now(timezone.utc) - timedelta(seconds=lk.STALE_TIMEOUT_SEC + 120)).isoformat()
+    data["created_at"] = old
+    data["heartbeat"] = old
+    with open(lock_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    assert lk._lock_is_stale(run_dir) is False
+    lk.release_lock(run_dir)

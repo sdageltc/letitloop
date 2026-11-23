@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import importlib.util
 import inspect
 import json
 import os
@@ -71,13 +72,8 @@ _GLOBAL_REGISTRY: Dict[str, Callable[..., Any]] = {}
 
 
 def _has_fastapi() -> bool:
-    """Return True if FastAPI (and thus Starlette) is importable."""
-    try:
-        import fastapi  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    """Return True if FastAPI (and thus Starlette) is importable without eager module load."""
+    return importlib.util.find_spec("fastapi") is not None
 
 
 _HAS_FASTAPI = _has_fastapi()

@@ -201,3 +201,34 @@ def test_deep_nesting_depth_guard():
 
     with pytest.raises(DurableCodecError, match="Maximum decoding depth"):
         reg.decode(deep_list)
+
+
+def test_custom_codec_with_nested_builtin_types_roundtrip():
+    """Custom codec returning nested datetime/UUID/Path structures must recursively encode and hydrate."""
+
+    @dataclasses.dataclass
+    class EventRecord:
+        event_id: uuid.UUID
+        created_at: datetime
+        artifact: Path
+
+    reg = DurableCodecRegistry()
+    reg.register_codec(
+        cls=EventRecord,
+        type_tag="event_rec",
+        encode_fn=lambda e: {"id": e.event_id, "ts": e.created_at, "path": e.artifact},
+        decode_fn=lambda d: EventRecord(event_id=d["id"], created_at=d["ts"], artifact=d["path"]),
+    )
+
+    rec = EventRecord(
+        event_id=uuid.uuid4(),
+        created_at=datetime(2026, 11, 23, 12, 0, 0, tzinfo=timezone.utc),
+        artifact=Path("logs/trace.jsonl"),
+    )
+    payload = encode_step_result(rec, registry=reg)
+    hydrated = decode_step_result(payload, registry=reg)
+    assert hydrated == rec
+    assert isinstance(hydrated, EventRecord)
+    assert isinstance(hydrated.event_id, uuid.UUID)
+    assert isinstance(hydrated.created_at, datetime)
+    assert isinstance(hydrated.artifact, Path)
